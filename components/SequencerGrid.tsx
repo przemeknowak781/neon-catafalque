@@ -13,6 +13,10 @@ interface SequencerGridProps {
   onSelectTrack: (trackId: string) => void;
   onToggleMute: (trackId: string) => void;
   onToggleSolo: (trackId: string) => void;
+  /** Rebuild this one part against the song's existing plan. */
+  onRegenerate: (trackId: string) => void;
+  /** False until a song has been generated, since there is no plan before that. */
+  canRegenerate: boolean;
 }
 
 /** SVG needs real colours, not utility class names. */
@@ -63,7 +67,7 @@ const noteToMidi = (note: string): number => {
  */
 export const SequencerGrid: React.FC<SequencerGridProps> = ({
   tracks, currentStep, totalSteps, selectedTrackId, arrangement,
-  onToggleStep, onSelectTrack, onToggleMute, onToggleSolo,
+  onToggleStep, onSelectTrack, onToggleMute, onToggleSolo, onRegenerate, canRegenerate,
 }) => {
   const bars = Math.max(1, Math.ceil(totalSteps / STEPS_PER_BAR));
   const anySoloed = tracks.some((t) => t.isSoloed);
@@ -131,6 +135,15 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
                         className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
                           track.isSoloed ? 'border-neon-cyan/60 bg-neon-cyan/20 text-neon-cyan'
                                          : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>S</button>
+                <button onClick={(e) => { e.stopPropagation(); onRegenerate(track.id); }}
+                        disabled={!canRegenerate}
+                        title={canRegenerate
+                          ? 'Rebuild this part against the same chords and hook'
+                          : 'Generate a song first'}
+                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
+                          canRegenerate
+                            ? 'border-zinc-700 text-zinc-600 hover:border-neon-purple/60 hover:text-neon-purple'
+                            : 'border-zinc-800 text-zinc-800'}`}>↻</button>
               </div>
 
               {/* Content */}

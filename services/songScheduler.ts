@@ -47,6 +47,8 @@ export function scheduleStep(
       const step = track.steps[stepNumber];
       if (step?.active) {
         engine.playDrum(track.id as TrackType, time, playbackVolume * step.velocity);
+        // The kick drives the sidechain; nothing else does.
+        if (track.id === 'kick') engine.duck(time);
       }
     }
   }

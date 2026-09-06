@@ -49,6 +49,14 @@ export class AudioEngine {
    *  Polymoog lead was recorded through. */
   phaserBus: GainNode;
   flangerBus: GainNode;
+  /** Return levels. Every effect needs a master level or it cannot be mixed:
+   *  a send decides how much of a voice goes in, a return how much comes back.
+   *  Previously only the reverb had one, so the chorus and echo were stuck at
+   *  unity and the phaser's send doubled as its level. */
+  chorusReturn: GainNode;
+  delayReturn: GainNode;
+  phaserReturn: GainNode;
+  flangerReturn: GainNode;
   private phaserStages: BiquadFilterNode[] = [];
   private phaserLfoDepth: GainNode | null = null;
   private phaserLfo: OscillatorNode | null = null;
@@ -57,6 +65,8 @@ export class AudioEngine {
   private flangerFeedback: GainNode | null = null;
   private reverbSize = 2.4;
   private reverbDamp = 0.25;
+  /** Everything melodic passes through here so the kick can duck it. */
+  duckGain: GainNode;
   /** Mastering chain. */
   subsonic: BiquadFilterNode;
   glue: DynamicsCompressorNode;
@@ -66,6 +76,26 @@ export class AudioEngine {
   masterDrive: WaveShaperNode;
   private chorusLfos: OscillatorNode[] = [];
   private driveCurves = new Map<number, Float32Array>();
+
+  /**
+   * Deterministic noise, used everywhere the engine wants randomness: the
+   * noise buffer behind the drums, and the per-oscillator tuning drift that
+   * stands in for analogue instability.
+   *
+   * Both drew on the global generator, which made two renders of the same song
+   * differ — measured at 0.91 in sample value, near full scale. Nothing
+   * measured through this engine was reproducible, so no before/after
+   * comparison of a change to it could be trusted. The character is unchanged:
+   * the drift is still a different small offset per voice, it is just the same
+   * one each time the song is played.
+   */
+  private noiseSeed = 0x2545f491;
+  private random(): number {
+    this.noiseSeed = (this.noiseSeed + 0x6d2b79f5) | 0;
+    let t = Math.imul(this.noiseSeed ^ (this.noiseSeed >>> 15), 1 | this.noiseSeed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
 
   lastFrequencies: Record<string, number> = {};
   private voices = new Map<string, ActiveVoice[]>();
@@ -98,6 +128,14 @@ export class AudioEngine {
     this.analyser.fftSize = 2048;
 
     this.dryGain = this.ctx.createGain();
+
+    // Sidechain ducking. Web Audio has no sidechain input, but the whole song
+    // is scheduled ahead of time, so the duck can simply be written into a
+    // gain envelope at each kick. That is exact rather than approximate, and
+    // the pumping it produces is most of what makes electronic music breathe.
+    this.duckGain = this.ctx.createGain();
+    this.duckGain.gain.value = 1;
+    this.dryGain.connect(this.duckGain);
 
     // --- mastering chain ---------------------------------------------------
     // Everything above this point is the mix; this is what happens to the sum.
@@ -134,7 +172,7 @@ export class AudioEngine {
     this.masterDrive.curve = this.makeSaturationCurve(1.2);
     this.masterDrive.oversample = '2x';
 
-    this.dryGain.connect(this.subsonic);
+    this.duckGain.connect(this.subsonic);
     this.subsonic.connect(this.glue);
     this.glue.connect(this.lowShelf);
     this.lowShelf.connect(this.airShelf);
@@ -160,8 +198,20 @@ export class AudioEngine {
     this.delayBus = this.ctx.createGain();
     this.phaserBus = this.ctx.createGain();
     this.flangerBus = this.ctx.createGain();
-    this.phaserBus.gain.value = 0;
-    this.flangerBus.gain.value = 0;
+
+    // Buses stay at unity; the returns carry the level. Muting the input of a
+    // feedback effect kills its tail dead, which is not what a mix control
+    // should do.
+    this.chorusReturn = this.ctx.createGain();
+    this.delayReturn = this.ctx.createGain();
+    this.phaserReturn = this.ctx.createGain();
+    this.flangerReturn = this.ctx.createGain();
+    this.phaserReturn.gain.value = 0;
+    this.flangerReturn.gain.value = 0;
+    this.chorusReturn.connect(this.dryGain);
+    this.delayReturn.connect(this.dryGain);
+    this.phaserReturn.connect(this.dryGain);
+    this.flangerReturn.connect(this.dryGain);
 
     // §4 "reverb pre-delay": the dry transient has to be heard before the
     // tail arrives, or the source sits inside the reverb instead of in front
@@ -173,7 +223,11 @@ export class AudioEngine {
     this.reverbBus.connect(this.reverbPreDelay);
     this.reverbPreDelay.connect(this.reverbNode);
     this.reverbNode.connect(this.reverbGain);
-    this.reverbGain.connect(this.limiter);
+    // Into the mix, not past it. The return used to go straight to the
+    // limiter, so the plate — the widest, longest element in a darkwave mix —
+    // was the one thing that never got widened, never got the bus
+    // compression, and never ducked under the kick.
+    this.reverbGain.connect(this.dryGain);
 
     // Two taps with crossed feedback: with ping-pong on, a repeat leaves one
     // side and returns on the other. Damped, so an echo decays into the dark
@@ -204,8 +258,9 @@ export class AudioEngine {
 
     this.delayNode.connect(this.delayPanL);
     this.delayNodeR.connect(this.delayPanR);
-    this.delayPanL.connect(this.dryGain);
-    this.delayPanR.connect(this.dryGain);
+    this.delayPanL.connect(this.delayReturn);
+    this.delayPanR.connect(this.delayReturn);
+    // Echo into the plate, so repeats dissolve rather than stopping dead.
     this.delayPanL.connect(this.reverbBus);
 
     this.buildStereoChorus();
@@ -290,7 +345,7 @@ export class AudioEngine {
     node.connect(feedback);
     feedback.connect(this.phaserStages[0]);
 
-    node.connect(this.dryGain);
+    node.connect(this.phaserReturn);
     lfo.start(0);
     this.phaserLfo = lfo;
     this.phaserLfoDepth = depth;
@@ -324,7 +379,7 @@ export class AudioEngine {
 
     this.flangerBus.connect(delay);
     delay.connect(spread);
-    spread.connect(this.dryGain);
+    spread.connect(this.flangerReturn);
 
     lfo.start(0);
     this.flangerDelay = delay;
@@ -374,7 +429,7 @@ export class AudioEngine {
 
       this.chorusBus.connect(delay);
       delay.connect(panner);
-      panner.connect(this.dryGain);
+      panner.connect(this.chorusReturn);
       lfo.start(0);
       this.chorusLfos.push(lfo);
     }
@@ -391,6 +446,21 @@ export class AudioEngine {
     this.masterGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.05);
   }
 
+  private duckDepth = 0;
+  private duckRelease = 0.18;
+
+  /**
+   * Duck the mix at `time`. Called by the scheduler on every kick, so the
+   * amount of pumping follows the kick pattern rather than a fixed LFO.
+   */
+  duck(time: number) {
+    if (this.duckDepth <= 0.001) return;
+    const gain = this.duckGain.gain as AudioParam & { cancelAndHoldAtTime?: (t: number) => void };
+    if (typeof gain.cancelAndHoldAtTime === 'function') gain.cancelAndHoldAtTime(time);
+    gain.setValueAtTime(1 - this.duckDepth, time);
+    gain.linearRampToValueAtTime(1, time + this.duckRelease);
+  }
+
   /** Beats per second, so the echo can be locked to the transport. */
   private beatSeconds = 60 / 120;
 
@@ -398,30 +468,48 @@ export class AudioEngine {
     this.beatSeconds = 60 / Math.max(20, bpm);
   }
 
+  /** Whether any effect setting has been applied yet. */
+  private fxApplied = false;
+
   updateGlobalFX(params: GlobalFXParams) {
     const now = this.ctx.currentTime;
+
+    /**
+     * Smoothing is for a knob being turned, not for the first time a value is
+     * set. Every parameter here used to glide to its value over a 0.1 s time
+     * constant, including on a freshly built engine — so an offline render
+     * began with the echo time sweeping up from zero, which is a tape
+     * pitch-shift, and with every effect return fading in over roughly half a
+     * second. The opening bar of an exported WAV was not the song.
+     *
+     * On the first call the value is simply set; after that it glides.
+     */
+    const set = (param: AudioParam, value: number) => {
+      if (this.fxApplied) param.setTargetAtTime(value, now, 0.1);
+      else param.setValueAtTime(value, now);
+    };
 
     // An echo that ignores the tempo fights the groove. A division locks it;
     // delayTime remains the manual setting when no division is chosen.
     const time = params.delayDivision
       ? Math.max(0.001, this.beatSeconds * params.delayDivision)
       : Math.max(0.001, params.delayTime);
-    this.delayNode.delayTime.setTargetAtTime(time, now, 0.1);
-    this.delayNodeR.delayTime.setTargetAtTime(time, now, 0.1);
+    set(this.delayNode.delayTime, time);
+    set(this.delayNodeR.delayTime, time);
 
     // Feedback at or above 1.0 is a runaway loop; keep it strictly below. With
     // crossed taps the loop passes through both, so each carries the square
     // root of the intended regeneration.
     const feedback = Math.min(params.delayFeedback, 0.85);
     const perTap = Math.sqrt(feedback);
-    this.feedbackNode.gain.setTargetAtTime(perTap, now, 0.1);
-    this.feedbackNodeR.gain.setTargetAtTime(perTap, now, 0.1);
+    set(this.feedbackNode.gain, perTap);
+    set(this.feedbackNodeR.gain, perTap);
 
     const pingPong = params.delayPingPong ?? true;
-    this.delayPanL.pan.setTargetAtTime(pingPong ? -0.8 : 0, now, 0.1);
-    this.delayPanR.pan.setTargetAtTime(pingPong ? 0.8 : 0, now, 0.1);
+    set(this.delayPanL.pan, pingPong ? -0.8 : 0);
+    set(this.delayPanR.pan, pingPong ? 0.8 : 0);
 
-    this.reverbGain.gain.setTargetAtTime(params.reverbMix, now, 0.1);
+    set(this.reverbGain.gain, params.reverbMix);
 
     // Regenerating the impulse is expensive, so only when it actually changed.
     const size = params.reverbSize ?? 2.4;
@@ -432,31 +520,52 @@ export class AudioEngine {
       this.generateImpulseResponse();
     }
 
-    this.phaserBus.gain.setTargetAtTime(params.phaserMix ?? 0, now, 0.1);
+    this.duckDepth = Math.max(0, Math.min(0.9, params.sidechain ?? 0));
+    this.duckRelease = Math.max(0.03, Math.min(0.6, params.sidechainRelease ?? 0.18));
+
+    set(this.chorusReturn.gain, params.chorusMix ?? 1);
+    set(this.delayReturn.gain, params.delayMix ?? 1);
+
+    // Echo damping: how dark each repeat gets. Fixed at 2.6 kHz before, which
+    // is one particular echo rather than a control.
+    const echoTone = Math.max(400, Math.min(16000, params.delayDamp ?? 2600));
+    set(this.delayDamp.frequency, echoTone);
+    set(this.delayDampR.frequency, echoTone);
+
+    // Pre-delay. §4 asks for it by name: the dry transient has to be heard
+    // before the tail, or the source sits inside the reverb.
+    set(this.reverbPreDelay.delayTime, Math.max(0, Math.min(0.25, params.reverbPreDelay ?? 0.028)));
+
+    set(this.phaserReturn.gain, params.phaserMix ?? 0);
     if (this.phaserLfo) {
-      this.phaserLfo.frequency.setTargetAtTime(
-        Math.max(0.02, Math.min(8, params.phaserRate ?? 0.4)), now, 0.1);
+      set(this.phaserLfo.frequency, Math.max(0.02, Math.min(8, params.phaserRate ?? 0.4)));
     }
 
-    this.flangerBus.gain.setTargetAtTime(params.flangerMix ?? 0, now, 0.1);
+    if (this.phaserLfoDepth) {
+      // Sweep width. A shallow phaser is a tone control; a deep one is the
+      // effect. 700 Hz was hardcoded.
+      set(this.phaserLfoDepth.gain, 200 + (params.phaserDepth ?? 0.5) * 1600);
+    }
+
+    set(this.flangerReturn.gain, params.flangerMix ?? 0);
     if (this.flangerLfo) {
-      this.flangerLfo.frequency.setTargetAtTime(
-        Math.max(0.02, Math.min(6, params.flangerRate ?? 0.25)), now, 0.1);
+      set(this.flangerLfo.frequency, Math.max(0.02, Math.min(6, params.flangerRate ?? 0.25)));
     }
     if (this.flangerFeedback) {
-      this.flangerFeedback.gain.setTargetAtTime(
-        Math.min(0.9, params.flangerFeedback ?? 0.55), now, 0.1);
+      set(this.flangerFeedback.gain, Math.min(0.9, params.flangerFeedback ?? 0.55));
     }
 
     // Mastering.
-    this.widthSide.gain.setTargetAtTime(params.width ?? 1, now, 0.1);
-    this.lowShelf.gain.setTargetAtTime(params.lowShelf ?? 0, now, 0.1);
-    this.airShelf.gain.setTargetAtTime(params.airShelf ?? 0, now, 0.1);
+    set(this.widthSide.gain, params.width ?? 1);
+    set(this.lowShelf.gain, params.lowShelf ?? 0);
+    set(this.airShelf.gain, params.airShelf ?? 0);
     const glueAmount = params.glue ?? 0.35;
-    this.glue.threshold.setTargetAtTime(-6 - glueAmount * 24, now, 0.1);
-    this.glue.ratio.setTargetAtTime(1 + glueAmount * 3, now, 0.1);
+    set(this.glue.threshold, -6 - glueAmount * 24);
+    set(this.glue.ratio, 1 + glueAmount * 3);
     const drive = params.masterDrive ?? 0.2;
     this.masterDrive.curve = this.makeSaturationCurve(1 + drive * 2.5);
+
+    this.fxApplied = true;
   }
 
   /** Cached saturation curves — one shaper curve per drive amount, not per note. */
@@ -484,7 +593,7 @@ export class AudioEngine {
     const length = Math.floor(this.ctx.sampleRate * seconds);
     const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    for (let i = 0; i < length; i++) data[i] = this.random() * 2 - 1;
     return buffer;
   }
 
@@ -658,10 +767,10 @@ export class AudioEngine {
         osc.frequency.setValueAtTime(frequency, t);
       }
 
-      const drift = (Math.random() * 2 - 1) * 4.5;
+      const drift = (this.random() * 2 - 1) * 4.5;
       osc.detune.setValueAtTime(detuneCents + drift, t);
       osc.detune.linearRampToValueAtTime(
-        detuneCents + drift + (Math.random() * 2 - 1) * 4.5, stopTime);
+        detuneCents + drift + (this.random() * 2 - 1) * 4.5, stopTime);
       lfoGain.connect(osc.detune);
 
       const gain = this.ctx.createGain();
@@ -754,12 +863,18 @@ export class AudioEngine {
     if (delaySend > 0) this.send(vca, this.delayBus, delaySend);
 
     if (params.chorusMix > 0) this.send(vca, this.chorusBus, params.chorusMix);
-    // Everything melodic feeds the modulation buses; their own send level is
-    // what decides whether they are heard.
-    if (type !== 'bass') {
-      this.send(vca, this.phaserBus, 0.7);
-      this.send(vca, this.flangerBus, 0.7);
-    }
+
+    // The phaser and flanger are opt-in per patch. Every melodic voice used to
+    // feed both at 0.7, which is not how either is used on a record: one LFO
+    // sweeping the lead, the pad and the pluck together is a wash, and the
+    // only way to keep it from swamping the mix was to hold the return so low
+    // that the effect stopped being audible at all — measured at -25 dB of
+    // difference energy, which is a control that does nothing. One source at a
+    // real level is the treatment; three at an inaudible one is not.
+    const phaserSend = params.phaserSend ?? 0;
+    if (phaserSend > 0) this.send(vca, this.phaserBus, phaserSend);
+    const flangerSend = params.flangerSend ?? 0;
+    if (flangerSend > 0) this.send(vca, this.flangerBus, flangerSend);
 
     const finalStop = Math.max(envelopeEnd + 0.05, stopTime);
     const stop = (at: number) => {
@@ -939,6 +1054,22 @@ export class AudioEngine {
    * gain depended on nothing in particular and it washed the whole mix out.
    * This one is shorter, low-passed as it decays, and normalised to unit peak.
    */
+  /**
+   * Plate impulse: a sparse pattern of early reflections in front of a
+   * decaying diffuse tail.
+   *
+   * The early reflections are what carry the impression of a room. A tail
+   * alone — which is what this was — is a noise burst that follows the note,
+   * and it reads as wash rather than as space. The tap times below are
+   * prime-ish millisecond figures so the taps do not reinforce each other into
+   * an audible pitch, which is the standard construction for a plate or a
+   * Schroeder reverberator (Schroeder, "Natural Sounding Artificial
+   * Reverberation", JAES 10(3), 1962).
+   *
+   * The noise comes from the engine's own seeded stream, so the
+   * same settings give the same reverb every time. Nothing measured through
+   * this engine was reproducible while the tail was random.
+   */
   generateImpulseResponse() {
     const duration = Math.max(0.4, this.reverbSize);
     const decay = 2.6;
@@ -946,20 +1077,47 @@ export class AudioEngine {
     const length = Math.floor(sampleRate * duration);
     const impulse = this.ctx.createBuffer(2, length, sampleRate);
 
+    // mulberry32, the same generator the note engine uses.
+    let seed = 0x9e3779b9;
+    const rand = () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 2 - 1;
+    };
+
+    // Early reflections, in milliseconds, offset per channel so the pair is
+    // decorrelated from the first tap rather than only in the tail.
+    const earlyMs = [
+      [11, 19, 29, 41, 53, 67],
+      [13, 23, 31, 43, 59, 71],
+    ];
+
     let peak = 0;
     for (let c = 0; c < 2; c++) {
       const data = impulse.getChannelData(c);
       let lp = 0;
       for (let i = 0; i < length; i++) {
         const n = i / length;
-        const noise = (Math.random() * 2 - 1) * Math.pow(1 - n, decay);
+        const noise = rand() * Math.pow(1 - n, decay);
         // Darken the tail: a bright reverb on every voice reads as noise.
         // Damping: a lower coefficient loses the top of the tail faster.
         const coefficient = (1 - this.reverbDamp) * (c === 0 ? 0.34 : 0.38);
         lp += Math.max(0.02, coefficient) * (noise - lp);
         data[i] = lp;
-        peak = Math.max(peak, Math.abs(lp));
       }
+      // Build in front of the tail rather than replacing it: each tap is a
+      // short burst, quieter the later it arrives.
+      earlyMs[c].forEach((ms, k) => {
+        const at = Math.floor((ms / 1000) * sampleRate);
+        if (at >= length) return;
+        const level = 0.9 * Math.pow(0.72, k);
+        const width = Math.max(8, Math.floor(sampleRate * 0.0015));
+        for (let i = 0; i < width && at + i < length; i++) {
+          data[at + i] += level * (1 - i / width) * rand();
+        }
+      });
+      for (let i = 0; i < length; i++) peak = Math.max(peak, Math.abs(data[i]));
     }
     if (peak > 0) {
       for (let c = 0; c < 2; c++) {

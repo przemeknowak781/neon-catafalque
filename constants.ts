@@ -73,6 +73,9 @@ export const DEFAULT_LEAD_PARAMS: InstrumentParams = {
   pan: 0.12,
   reverbSend: 0.34,
   delaySend: 0.22,
+  // A gentle phaser on the lead, so the effect is present on the patch the app
+  // opens with rather than only on the patches that name it.
+  phaserSend: 0.5,
   // Five detuned saws. A square against a saw at a fixed interval reads as a
   // chip; a stack that beats against itself reads as an analogue lead.
   unison: 5,
@@ -137,6 +140,9 @@ export const DEFAULT_PAD_PARAMS: InstrumentParams = {
   pan: -0.1,
   reverbSend: 0.62,
   delaySend: 0.1,
+  // A slow flange under the pad — §4's "modulation as mood glue" on the widest
+  // element, where the sweep reads as movement rather than as an effect.
+  flangerSend: 0.45,
   unison: 4,
   unisonDetune: 22,
 };
@@ -177,7 +183,7 @@ export const DEFAULT_PLUCK_PARAMS: InstrumentParams = {
 export const DEFAULT_GLOBAL_FX: GlobalFXParams = {
   delayTime: 0.34,
   delayFeedback: 0.38,
-  reverbMix: 0.42,
+  reverbMix: 0.5,
   // Mastering. Width above 1 pushes the chorus and the plate out past the
   // speakers while leaving the kick and bass where they are; the shelves take
   // a little weight off the bottom and put some air back on top, which is
@@ -190,15 +196,25 @@ export const DEFAULT_GLOBAL_FX: GlobalFXParams = {
   // Effects. The phaser is on gently by default because it is the treatment
   // documented on the record the lead patch reconstructs; the flanger sits
   // just under it, per §4's "chorus/flanger as mood glue".
-  phaserMix: 0.18,
+  phaserMix: 0.65,
   phaserRate: 0.35,
-  flangerMix: 0.1,
+  flangerMix: 0.55,
   flangerRate: 0.22,
   flangerFeedback: 0.5,
   delayDivision: 0.75,
   delayPingPong: true,
   reverbSize: 2.4,
   reverbDamp: 0.25,
+  sidechain: 0.3,
+  sidechainRelease: 0.16,
+  // Returns. The chorus is the instrument on a Juno patch rather than an
+  // effect over it, so it comes back at full level; the echo sits under the
+  // dry signal, which is what keeps repeats from crowding the hook.
+  chorusMix: 1.0,
+  delayMix: 0.9,
+  delayDamp: 2600,
+  reverbPreDelay: 0.028,
+  phaserDepth: 0.5,
 };
 
 /**
@@ -237,6 +253,9 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       vibratoRate: 5.2, vibratoDepth: 24, lfoToFilter: 0.05,
       chorusMix: 0.95, drive: 0.1, pan: 0.05,
       reverbSend: 0.62, delaySend: 0.18,
+      // The phaser is the one documented part of this signal chain: "Cars" was
+      // recorded through one, widely reported as an MXR Phase 90.
+      phaserSend: 0.9,
     },
     // Moog Source: monophonic, one filter, and a sequencer hammering it. Short,
     // resonant, and the same every time — which is the point of a sequence.
@@ -287,6 +306,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       filterAttack: 0.05, filterDecay: 0.35, filterSustain: 0.4, filterRelease: 0.4,
       chorusMix: 0.9, drive: 0.35, pan: 0,
       reverbSend: 0.5, delaySend: 0.28,
+      phaserSend: 0.35,
     },
     'Ether Glide': {
       ...DEFAULT_LEAD_PARAMS,
@@ -299,6 +319,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       glide: 190, vibratoRate: 4.6, vibratoDepth: 34,
       chorusMix: 0.92, drive: 0.06, pan: -0.14,
       reverbSend: 0.75, delaySend: 0.34,
+      flangerSend: 0.75,
     },
   },
 
@@ -371,6 +392,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       vibratoRate: 5.0, vibratoDepth: 21, lfoToFilter: 0.05,
       chorusMix: 0.98, drive: 0.08, pan: -0.08,
       reverbSend: 0.8, delaySend: 0.12,
+      phaserSend: 0.8,
     },
     // Juno-106 pad practice for the genre: slow attack, long release, and the
     // filter left almost still so the chorus is what moves.
@@ -396,6 +418,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       vibratoRate: 6.2, vibratoDepth: 15,
       chorusMix: 1.0, drive: 0.04, pan: 0.1,
       reverbSend: 0.72, delaySend: 0.1,
+      phaserSend: 0.55,
     },
     'Cathedral': {
       ...DEFAULT_PAD_PARAMS,
@@ -417,6 +440,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       vibratoRate: 1.4, vibratoDepth: 46, lfoToFilter: 0.3,
       chorusMix: 0.9, drive: 0.16, pan: 0.14,
       reverbSend: 0.85, delaySend: 0.3,
+      flangerSend: 0.7,
     },
   },
 

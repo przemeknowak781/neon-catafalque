@@ -211,6 +211,140 @@ export function encodeWav(channels: Float32Array[], sampleRate: number): Blob {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
+// --- MIDI import -----------------------------------------------------------
+
+const MIDI_TO_NOTE = (midi: number): string =>
+  `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+
+const CHANNEL_TO_TRACK: Record<number, string> = { 0: 'lead', 1: 'bass', 2: 'pad', 3: 'pluck' };
+const KEY_TO_DRUM: Record<number, string> = { 36: 'kick', 38: 'snare', 42: 'hihat', 49: 'fx' };
+
+export interface ImportedSong {
+  bpm: number;
+  totalSteps: number;
+  notes: Record<string, { note: string; startStep: number; duration: number; velocity: number }[]>;
+  steps: Record<string, { step: number; velocity: number }[]>;
+}
+
+/**
+ * Read a MIDI file back into a song.
+ *
+ * Written against the files this app exports, and tolerant of others: any
+ * type 0 or 1 file will load, with channels mapped by the same convention the
+ * exporter uses and anything on channel 10 read as percussion. Ticks are
+ * converted through the file's own division, so a file from elsewhere at a
+ * different resolution still lands on the right steps.
+ */
+export function importMidi(buffer: ArrayBuffer): { song?: ImportedSong; error?: string } {
+  const view = new DataView(buffer);
+  const readText = (offset: number, length: number) =>
+    String.fromCharCode(...new Uint8Array(buffer, offset, length));
+
+  if (buffer.byteLength < 14 || readText(0, 4) !== 'MThd') {
+    return { error: 'Not a MIDI file.' };
+  }
+  const division = view.getUint16(12);
+  if (division & 0x8000) return { error: 'SMPTE timing is not supported.' };
+  const ticksPerStep = division / 4; // the grid is sixteenth notes
+
+  let bpm = 120;
+  const notes: ImportedSong['notes'] = {};
+  const steps: ImportedSong['steps'] = {};
+  let maxStep = 0;
+
+  let position = 14;
+  while (position + 8 <= buffer.byteLength) {
+    const id = readText(position, 4);
+    const length = view.getUint32(position + 4);
+    const start = position + 8;
+    const end = Math.min(start + length, buffer.byteLength);
+    position = start + length;
+    if (id !== 'MTrk') continue;
+
+    let cursor = start;
+    let tick = 0;
+    let runningStatus = 0;
+    const open = new Map<string, { tick: number; velocity: number }>();
+
+    const readVariable = () => {
+      let value = 0;
+      while (cursor < end) {
+        const byte = view.getUint8(cursor++);
+        value = (value << 7) | (byte & 0x7f);
+        if ((byte & 0x80) === 0) break;
+      }
+      return value;
+    };
+
+    while (cursor < end) {
+      tick += readVariable();
+      if (cursor >= end) break;
+      let status = view.getUint8(cursor);
+      if (status & 0x80) cursor++;
+      else status = runningStatus;      // running status: reuse the last one
+      runningStatus = status;
+
+      const type = status & 0xf0;
+      const channel = status & 0x0f;
+
+      if (status === 0xff) {
+        const meta = view.getUint8(cursor++);
+        const metaLength = readVariable();
+        if (meta === 0x51 && metaLength === 3) {
+          const micros = (view.getUint8(cursor) << 16) | (view.getUint8(cursor + 1) << 8) | view.getUint8(cursor + 2);
+          if (micros > 0) bpm = Math.round(60_000_000 / micros);
+        }
+        cursor += metaLength;
+        continue;
+      }
+      if (status === 0xf0 || status === 0xf7) { cursor += readVariable(); continue; }
+
+      if (type === 0x90 || type === 0x80) {
+        const key = view.getUint8(cursor++);
+        const velocity = view.getUint8(cursor++);
+        const step = tick / ticksPerStep;
+        maxStep = Math.max(maxStep, Math.ceil(step) + 1);
+
+        if (channel === 9) {
+          if (type === 0x90 && velocity > 0) {
+            const id = KEY_TO_DRUM[key];
+            if (id) (steps[id] ??= []).push({ step: Math.round(step), velocity: velocity / 127 });
+          }
+          continue;
+        }
+
+        const trackId = CHANNEL_TO_TRACK[channel] ?? 'lead';
+        const mapKey = `${trackId}:${key}`;
+        if (type === 0x90 && velocity > 0) {
+          open.set(mapKey, { tick, velocity });
+        } else {
+          const started = open.get(mapKey);
+          if (started) {
+            open.delete(mapKey);
+            (notes[trackId] ??= []).push({
+              note: MIDI_TO_NOTE(key),
+              startStep: Math.round(started.tick / ticksPerStep),
+              duration: Math.max(0.5, (tick - started.tick) / ticksPerStep),
+              velocity: started.velocity / 127,
+            });
+          }
+        }
+      } else if (type === 0xc0 || type === 0xd0) {
+        cursor += 1;
+      } else if (type >= 0xa0 && type <= 0xe0) {
+        cursor += 2;
+      } else {
+        return { error: 'Unreadable event in the MIDI file.' };
+      }
+    }
+  }
+
+  const total = Object.values(notes).flat().length + Object.values(steps).flat().length;
+  if (total === 0) return { error: 'No notes found in that MIDI file.' };
+
+  return { song: { bpm, totalSteps: Math.max(16, maxStep), notes, steps } };
+}
+
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

@@ -171,6 +171,10 @@ export interface GeneratorSettings {
   harmony?: string;
   /** Melodic conduct by name; see VOICE_LEADING_PRESETS. */
   voiceLeading?: string;
+  /** Reuse a previous song's decisions instead of searching for new ones. */
+  plan?: SongPlan;
+  /** Rebuild only these tracks; the caller keeps the rest. Requires a plan. */
+  only?: readonly string[];
 }
 
 export interface GenerationResult {
@@ -186,6 +190,28 @@ export interface GenerationResult {
   variation: MotifNote[];
   /** Onset grid of the hook, for anyone who wants to see the rhythmic cell. */
   hookOnsets: boolean[];
+  /** Everything needed to rebuild this song without searching again. */
+  plan: SongPlan;
+}
+
+/**
+ * The decisions a song is made of, separated from the notes they produced.
+ *
+ * Handing this back lets a caller keep a melody it likes and rebuild the rest
+ * around it — a different structure, a regenerated bass line — without the
+ * search running again and returning a different hook. Without it, every
+ * change means a new song.
+ */
+export interface SongPlan {
+  bpm: number;
+  chordLoop: number[];
+  hook: MotifNote[];
+  variation: MotifNote[];
+  hookOnsets: boolean[];
+  twistBar: number;
+  mode: GenMode;
+  arrangement: string;
+  analysis: ScoreBreakdown;
 }
 
 interface PhraseRhythm {
@@ -209,7 +235,8 @@ export class EarwormGenerator {
 
     // §2.1C tempo bias, chosen before the hook so §5's density compensation
     // can react to a slow tempo.
-    const bpm = this.chooseTempo(rng, config.drumMode);
+    const plan = config.plan;
+    const bpm = plan ? plan.bpm : this.chooseTempo(rng, config.drumMode);
     const band = TEMPO_BANDS[config.drumMode] ?? TEMPO_BANDS['four-floor'];
     const tempoPosition = (bpm - band.lo) / (band.hi - band.lo);
     // §5: "if your darkwave is very slow, compensate with rhythmic repetition
@@ -223,9 +250,11 @@ export class EarwormGenerator {
     const voicing = voiceLeadingByName(config.voiceLeading);
 
     // A named progression is used as given; 'Auto' keeps the weighted walk.
-    const chordLoop = harmony.loop
-      ? this.fitLoopToMode([...harmony.loop], rng, config.mode)
-      : this.generateProgression(rng, config.harmonicMotion, config.mode);
+    const chordLoop = plan
+      ? [...plan.chordLoop]
+      : harmony.loop
+        ? this.fitLoopToMode([...harmony.loop], rng, config.mode)
+        : this.generateProgression(rng, config.harmonicMotion, config.mode);
     const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps || arrangement.steps);
     const chords = this.expandChords(chordLoop, totalSteps, arrangement);
 
@@ -240,23 +269,59 @@ export class EarwormGenerator {
       voicing,
     };
 
-    const best = this.searchHook(rng, ctx);
-    const variation = this.mutate(rng, best, ctx);
+    // A supplied plan replaces the search entirely: the melody that was liked
+    // is the melody that plays, whatever else changes around it.
+    let best: Candidate;
+    let variation: Candidate;
+    if (plan) {
+      const rhythm: PhraseRhythm = { onsets: [...plan.hookOnsets], twistBar: plan.twistBar };
+      best = {
+        notes: plan.hook.map((n) => ({ ...n })),
+        rhythm,
+        score: plan.analysis,
+      };
+      variation = {
+        notes: plan.variation.map((n) => ({ ...n })),
+        rhythm,
+        score: plan.analysis,
+      };
+    } else {
+      best = this.searchHook(rng, ctx);
+      variation = this.mutate(rng, best, ctx);
+    }
 
-    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best, ornament, arrangement);
-    const bassTrack = this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement);
-    const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals, arrangement);
-    const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament, arrangement);
-    const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals, arrangement);
+    const wanted = config.only ? new Set(config.only) : null;
+    const build = (id: string) => !wanted || wanted.has(id);
+
+    const { drumTracks, kickPattern } = this.generateDrums(
+      rng, totalSteps, config.drumMode, best, ornament, arrangement);
+    const tracks: Track[] = [];
+
+    if (build('lead')) tracks.push(this.renderLead(totalSteps, best, variation, scaleIntervals, arrangement));
+    if (build('pluck')) tracks.push(this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament, arrangement));
+    if (build('pad')) tracks.push(this.generateAtmosphere(totalSteps, chords, scaleIntervals, arrangement));
+    if (build('bass')) tracks.push(this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement));
+    for (const drum of drumTracks) if (build(drum.id)) tracks.push(drum);
 
     return {
-      tracks: [leadTrack, pluckTrack, padTrack, bassTrack, ...drumTracks],
+      tracks,
       bpm,
       analysis: best.score,
       seed,
       hook: best.notes,
       variation: variation.notes,
       hookOnsets: best.rhythm.onsets,
+      plan: {
+        bpm,
+        chordLoop,
+        hook: best.notes.map((n) => ({ ...n })),
+        variation: variation.notes.map((n) => ({ ...n })),
+        hookOnsets: [...best.rhythm.onsets],
+        twistBar: best.rhythm.twistBar,
+        mode: config.mode,
+        arrangement: arrangement.name,
+        analysis: best.score,
+      },
     };
   }
 

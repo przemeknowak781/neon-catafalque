@@ -39,6 +39,10 @@ export interface InstrumentParams {
   unison?: number;
   /** Total detune spread across the unison stack, in cents. */
   unisonDetune?: number;
+  /** Send to the phaser bus, 0-1. */
+  phaserSend?: number;
+  /** Send to the flanger bus, 0-1. */
+  flangerSend?: number;
   /** LFO to filter cutoff, 0-1. The Juno-106's LFO reaches the VCF as well as
    *  the oscillators; this is that destination. */
   lfoToFilter?: number;
@@ -81,6 +85,23 @@ export interface GlobalFXParams {
   reverbSize?: number;
   /** How fast the tail loses its top end, 0-1. */
   reverbDamp?: number;
+  /** How far the kick ducks everything else, 0-0.9. */
+  sidechain?: number;
+  /** How long the duck takes to recover, in seconds. */
+  sidechainRelease?: number;
+
+  // --- Return levels. Voices decide how much they send; these decide how
+  // much comes back. Without them an effect is either on at unity or absent.
+  /** Chorus return level, 0-1.5. */
+  chorusMix?: number;
+  /** Echo return level, 0-1.5. */
+  delayMix?: number;
+  /** Cutoff of the lowpass in the echo's feedback path, in Hz. */
+  delayDamp?: number;
+  /** Gap before the reverb tail arrives, in seconds. */
+  reverbPreDelay?: number;
+  /** How wide the phaser sweeps, 0-1. */
+  phaserDepth?: number;
 }
 
 export interface NoteEvent {

@@ -35,6 +35,8 @@ export interface RenderOptions {
   presets?: Record<string, string>;
   /** Apply a whole song preset by name, instruments and effects together. */
   songPreset?: string;
+  /** Override individual global effect values, applied last. */
+  fx?: Record<string, number | boolean | string>;
 }
 
 export interface RenderResult {
@@ -93,6 +95,8 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
     const bank = INSTRUMENT_PRESETS[track as keyof typeof INSTRUMENT_PRESETS];
     if (bank?.[name]) params[track] = bank[name];
   }
+
+  if (options.fx) fx = { ...fx, ...options.fx } as typeof fx;
 
   const secondsPerStep = secondsPerStepAt(song.bpm);
   const steps = bars * 16;

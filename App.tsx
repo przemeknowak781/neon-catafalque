@@ -7,13 +7,14 @@ import { Visualizer } from './components/Visualizer';
 import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
+import type { SongPlan } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
 import { ARRANGEMENT_PRESETS, arrangementByName } from './services/arrangement';
 import { HARMONY_PRESETS, VOICE_LEADING_PRESETS } from './services/harmonyPresets';
 import { renderOffline } from './services/offlineRender';
 import {
-  buildPresetFile, downloadBlob, encodeWav, exportMidi, parsePresetFile,
+  buildPresetFile, downloadBlob, encodeWav, exportMidi, importMidi, parsePresetFile,
 } from './services/songExport';
 import {
   MissingApiKeyError,
@@ -60,6 +61,11 @@ const App: React.FC = () => {
   const [genArrangement, setGenArrangement] = useState<string>(ARRANGEMENT_PRESETS[0].name);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [isRenderingWav, setIsRenderingWav] = useState(false);
+  /** The decisions behind the song on screen, so parts of it can be rebuilt. */
+  const [songPlan, setSongPlan] = useState<SongPlan | null>(null);
+  /** When held, the melody survives every regeneration. */
+  const [hookLocked, setHookLocked] = useState(false);
+  const midiFileInput = useRef<HTMLInputElement>(null);
   const presetFileInput = useRef<HTMLInputElement>(null);
   const [genHarmony, setGenHarmony] = useState<string>(HARMONY_PRESETS[0].name);
   const [genVoiceLeading, setGenVoiceLeading] = useState<string>(VOICE_LEADING_PRESETS[0].name);
@@ -84,6 +90,7 @@ const App: React.FC = () => {
 
   const [globalFX, setGlobalFX] = useState<GlobalFXParams>(DEFAULT_GLOBAL_FX);
   const [midiEnabled, setMidiEnabled] = useState(false);
+  const [paramSection, setParamSection] = useState<'tone'|'env'|'mod'|'send'>('tone');
   const [activeTab, setActiveTab] = useState<'params' | 'mixer'>('params');
 
   const tracksRef = useRef(tracks);
@@ -232,8 +239,12 @@ const App: React.FC = () => {
       arrangement: genArrangement,
       harmony: genHarmony,
       voiceLeading: genVoiceLeading,
+      // A locked hook keeps its melody, its chords and its tempo; everything
+      // else is built around it afresh.
+      plan: hookLocked && songPlan ? songPlan : undefined,
     });
     setTracks(result.tracks.map(t => ({ ...t, isMuted: false, isSoloed: false })));
+    setSongPlan(result.plan);
     setTotalSteps(GEN_STEPS);
     // The generator picks tempo now (earworm.md §2.1C biases BPM upward within
     // the substyle band), so the transport has to follow it.
@@ -263,6 +274,73 @@ const App: React.FC = () => {
     e instanceof MissingApiKeyError
       ? e.message
       : 'AI request failed. Check the key, the quota, and the console.';
+
+  /**
+   * Rebuild one track and leave the rest alone.
+   *
+   * Uses the stored plan, so the new part is written against the same chords,
+   * the same hook and the same tempo as the parts it has to sit with. Without
+   * that it would be a different song in one lane.
+   */
+  const handleRegenerateTrack = (trackId: TrackType) => {
+    if (!songPlan) {
+      setExportStatus('Generate a song first');
+      return;
+    }
+    const result = generatorService.generate({
+      totalSteps,
+      mode: genMode,
+      harmonicMotion: genHarmonicMotion,
+      contour: genContour,
+      bassMode: genBass,
+      drumMode: genDrums,
+      rhythmDensity: genDensity,
+      entropy: genEntropy,
+      arrangement: genArrangement,
+      harmony: genHarmony,
+      voiceLeading: genVoiceLeading,
+      plan: songPlan,
+      only: [trackId],
+    });
+    const replacement = result.tracks.find((t) => t.id === trackId);
+    if (!replacement) return;
+    setTracks((prev) => prev.map((t) => (
+      t.id === trackId ? { ...replacement, volume: t.volume, isMuted: t.isMuted, isSoloed: t.isSoloed, name: t.name } : t
+    )));
+    setExportStatus(`Rebuilt ${trackId}`);
+  };
+
+  /** Load a song back from a MIDI file, not just its patches. */
+  const handleImportMidi = async (file: File) => {
+    const { song, error } = importMidi(await file.arrayBuffer());
+    if (!song) {
+      setExportStatus(error ?? 'Could not read that MIDI file');
+      return;
+    }
+    setBpm(song.bpm);
+    setTotalSteps(song.totalSteps);
+    setTracks((prev) => prev.map((track) => {
+      if (track.notes !== undefined) {
+        const imported = song.notes[track.id] ?? [];
+        return {
+          ...track,
+          notes: imported.map((n, i) => ({ id: `${track.id}-import-${i}`, ...n })),
+        };
+      }
+      const hits = song.steps[track.id] ?? [];
+      const steps = Array.from({ length: song.totalSteps }, () => ({ active: false, velocity: 0 }));
+      for (const hit of hits) {
+        if (hit.step >= 0 && hit.step < steps.length) {
+          steps[hit.step] = { active: true, velocity: hit.velocity };
+        }
+      }
+      return { ...track, steps };
+    }));
+    // The notes came back; the decisions behind them did not.
+    setSongPlan(null);
+    setHookLocked(false);
+    setExportStatus(`Loaded ${file.name} — ${song.bpm} BPM`);
+  };
 
   const handleAICompose = async (fullSong: boolean = false) => {
     setAiError(null);
@@ -567,10 +645,10 @@ const App: React.FC = () => {
         {/* LEFT — the generator */}
         <aside className="flex w-[236px] shrink-0 flex-col gap-2 overflow-hidden border-r border-zinc-800 bg-black p-2">
           {/* GENERATOR CONTROLS */}
-          <div className="shrink-0 space-y-2 rounded border border-zinc-800 bg-zinc-900/20 p-2">
-             <h3 className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-1">Generator Engine</h3>
+          <div className="shrink-0 space-y-1.5 rounded border border-zinc-800 bg-zinc-900/20 p-1.5">
+             <h3 className="border-b border-zinc-800 pb-0.5 font-mono text-[9px] uppercase tracking-widest text-zinc-500">Generator Engine</h3>
              
-             <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+             <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                 <div className="space-y-0.5">
                    <label className="text-[8px] uppercase text-zinc-600">Mode</label>
                    <select value={genMode} onChange={e => setGenMode(e.target.value as GenMode)} className={selectClass}>
@@ -646,9 +724,9 @@ const App: React.FC = () => {
                 </select>
              </div>
 
-             <div className="flex justify-between pt-1">
-                 <Knob label="Density" value={genDensity} min={0.1} max={1.0} onChange={setGenDensity} color="text-neon-cyan" />
-                 <Knob label="Twist/Ent" value={genEntropy} min={0.0} max={1.0} onChange={setGenEntropy} color="text-neon-pink" />
+             <div className="flex justify-around pt-0.5">
+                 <Knob size="sm" label="Density" value={genDensity} min={0.1} max={1.0} onChange={setGenDensity} color="text-neon-cyan" />
+                 <Knob size="sm" label="Twist" value={genEntropy} min={0.0} max={1.0} onChange={setGenEntropy} color="text-neon-pink" />
              </div>
           </div>
           {/* ACTIONS */}
@@ -662,7 +740,7 @@ const App: React.FC = () => {
                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neon-pink/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                  <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing || !hasKey ? 'text-zinc-500' : 'text-neon-pink group-hover:text-white'} ${isComposing ? 'animate-pulse' : ''}`}>
                     {isComposing ? 'CONJURING...' : hasKey ? 'AI LOOP' : 'NO API KEY'}
-                    <span className="text-[7px] font-normal opacity-70">128 STEPS</span>
+                    
                  </span>
               </button>
 
@@ -674,7 +752,7 @@ const App: React.FC = () => {
                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neon-cyan/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                  <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing || !hasKey ? 'text-zinc-500' : 'text-neon-cyan group-hover:text-white'} ${isComposing ? 'animate-pulse' : ''}`}>
                     {isComposing ? 'ARRANGING...' : hasKey ? 'FULL SONG' : 'NO API KEY'}
-                    <span className="text-[7px] font-normal opacity-70">416 STEPS</span>
+                    
                  </span>
               </button>
             </div>
@@ -685,8 +763,24 @@ const App: React.FC = () => {
                 className="w-full h-8 relative overflow-hidden group rounded border border-neon-purple/50 bg-neon-purple/5 hover:bg-neon-purple/20 transition-all"
                 >
                 <span className="relative z-10 font-mono text-[8px] font-bold tracking-widest text-neon-purple group-hover:text-white uppercase flex items-center justify-center gap-1">
-                    ⏣ Ritual (Proc)
+                    ⏣ Ritual
                 </span>
+                </button>
+
+                <button
+                  onClick={() => setHookLocked((v) => !v)}
+                  disabled={!songPlan}
+                  title={songPlan
+                    ? 'Keep this melody, its chords and its tempo through every regeneration'
+                    : 'Generate a song first'}
+                  className={`h-8 w-full rounded border font-mono text-[7px] font-bold uppercase tracking-widest transition-all ${
+                    !songPlan
+                      ? 'border-zinc-800 bg-zinc-900/40 text-zinc-700'
+                      : hookLocked
+                        ? 'border-neon-cyan/60 bg-neon-cyan/15 text-neon-cyan shadow-[0_0_10px_#00f3ff30]'
+                        : 'border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:text-white'}`}
+                >
+                  {hookLocked ? '⬤ Held' : '○ Hold'}
                 </button>
 
                 <button 
@@ -695,7 +789,7 @@ const App: React.FC = () => {
                 className={`w-full h-8 relative overflow-hidden group rounded border transition-all ${isTransmuting || !hasKey ? 'border-zinc-800 bg-zinc-900 animate-pulse' : 'border-neon-cyan/50 bg-neon-cyan/5 hover:bg-neon-cyan/20'}`}
                 >
                 <span className="relative z-10 font-mono text-[8px] font-bold tracking-widest text-neon-cyan group-hover:text-white uppercase flex items-center justify-center gap-1">
-                    {isTransmuting ? '...' : '✧ Transmute'}
+                    {isTransmuting ? '...' : '✧ Trans'}
                 </span>
                 </button>
             </div>
@@ -795,7 +889,7 @@ const App: React.FC = () => {
           </div>
           <div className="min-h-0 flex-1" />
           <div className="shrink-0 space-y-1">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-3 gap-1">
               <button onClick={handleDownloadParams} title="Save every instrument, effect and generator setting as JSON"
                 className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
                 ⤓ Preset
@@ -803,6 +897,10 @@ const App: React.FC = () => {
               <button onClick={() => presetFileInput.current?.click()} title="Load a preset file"
                 className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
                 ⤒ Import
+              </button>
+              <button onClick={() => midiFileInput.current?.click()} title="Load a song back from a MIDI file"
+                className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
+                ⤒ MIDI
               </button>
               <button onClick={handleExportMidi} title="Export the arrangement as a type 1 MIDI file, drums on channel 10"
                 className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
@@ -820,6 +918,17 @@ const App: React.FC = () => {
             {exportStatus && (
               <div className="truncate font-mono text-[7px] text-zinc-600" title={exportStatus}>{exportStatus}</div>
             )}
+            <input
+              ref={midiFileInput}
+              type="file"
+              accept="audio/midi,.mid,.midi"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImportMidi(file);
+                e.target.value = '';
+              }}
+            />
             <input
               ref={presetFileInput}
               type="file"
@@ -847,6 +956,8 @@ const App: React.FC = () => {
               onSelectTrack={(id) => setSelectedTrackId(id as TrackType)}
               onToggleMute={(id) => setTracks(prev => prev.map(t => t.id === id ? { ...t, isMuted: !t.isMuted } : t))}
               onToggleSolo={(id) => setTracks(prev => prev.map(t => t.id === id ? { ...t, isSoloed: !t.isSoloed } : t))}
+              onRegenerate={(id) => handleRegenerateTrack(id as TrackType)}
+              canRegenerate={songPlan !== null}
             />
           </div>
           <div className="h-9 shrink-0 border-t border-zinc-800">
@@ -905,7 +1016,22 @@ const App: React.FC = () => {
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                  {/* A deep editor cannot fit on one screen, so it is paged
+                      rather than scrolled: every group is one click away and
+                      nothing is hidden below a fold. */}
+                  <div className="flex gap-0.5">
+                    {([['tone','Tone'],['env','Env'],['mod','Mod'],['send','Send']] as const).map(([id, label]) => (
+                      <button key={id} onClick={() => setParamSection(id)}
+                        className={`flex-1 rounded border py-0.5 font-mono text-[7px] uppercase tracking-widest transition-colors ${
+                          paramSection === id
+                            ? 'border-neon-cyan/50 bg-neon-cyan/10 text-neon-cyan'
+                            : 'border-zinc-800 bg-zinc-900/40 text-zinc-600 hover:text-zinc-300'}`}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={paramSection === 'tone' ? 'grid grid-cols-3 justify-items-center gap-x-1 gap-y-1' : 'hidden'}>
                     <Knob label="Cutoff" value={currentParams.cutoff} min={40} max={12000} onChange={(v) => updateTrackParam('cutoff', v)} step={10} color="text-neon-purple" />
                     <Knob label="Env Amt" value={currentParams.filterEnvAmount} min={0} max={1} onChange={(v) => updateTrackParam('filterEnvAmount', v)} color="text-neon-purple" />
                     <Knob label="Sub" value={currentParams.subLevel} min={0} max={1} onChange={(v) => updateTrackParam('subLevel', v)} />
@@ -914,9 +1040,8 @@ const App: React.FC = () => {
                     <Knob label="Detune" value={currentParams.detune} min={0} max={50} onChange={(v) => updateTrackParam('detune', v)} color="text-neon-cyan" />
                   </div>
 
-                  <div className="space-y-1 border-t border-zinc-900 pt-1.5">
-                     <h3 className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">Envelope</h3>
-                     <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                  <div className={paramSection === 'env' ? 'space-y-1' : 'hidden'}>
+                     <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
                         <Knob label="A" value={currentParams.attack} min={0} max={3} onChange={(v) => updateTrackParam('attack', v)} />
                         <Knob label="R" value={currentParams.release} min={0.05} max={3} onChange={(v) => updateTrackParam('release', v)} />
                         <Knob label="D" value={currentParams.decay} min={0.01} max={3} onChange={(v) => updateTrackParam('decay', v)} />
@@ -924,9 +1049,22 @@ const App: React.FC = () => {
                      </div>
                   </div>
 
-                  <div className="space-y-1 border-t border-zinc-900 pt-1.5">
-                     <h3 className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">Modulation</h3>
-                     <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                  <div className={paramSection === 'send' ? 'space-y-1' : 'hidden'}>
+                     <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
+                        <Knob label="Verb" value={currentParams.reverbSend ?? 0.35} min={0} max={1} onChange={(v) => updateTrackParam('reverbSend', v)} color="text-white" size="sm" />
+                        <Knob label="Echo" value={currentParams.delaySend ?? 0} min={0} max={1} onChange={(v) => updateTrackParam('delaySend', v)} color="text-white" size="sm" />
+                        <Knob label="Chor" value={currentParams.chorusMix} min={0} max={1} onChange={(v) => updateTrackParam('chorusMix', v)} color="text-neon-cyan" size="sm" />
+                        <Knob label="Phas" value={currentParams.phaserSend ?? 0} min={0} max={1} onChange={(v) => updateTrackParam('phaserSend', v)} color="text-neon-purple" size="sm" />
+                        <Knob label="Flan" value={currentParams.flangerSend ?? 0} min={0} max={1} onChange={(v) => updateTrackParam('flangerSend', v)} color="text-neon-pink" size="sm" />
+                        <Knob label="Drive" value={currentParams.drive ?? 0} min={0} max={1} onChange={(v) => updateTrackParam('drive', v)} color="text-neon-pink" size="sm" />
+                        <Knob label="Pan" value={currentParams.pan ?? 0} min={-1} max={1} onChange={(v) => updateTrackParam('pan', v)} color="text-white" size="sm" />
+                        <Knob label="Unison" value={currentParams.unison ?? 1} min={1} max={7} step={1} onChange={(v) => updateTrackParam('unison', v)} color="text-neon-cyan" size="sm" />
+                        <Knob label="U ¢" value={currentParams.unisonDetune ?? 14} min={0} max={40} onChange={(v) => updateTrackParam('unisonDetune', v)} color="text-neon-cyan" size="sm" />
+                     </div>
+                  </div>
+
+                  <div className={paramSection === 'mod' ? 'space-y-1' : 'hidden'}>
+                     <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
                         <Knob label="Chorus" value={currentParams.chorusMix} min={0} max={1} onChange={(v) => updateTrackParam('chorusMix', v)} />
                         <Knob label="Vib D" value={currentParams.vibratoDepth} min={0} max={100} onChange={(v) => updateTrackParam('vibratoDepth', v)} />
                         <Knob label="Vib R" value={currentParams.vibratoRate} min={0} max={20} onChange={(v) => updateTrackParam('vibratoRate', v)} />
@@ -975,25 +1113,32 @@ const App: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
                   <Knob label="Dly T" value={globalFX.delayTime} min={0} max={1} onChange={(v) => updateGlobalFX('delayTime', v)} color="text-white" size="sm" />
                   <Knob label="Dly F" value={globalFX.delayFeedback} min={0} max={0.85} onChange={(v) => updateGlobalFX('delayFeedback', v)} color="text-white" size="sm" />
+                  <Knob label="Echo" value={globalFX.delayMix ?? 1} min={0} max={1.5} onChange={(v) => updateGlobalFX('delayMix', v)} color="text-white" size="sm" />
+                  <Knob label="E Tone" value={globalFX.delayDamp ?? 2600} min={400} max={12000} step={50} onChange={(v) => updateGlobalFX('delayDamp', v)} color="text-white" size="sm" />
                   <Knob label="Reverb" value={globalFX.reverbMix} min={0} max={1} onChange={(v) => updateGlobalFX('reverbMix', v)} color="text-white" size="sm" />
                   <Knob label="Size" value={globalFX.reverbSize ?? 2.4} min={0.6} max={5} step={0.1} onChange={(v) => updateGlobalFX('reverbSize', v)} color="text-white" size="sm" />
                   <Knob label="Damp" value={globalFX.reverbDamp ?? 0.25} min={0} max={1} onChange={(v) => updateGlobalFX('reverbDamp', v)} color="text-white" size="sm" />
+                  <Knob label="Pre-D" value={globalFX.reverbPreDelay ?? 0.028} min={0} max={0.25} step={0.002} onChange={(v) => updateGlobalFX('reverbPreDelay', v)} color="text-white" size="sm" />
                 </div>
 
                 <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Modulation</h2>
-                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
+                  <Knob label="Chorus" value={globalFX.chorusMix ?? 1} min={0} max={1.5} onChange={(v) => updateGlobalFX('chorusMix', v)} color="text-neon-cyan" size="sm" />
                   <Knob label="Phase" value={globalFX.phaserMix ?? 0} min={0} max={1} onChange={(v) => updateGlobalFX('phaserMix', v)} color="text-neon-purple" size="sm" />
                   <Knob label="Ph Rt" value={globalFX.phaserRate ?? 0.35} min={0.02} max={4} step={0.01} onChange={(v) => updateGlobalFX('phaserRate', v)} color="text-neon-purple" size="sm" />
+                  <Knob label="Ph Dep" value={globalFX.phaserDepth ?? 0.5} min={0} max={1} onChange={(v) => updateGlobalFX('phaserDepth', v)} color="text-neon-purple" size="sm" />
                   <Knob label="Flang" value={globalFX.flangerMix ?? 0} min={0} max={1} onChange={(v) => updateGlobalFX('flangerMix', v)} color="text-neon-pink" size="sm" />
                   <Knob label="Fl Rt" value={globalFX.flangerRate ?? 0.22} min={0.02} max={3} step={0.01} onChange={(v) => updateGlobalFX('flangerRate', v)} color="text-neon-pink" size="sm" />
                   <Knob label="Fl Fb" value={globalFX.flangerFeedback ?? 0.5} min={0} max={0.9} onChange={(v) => updateGlobalFX('flangerFeedback', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Duck" value={globalFX.sidechain ?? 0.3} min={0} max={0.9} onChange={(v) => updateGlobalFX('sidechain', v)} color="text-neon-cyan" size="sm" />
+                  <Knob label="Dk Rel" value={globalFX.sidechainRelease ?? 0.16} min={0.03} max={0.6} step={0.01} onChange={(v) => updateGlobalFX('sidechainRelease', v)} color="text-neon-cyan" size="sm" />
                 </div>
 
                 <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Mastering</h2>
-                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
                   <Knob label="Width" value={globalFX.width ?? 1} min={0} max={2} onChange={(v) => updateGlobalFX('width', v)} color="text-neon-cyan" size="sm" />
                   <Knob label="Low" value={globalFX.lowShelf ?? 0} min={-8} max={8} onChange={(v) => updateGlobalFX('lowShelf', v)} step={0.5} color="text-neon-purple" size="sm" />
                   <Knob label="Air" value={globalFX.airShelf ?? 0} min={-8} max={8} onChange={(v) => updateGlobalFX('airShelf', v)} step={0.5} color="text-neon-purple" size="sm" />
