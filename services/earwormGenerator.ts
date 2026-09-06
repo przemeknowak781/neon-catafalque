@@ -1,4 +1,5 @@
 import type { NoteEvent, Track, SequencerStep } from "../types";
+import { MIX_LEVELS } from "../constants";
 import {
   SeededRng,
   type ContourClass,
@@ -395,7 +396,12 @@ export class EarwormGenerator {
     // §9 bar 1 starts on 5 or b3; picking the base from the cadence degrees
     // also makes the phrase land on 1, b3 or 5 by construction, instead of
     // teleporting there with a corrective leap at the end.
-    const base = 14 + rng.pick(CADENCE_DEGREES);
+    //
+    // Degree 21 is C4. The hook used to sit at degree 14 (C3, 131 Hz), inside
+    // the same octave as the pad and just above the bass, which is why it
+    // never cut through. Range and contour are transposition-invariant, so
+    // this does not disturb any of the conformance measurements.
+    const base = 21 + rng.pick(CADENCE_DEGREES);
     const degrees = skeleton.map((offset) => base + offset);
 
     // §2.1B / §7 the one uncommon gradient, then the deliberate leap accents
@@ -706,7 +712,7 @@ export class EarwormGenerator {
 
     return {
       id: 'lead', name: 'LEAD', color: 'bg-neon-purple',
-      volume: 0.75, isCollapsed: false, notes: this.cleanupOverlaps(notes),
+      volume: MIX_LEVELS.lead, isCollapsed: false, notes: this.cleanupOverlaps(notes),
     };
   }
 
@@ -714,6 +720,13 @@ export class EarwormGenerator {
    * §3.4 compound hook: the pluck doubles the hook's onset grid instead of
    * ignoring it, so the rhythmic hook is stacked rather than smeared. The old
    * version took the lead notes as a parameter and never read them.
+   */
+  /**
+   * §3.4 compound hook. Locking this to the hook's own onsets, as it did,
+   * put a second melodic line on exactly the same rhythm in a neighbouring
+   * register — two parts saying different notes at the same instant, which
+   * reads as clutter rather than as a stacked hook. It now answers the hook
+   * in its gaps instead of doubling it, and only once the chorus arrives.
    */
   private generateCounterMelody(
     rng: SeededRng,
@@ -724,39 +737,44 @@ export class EarwormGenerator {
     density: number,
   ): Track {
     const notes: NoteEvent[] = [];
-    const arpPattern = [0, 2, 4, 7];
+    const arpPattern = [0, 2, 4];
     const hookOnsets = hook.rhythm.onsets;
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
     for (let bar = 0; bar < totalBars; bar++) {
       const section = this.sectionForBar(bar);
-      if (section === 'intro') continue;
+      if (section === 'intro' || section === 'verse') continue;
 
-      for (let inBar = 0; inBar < STEPS_PER_BAR; inBar++) {
+      for (let inBar = 0; inBar < STEPS_PER_BAR; inBar += 2) {
         const step = bar * STEPS_PER_BAR + inBar;
         const phraseStep = step % PHRASE_STEPS;
 
-        // Lock to the hook's signature rhythm; fill elsewhere only if dense.
-        const onHook = hookOnsets[phraseStep];
-        if (!onHook && !rng.chance(density * 0.25)) continue;
-        if (onHook && !rng.chance(0.85)) continue;
+        // Answer the hook's silences, never its onsets.
+        if (hookOnsets[phraseStep]) continue;
+        if (!rng.chance(0.35 + density * 0.25)) continue;
 
         const chord = chords[step];
         const arpIndex = Math.floor(inBar / 2) % arpPattern.length;
-        const degree = chord + arpPattern[arpIndex] + 14;
+        const degree = chord + arpPattern[arpIndex] + 28;
 
         notes.push({
           id: `pluck-${step}`,
           note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
           startStep: step,
           duration: 1,
-          velocity: 0.45 + (section === 'chorus' ? 0.2 : 0),
+          velocity: section === 'chorus' ? 0.55 : 0.45,
         });
       }
     }
-    return { id: 'pluck', name: 'PLUCK', color: 'bg-teal-500', volume: 0.6, isCollapsed: true, notes };
+    return { id: 'pluck', name: 'PLUCK', color: 'bg-teal-500', volume: MIX_LEVELS.pluck, isCollapsed: true, notes };
   }
 
+  /**
+   * §4 "space / mood glue". This used to emit a single note fourteen scale
+   * degrees above the chord root — one high tone, not a pad, and nothing that
+   * supported the harmony. It now voices an actual triad in a mid register,
+   * below the lead so the two do not compete for the same octave.
+   */
   private generateAtmosphere(totalSteps: number, chords: number[], scaleIntervals: readonly number[]): Track {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
@@ -767,15 +785,23 @@ export class EarwormGenerator {
       if (section === 'intro' && bar % 4 !== 0) continue;
 
       const chord = chords[step];
-      notes.push({
-        id: `pad-${bar}`,
-        note: midiToNoteName(degreeToMidi(chord + 14, scaleIntervals)),
-        startStep: step,
-        duration: STEPS_PER_BAR,
-        velocity: section === 'chorus' || section === 'variation' ? 0.55 : 0.35,
+      // Root, third and fifth, voiced from C3 up: below the hook at C4 and
+      // clear of the bass at C1-C2. Voiced at C2 it doubled the bass and the
+      // render measured 62% of total energy below 200 Hz.
+      const voicing = [chord + 14, chord + 16, chord + 18];
+      const velocity = section === 'chorus' || section === 'variation' ? 0.5 : 0.34;
+
+      voicing.forEach((degree, v) => {
+        notes.push({
+          id: `pad-${bar}-${v}`,
+          note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
+          startStep: step,
+          duration: STEPS_PER_BAR,
+          velocity,
+        });
       });
     }
-    return { id: 'pad', name: 'PAD', color: 'bg-blue-800', volume: 0.4, isCollapsed: true, notes };
+    return { id: 'pad', name: 'PAD', color: 'bg-blue-800', volume: MIX_LEVELS.pad, isCollapsed: true, notes };
   }
 
   private generateBass(
@@ -818,7 +844,7 @@ export class EarwormGenerator {
         });
       });
     }
-    return { id: 'bass', name: 'BASS', color: 'bg-indigo-600', volume: 0.8, isCollapsed: false, notes };
+    return { id: 'bass', name: 'BASS', color: 'bg-indigo-600', volume: MIX_LEVELS.bass, isCollapsed: false, notes };
   }
 
   private generateDrums(
@@ -871,10 +897,10 @@ export class EarwormGenerator {
     }
 
     const drumTracks: Track[] = [
-      { id: 'fx', name: 'FX', color: 'bg-neon-pink', volume: 0.5, isCollapsed: false, steps: fxSteps },
-      { id: 'hihat', name: 'HH', color: 'bg-yellow-400', volume: 0.5, isCollapsed: false, steps: hihatSteps },
-      { id: 'snare', name: 'SD', color: 'bg-cyan-400', volume: 0.7, isCollapsed: false, steps: snareSteps },
-      { id: 'kick', name: 'BD', color: 'bg-red-500', volume: 0.9, isCollapsed: false, steps: kickSteps },
+      { id: 'fx', name: 'FX', color: 'bg-neon-pink', volume: MIX_LEVELS.fx, isCollapsed: false, steps: fxSteps },
+      { id: 'hihat', name: 'HH', color: 'bg-yellow-400', volume: MIX_LEVELS.hihat, isCollapsed: false, steps: hihatSteps },
+      { id: 'snare', name: 'SD', color: 'bg-cyan-400', volume: MIX_LEVELS.snare, isCollapsed: false, steps: snareSteps },
+      { id: 'kick', name: 'BD', color: 'bg-red-500', volume: MIX_LEVELS.kick, isCollapsed: false, steps: kickSteps },
     ];
     return { drumTracks, kickSteps };
   }

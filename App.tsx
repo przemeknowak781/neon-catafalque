@@ -8,6 +8,7 @@ import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
+import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
 import {
   MissingApiKeyError,
   clearApiKey,
@@ -103,32 +104,14 @@ const App: React.FC = () => {
   useEffect(() => { audioEngine.setMasterVolume(masterVolume); }, [masterVolume]);
 
   const scheduleNote = useCallback((stepNumber: number, time: number) => {
-    const secondsPerStep = (60 / bpmRef.current) * 0.25;
-    const currentTracks = tracksRef.current;
-    const hasSoloedTrack = currentTracks.some(t => t.isSoloed);
-
-    currentTracks.forEach(track => {
-      let playbackVolume = track.volume;
-      if (track.isMuted) playbackVolume = 0;
-      if (hasSoloedTrack && !track.isSoloed) playbackVolume = 0;
-      if (playbackVolume <= 0) return;
-
-      if (track.notes) {
-        track.notes.forEach(noteEvent => {
-          if (Math.floor(noteEvent.startStep) === stepNumber) {
-            const durationSec = noteEvent.duration * secondsPerStep;
-            const params = paramsRef.current[track.id];
-            if (params) {
-              audioEngine.playInstrument(track.id, noteEvent.note, time, durationSec, params, playbackVolume);
-            }
-          }
-        });
-      } else if (track.steps) {
-        if (track.steps[stepNumber]?.active) {
-          audioEngine.playDrum(track.id as TrackType, time, playbackVolume);
-        }
-      }
-    });
+    scheduleStep(
+      audioEngine,
+      tracksRef.current,
+      paramsRef.current,
+      stepNumber,
+      time,
+      secondsPerStepAt(bpmRef.current),
+    );
   }, []);
 
   const scheduler = useCallback(() => {
