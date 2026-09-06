@@ -37,6 +37,8 @@ export interface RenderOptions {
   songPreset?: string;
   /** Override individual global effect values, applied last. */
   fx?: Record<string, number | boolean | string>;
+  /** Tonic, so a key can be measured rather than only heard. */
+  key?: string;
 }
 
 export interface RenderResult {
@@ -69,6 +71,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
     bassMode: 'driving',
     drumMode: 'four-floor',
     seed,
+    ...(options.key ? { key: options.key as never } : {}),
     ...options.settings,
   });
 

@@ -6,7 +6,7 @@ import { Fader } from './components/Fader';
 import { Visualizer } from './components/Visualizer';
 import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
-import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
+import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums, KEYS, type GenKey } from './services/earwormGenerator';
 import type { SongPlan } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
@@ -52,6 +52,7 @@ const App: React.FC = () => {
   
   // Generator Parameters State
   const [genMode, setGenMode] = useState<GenMode>('aeolian');
+  const [genKey, setGenKey] = useState<GenKey>('C');
   const [genHarmonicMotion, setGenHarmonicMotion] = useState<GenHarmonicMotion>('conjunct');
   const [genContour, setGenContour] = useState<GenContour>('arch');
   const [genBass, setGenBass] = useState<GenBass>('driving');
@@ -239,6 +240,7 @@ const App: React.FC = () => {
       arrangement: genArrangement,
       harmony: genHarmony,
       voiceLeading: genVoiceLeading,
+      key: genKey,
       // A locked hook keeps its melody, its chords and its tempo; everything
       // else is built around it afresh.
       plan: hookLocked && songPlan ? songPlan : undefined,
@@ -287,6 +289,11 @@ const App: React.FC = () => {
       setExportStatus('Generate a song first');
       return;
     }
+    // The lead is the hook. With the plan supplying it, rebuilding the lead
+    // reproduced the same melody every time — the button did nothing. It now
+    // searches for a new hook over the same chords and tempo, unless the hook
+    // is being held, which is exactly a request not to change it.
+    const rehook = trackId === 'lead' && !hookLocked;
     const result = generatorService.generate({
       totalSteps,
       mode: genMode,
@@ -299,15 +306,30 @@ const App: React.FC = () => {
       arrangement: genArrangement,
       harmony: genHarmony,
       voiceLeading: genVoiceLeading,
+      key: genKey,
       plan: songPlan,
       only: [trackId],
+      rehook,
     });
     const replacement = result.tracks.find((t) => t.id === trackId);
     if (!replacement) return;
     setTracks((prev) => prev.map((t) => (
       t.id === trackId ? { ...replacement, volume: t.volume, isMuted: t.isMuted, isSoloed: t.isSoloed, name: t.name } : t
     )));
-    setExportStatus(`Rebuilt ${trackId}`);
+    // A new hook has to go into the plan, or the next rebuild of any other
+    // track would be written against the melody that is no longer playing.
+    if (rehook) {
+      setSongPlan(result.plan);
+      setGenAnalysis(result.analysis);
+    } else if (trackId === 'kick') {
+      // A new kick pattern is what the bass is written against, so the plan
+      // has to carry it forward or the next bass rebuild locks to the old one.
+      setSongPlan({ ...songPlan, kickPattern: result.plan.kickPattern });
+    }
+    setExportStatus(
+      trackId === 'lead' && hookLocked
+        ? 'Lead held — release Hold to rebuild the melody'
+        : `Rebuilt ${trackId}`);
   };
 
   /** Load a song back from a MIDI file, not just its patches. */
@@ -473,7 +495,7 @@ const App: React.FC = () => {
       instrumentParams: allInstrumentParams,
       globalFX,
       generator: {
-        mode: genMode, harmonicMotion: genHarmonicMotion, contour: genContour,
+        mode: genMode, key: genKey, harmonicMotion: genHarmonicMotion, contour: genContour,
         bassMode: genBass, drumMode: genDrums, rhythmDensity: genDensity,
         entropy: genEntropy, arrangement: genArrangement,
         harmony: genHarmony, voiceLeading: genVoiceLeading,
@@ -503,6 +525,8 @@ const App: React.FC = () => {
     const gen = preset.generator as Record<string, string | number> | undefined;
     if (gen) {
       if (gen.mode) setGenMode(gen.mode as GenMode);
+      // Files written before keys existed have no key; they were all in C.
+      if (gen.key && KEYS.includes(gen.key as GenKey)) setGenKey(gen.key as GenKey);
       if (gen.harmonicMotion) setGenHarmonicMotion(gen.harmonicMotion as GenHarmonicMotion);
       if (gen.contour) setGenContour(gen.contour as GenContour);
       if (gen.bassMode) setGenBass(gen.bassMode as GenBass);
@@ -652,9 +676,27 @@ const App: React.FC = () => {
                 <div className="space-y-0.5">
                    <label className="text-[8px] uppercase text-zinc-600">Mode</label>
                    <select value={genMode} onChange={e => setGenMode(e.target.value as GenMode)} className={selectClass}>
-                      <option value="aeolian">Aeolian</option>
-                      <option value="dorian">Dorian</option>
-                      <option value="harmonic_minor">Harm. Minor</option>
+                      <optgroup label="Minor">
+                        <option value="aeolian">Aeolian</option>
+                        <option value="dorian">Dorian</option>
+                        <option value="phrygian">Phrygian</option>
+                        <option value="harmonic_minor">Harmonic Minor</option>
+                        <option value="melodic_minor">Melodic Minor</option>
+                      </optgroup>
+                      <optgroup label="Eastern">
+                        <option value="phrygian_dominant">Phrygian Dominant</option>
+                        <option value="double_harmonic">Double Harmonic</option>
+                      </optgroup>
+                      <optgroup label="Major">
+                        <option value="mixolydian">Mixolydian</option>
+                        <option value="lydian">Lydian</option>
+                      </optgroup>
+                   </select>
+                </div>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Key</label>
+                   <select value={genKey} onChange={e => setGenKey(e.target.value as GenKey)} className={selectClass}>
+                      {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
                    </select>
                 </div>
                 <div className="space-y-0.5">

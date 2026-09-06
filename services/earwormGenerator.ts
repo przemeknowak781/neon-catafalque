@@ -42,11 +42,61 @@ import {
 
 // --- MUSIC THEORY CORE ---
 
+/**
+ * Scales, as semitone offsets from the tonic.
+ *
+ * All seven-note, because everything downstream — the chord palettes, the
+ * degree arithmetic in degreeToMidi, the cadence targets — is written in
+ * seven-degree steps. A pentatonic or octatonic scale is not a change of
+ * table here, it is a change of that arithmetic, so it is out of scope.
+ *
+ * The first three are the original set. The rest are the modes the genre
+ * actually reaches for: Phrygian for the flat second that gives goth its
+ * Spanish/Middle-Eastern edge, melodic minor for a raised 6th and 7th over a
+ * minor third, and the two "gypsy" scales built on an augmented second, which
+ * is the interval that makes a line sound Eastern rather than merely minor.
+ * Two major-side modes are included because darkwave is not exclusively minor:
+ * Mixolydian (major with a flat 7) and Lydian (major with a raised 4th).
+ *
+ * Hungarian minor was tried and dropped. It has two augmented seconds rather
+ * than one, so routing a passing note around the first lands it on the second,
+ * and it measured 76% stepwise motion against the 85% floor even after that
+ * routing — it cannot meet the constraint this generator declares. Phrygian
+ * dominant carries the same Eastern colour with one augmented second and
+ * passes at 88%.
+ */
 const MODES = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],        // Natural minor
   dorian: [0, 2, 3, 5, 7, 9, 10],         // Minor with major 6
   harmonic_minor: [0, 2, 3, 5, 7, 8, 11], // Raised 7 (spec: cadences only)
+  phrygian: [0, 1, 3, 5, 7, 8, 10],       // Minor with a flat 2
+  melodic_minor: [0, 2, 3, 5, 7, 9, 11],  // Ascending form: raised 6 and 7
+  phrygian_dominant: [0, 1, 4, 5, 7, 8, 10], // Hijaz: flat 2 over a major 3
+  double_harmonic: [0, 1, 4, 5, 7, 8, 11], // Flat 2, major 3, flat 6, major 7
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],     // Major with a flat 7
+  lydian: [0, 2, 4, 6, 7, 9, 11],         // Major with a raised 4
 } as const;
+
+/**
+ * Keys. The transposition is applied in semitones at the point where a degree
+ * becomes a pitch, so nothing above it has to know about it.
+ *
+ * Always upward, never folded down. Folding the upper keys to negative offsets
+ * looked tidier — it keeps every key within a tritone of C — but it puts the
+ * bass tonic of F# at MIDI 18, about 23 Hz, underneath the 28 Hz subsonic
+ * filter in the mastering chain. Those keys would have lost their fundamental
+ * entirely. Transposing up instead puts the bass tonic between C1 (33 Hz) and
+ * B1 (62 Hz), which is where a bass belongs, and takes the lead no higher than
+ * roughly A5.
+ */
+export const KEYS = [
+  'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
+] as const;
+export type GenKey = typeof KEYS[number];
+
+export function keyOffset(key: GenKey): number {
+  return Math.max(0, KEYS.indexOf(key));
+}
 
 const PHRASE_STEPS = STEPS_PER_BAR * BARS_PER_PHRASE;
 /** One-bar cell, repeated 4x across the phrase (§3.3 "hook glue"). */
@@ -86,6 +136,22 @@ const CHORD_PALETTES: Record<string, number[]> = {
   aeolian: [0, 2, 3, 4, 5, 6],
   dorian: [0, 2, 3, 4, 6],          // IV is major here and is the mode's colour
   harmonic_minor: [0, 3, 4, 5],
+  // Phrygian: the triad on b2 is major and is the whole point of the mode.
+  // The one on the 5th is diminished here, so it is left out.
+  phrygian: [0, 1, 2, 3, 5, 6],
+  // Melodic minor: i is minor, IV and V are major, the triads on b3 and the
+  // 6th are augmented and diminished respectively and are excluded.
+  melodic_minor: [0, 3, 4],
+  // Phrygian dominant: I is major, and the triads on b2 and iv are usable.
+  // This is the fifth mode of harmonic minor, so it inherits that palette.
+  phrygian_dominant: [0, 1, 3, 5],
+  // Double harmonic: i is major, and so are the triads on b2 and b6. The rest
+  // contain the augmented second and are not triads in any usable sense.
+  double_harmonic: [0, 1, 5],
+  // Mixolydian: I, IV and v are the usable triads, bVII is the mode's colour.
+  mixolydian: [0, 3, 4, 6],
+  // Lydian: I, II and V, with the raised 4th showing up as a major II.
+  lydian: [0, 1, 4, 5],
 };
 
 /** Chords that can host the twist (§7: align surprise with bVI or bVII). */
@@ -93,6 +159,12 @@ const COLOUR_CHORDS_BY_MODE: Record<string, number[]> = {
   aeolian: [5, 6],
   dorian: [6],
   harmonic_minor: [5],
+  phrygian: [1, 6],       // The flat-second major triad is the mode's surprise.
+  melodic_minor: [3, 4],  // The major IV and V over a minor third.
+  phrygian_dominant: [1, 5],
+  double_harmonic: [1, 5],
+  mixolydian: [6],        // bVII, the flat seventh.
+  lydian: [1],            // II, carrying the raised fourth.
 };
 
 /** Pad voicing register: degree 14 is C3, so the triad lands between C3 and A#3. */
@@ -148,7 +220,7 @@ const MAX_LEAP_MOVE = 3;
 
 // --- GENERATOR TYPES ---
 
-export type GenMode = 'aeolian' | 'dorian' | 'harmonic_minor';
+export type GenMode = keyof typeof MODES;
 export type GenContour = 'arch' | 'descent' | 'wave' | 'random';
 export type GenHarmonicMotion = 'conjunct' | 'disjunct' | 'static';
 export type GenBass = 'driving' | 'sustained' | 'acid' | 'walking';
@@ -175,6 +247,13 @@ export interface GeneratorSettings {
   plan?: SongPlan;
   /** Rebuild only these tracks; the caller keeps the rest. Requires a plan. */
   only?: readonly string[];
+  /** Tonic. Defaults to C, which is what every song was before this existed. */
+  key?: GenKey;
+  /**
+   * Search for a new hook even though a plan was supplied. The plan's tempo
+   * and chords are still reused, so a rebuilt lead sits in the same song.
+   */
+  rehook?: boolean;
 }
 
 export interface GenerationResult {
@@ -212,6 +291,15 @@ export interface SongPlan {
   mode: GenMode;
   arrangement: string;
   analysis: ScoreBreakdown;
+  /** Optional so plans saved before keys existed still load, as C. */
+  key?: GenKey;
+  /**
+   * The kick's bar pattern. The bass is written against it — which notes it
+   * keeps depend on where the kick lands — so rebuilding the bass alone used
+   * to lock it to a kick pattern that was never returned and is not the one
+   * playing. Optional for plans written before this was stored.
+   */
+  kickPattern?: number[];
 }
 
 interface PhraseRhythm {
@@ -232,6 +320,16 @@ export class EarwormGenerator {
     const rng = new SeededRng(seed);
 
     const scaleIntervals = MODES[config.mode];
+    // Applied where a degree becomes a pitch, so nothing above this line has
+    // to know which key the song is in: the scoring, the contour analysis and
+    // the interval rules are all transposition-invariant by construction.
+    // An explicit key wins over the plan's. The plan's is a fallback, for a
+    // plan loaded from a file by a caller that does not know what key it was
+    // in; letting it win meant a held hook pinned the key selector, and moving
+    // a melody to another key is a transposition, not a different melody.
+    // Every part of one song is generated with the same setting, so a track
+    // rebuilt on its own still lands in the key the rest is in.
+    const transpose = keyOffset(config.key ?? config.plan?.key ?? 'C');
 
     // §2.1C tempo bias, chosen before the hook so §5's density compensation
     // can react to a slow tempo.
@@ -273,7 +371,11 @@ export class EarwormGenerator {
     // is the melody that plays, whatever else changes around it.
     let best: Candidate;
     let variation: Candidate;
-    if (plan) {
+    // A plan supplies the tempo and the chords whether or not the hook is
+    // being kept. `rehook` is what lets a lead be rebuilt: without it the
+    // melody comes from the plan and is identical every time, which is why the
+    // lead's rebuild button did nothing at all.
+    if (plan && !config.rehook) {
       const rhythm: PhraseRhythm = { onsets: [...plan.hookOnsets], twistBar: plan.twistBar };
       best = {
         notes: plan.hook.map((n) => ({ ...n })),
@@ -293,14 +395,20 @@ export class EarwormGenerator {
     const wanted = config.only ? new Set(config.only) : null;
     const build = (id: string) => !wanted || wanted.has(id);
 
+    // Rebuilding the kick itself is the one case that must be free to choose a
+    // new pattern; everything else inherits the one the plan carries.
+    const rebuildingKick = config.only?.length === 1 && config.only[0] === 'kick';
+    const inheritKick = plan?.kickPattern && !rebuildingKick;
     const { drumTracks, kickPattern } = this.generateDrums(
-      rng, totalSteps, config.drumMode, best, ornament, arrangement);
+      rng, totalSteps, config.drumMode, best, ornament, arrangement,
+      inheritKick ? plan!.kickPattern : undefined,
+      rebuildingKick ? plan?.kickPattern : undefined);
     const tracks: Track[] = [];
 
-    if (build('lead')) tracks.push(this.renderLead(totalSteps, best, variation, scaleIntervals, arrangement));
-    if (build('pluck')) tracks.push(this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament, arrangement));
-    if (build('pad')) tracks.push(this.generateAtmosphere(totalSteps, chords, scaleIntervals, arrangement));
-    if (build('bass')) tracks.push(this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement));
+    if (build('lead')) tracks.push(this.renderLead(transpose, totalSteps, best, variation, scaleIntervals, arrangement));
+    if (build('pluck')) tracks.push(this.generateCounterMelody(rng, transpose, totalSteps, chords, best, scaleIntervals, ornament, arrangement));
+    if (build('pad')) tracks.push(this.generateAtmosphere(rng, transpose, totalSteps, chords, scaleIntervals, arrangement));
+    if (build('bass')) tracks.push(this.generateBass(rng, transpose, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement));
     for (const drum of drumTracks) if (build(drum.id)) tracks.push(drum);
 
     return {
@@ -321,6 +429,8 @@ export class EarwormGenerator {
         mode: config.mode,
         arrangement: arrangement.name,
         analysis: best.score,
+        key: config.key ?? 'C',
+        kickPattern: [...kickPattern],
       },
     };
   }
@@ -603,7 +713,7 @@ export class EarwormGenerator {
 
     // --- 2. fill the spaces with stepwise voice leading --------------------
     for (let a = 0; a < anchors.length - 1; a++) {
-      this.fillSpan(rng, degrees, skeleton, anchors[a], anchors[a + 1], ctx.voicing.maxFillMove);
+      this.fillSpan(rng, degrees, skeleton, anchors[a], anchors[a + 1], ctx.voicing.maxFillMove, ctx.scaleIntervals);
     }
 
     // --- 3. the one uncommon gradient (§2.1B / §7) -------------------------
@@ -691,6 +801,7 @@ export class EarwormGenerator {
     a: number,
     b: number,
     maxMove: number,
+    scaleIntervals: readonly number[],
   ): void {
     const gap = b - a;
     if (gap < 2) return;
@@ -722,6 +833,37 @@ export class EarwormGenerator {
       const i = a + k;
       const move = degrees[i] - degrees[i - 1];
       if (Math.abs(move) > maxMove) degrees[i] = degrees[i - 1] + Math.sign(move) * maxMove;
+    }
+
+    /**
+     * Route the passing notes around an augmented second.
+     *
+     * Hungarian minor and the double harmonic scale put three semitones
+     * between two adjacent degrees. Everything above this line counts moves in
+     * degrees, so a "step" there is a minor third — and the §3.3 stepwise
+     * measure, which counts semitones, read those scales at 75% and 80%
+     * against an 85% floor.
+     *
+     * That interval is the whole character of these scales, so it is not
+     * smoothed away: this only touches notes filled between anchors, and only
+     * when a neighbouring degree gets the move under three semitones. The
+     * anchors, the cadence and the twist still cross it, which is where the
+     * sound actually lives — running it up and down in passing motion is not
+     * how anyone plays these scales anyway.
+     */
+    const semitones = (d: number) => degreeToMidi(d, scaleIntervals);
+    for (let k = 1; k < gap; k++) {
+      const i = a + k;
+      const previous = degrees[i - 1];
+      if (Math.abs(degrees[i] - previous) > 1) continue; // an intended leap
+      if (Math.abs(semitones(degrees[i]) - semitones(previous)) <= 2) continue;
+      for (const alternative of [degrees[i] + 1, degrees[i] - 1]) {
+        if (Math.abs(alternative - previous) > maxMove) continue;
+        if (Math.abs(semitones(alternative) - semitones(previous)) <= 2) {
+          degrees[i] = alternative;
+          break;
+        }
+      }
     }
   }
 
@@ -926,6 +1068,7 @@ export class EarwormGenerator {
    * the A' variation from the second statement onward.
    */
   private renderLead(
+    transpose: number,
     totalSteps: number,
     hook: Candidate,
     variation: Candidate,
@@ -953,7 +1096,7 @@ export class EarwormGenerator {
         const nextStep = source.notes[i + 1]?.step ?? note.step + 4;
         notes.push({
           id: `lead-${bar}-${i}`,
-          note: midiToNoteName(degreeToMidi(note.degree, scaleIntervals, note.alteration)),
+          note: midiToNoteName(degreeToMidi(note.degree, scaleIntervals, note.alteration) + transpose),
           startStep: offset + (note.step % STEPS_PER_BAR),
           duration: Math.max(1, Math.min(4, nextStep - note.step)),
           velocity: layers.energy,
@@ -976,6 +1119,7 @@ export class EarwormGenerator {
    */
   private generateCounterMelody(
     rng: SeededRng,
+    transpose: number,
     totalSteps: number,
     chords: number[],
     hook: Candidate,
@@ -1012,7 +1156,7 @@ export class EarwormGenerator {
 
         notes.push({
           id: `pluck-${step}`,
-          note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
+          note: midiToNoteName(degreeToMidi(degree, scaleIntervals) + transpose),
           startStep: step,
           duration: 1,
           velocity: 0.5 * layers.energy,
@@ -1029,6 +1173,8 @@ export class EarwormGenerator {
    * below the lead so the two do not compete for the same octave.
    */
   private generateAtmosphere(
+    rng: SeededRng,
+    transpose: number,
     totalSteps: number,
     chords: number[],
     scaleIntervals: readonly number[],
@@ -1036,6 +1182,20 @@ export class EarwormGenerator {
   ): Track {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
+
+    // The pad took no random input at all, so it was the same three notes per
+    // chord in every song and rebuilding it was a no-op. These three choices
+    // are made once and held for the whole song — a pad that re-voices itself
+    // every bar is not a bed, it is a texture.
+    //
+    // Which chord tone sits at the bottom. All three stay inside the register
+    // below the lead, so no rotation can put the pad above the melody.
+    const rotation = rng.int(3);
+    // An open voicing drops the fifth and doubles the root an octave down,
+    // which is what a string patch does when it wants to leave room.
+    const open = rng.chance(0.3);
+    // Whether the chord is held for the bar or breathed in two halves.
+    const breathe = rng.chance(0.35);
 
     for (let bar = 0; bar < totalBars; bar++) {
       const section = arrangement.sectionAtBar(bar);
@@ -1050,16 +1210,25 @@ export class EarwormGenerator {
       // the pad above the melody and producing sustained minor seconds
       // against it. Keeping the voicing in one octave is also what a pad is
       // for: a steady bed the melody sits on top of.
-      const voicing = [chord, chord + 2, chord + 4].map((d) => PAD_REGISTER_BASE + mod(d, 7));
+      const tones = open ? [chord, chord + 2] : [chord, chord + 2, chord + 4];
+      const rotated = tones.map((_, i) => tones[(i + rotation) % tones.length]);
+      const voicing = rotated.map((d) => PAD_REGISTER_BASE + mod(d, 7));
+      if (open) voicing.push(PAD_REGISTER_BASE - 7 + mod(chord, 7));
       const velocity = 0.42 * layers.energy;
 
-      voicing.forEach((degree, v) => {
-        notes.push({
-          id: `pad-${bar}-${v}`,
-          note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
-          startStep: step,
-          duration: STEPS_PER_BAR,
-          velocity,
+      const spans: [number, number][] = breathe
+        ? [[step, STEPS_PER_BAR / 2], [step + STEPS_PER_BAR / 2, STEPS_PER_BAR / 2]]
+        : [[step, STEPS_PER_BAR]];
+
+      spans.forEach(([start, length], sp) => {
+        voicing.forEach((degree, v) => {
+          notes.push({
+            id: `pad-${bar}-${sp}-${v}`,
+            note: midiToNoteName(degreeToMidi(degree, scaleIntervals) + transpose),
+            startStep: start,
+            duration: length,
+            velocity,
+          });
         });
       });
     }
@@ -1068,6 +1237,7 @@ export class EarwormGenerator {
 
   private generateBass(
     rng: SeededRng,
+    transpose: number,
     totalSteps: number,
     chords: number[],
     kickPattern: number[],
@@ -1076,21 +1246,64 @@ export class EarwormGenerator {
     arrangement: ResolvedArrangement,
   ): Track {
     const notes: NoteEvent[] = [];
-    const driving = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
-    const acid = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1];
-    const sustained = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
-    // One bar-length pattern, decided once and repeated. The driving bass used
-    // to drop a fifth of its off-kick notes at random on every single step, so
-    // the bass line was different in every bar of the song and the pulse never
-    // settled.
-    const base = mode === 'acid' ? acid : mode === 'sustained' ? sustained : driving;
+    /**
+     * One bar-length pattern, decided once and repeated. The driving bass used
+     * to drop a fifth of its off-kick notes at random on every single step, so
+     * the bass line was different in every bar of the song and the pulse never
+     * settled.
+     *
+     * Each style now has a bank rather than one figure. With a single figure
+     * plus a dropout roll, rebuilding the bass produced four distinguishable
+     * lines in twenty attempts, which reads as a button that mostly does
+     * nothing. Every entry is still one bar repeated unchanged, so the
+     * periodicity the harness checks is unaffected.
+     */
+    const BASS_BANK: Record<string, number[][]> = {
+      driving: [
+        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+        [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+        [1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0],
+        [1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0],
+        [1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0],
+      ],
+      acid: [
+        [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1],
+        [1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0],
+        [1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1],
+        [1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+      ],
+      sustained: [
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+      ],
+      walking: [
+        [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+        [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0],
+        [1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0],
+      ],
+    };
+    const bank = BASS_BANK[mode] ?? BASS_BANK.driving;
+    const base = bank[rng.int(bank.length)];
     const rhythm = base.map((active, i) => {
       if (!active) return 0;
       if (mode !== 'driving') return 1;
       return kickPattern.includes(i) || !rng.chance(0.2) ? 1 : 0;
     });
+
+    // Where the line leaves the root, and for what. Held for the song, so the
+    // bass still states one figure rather than wandering.
+    const LIFTS: { at: number; by: number }[][] = [
+      [],
+      [{ at: 12, by: 4 }],                      // up a fifth in the second half
+      [{ at: 14, by: 7 }],                      // octave pickup into the bar
+      [{ at: 8, by: 4 }, { at: 14, by: 7 }],
+      [{ at: 10, by: 2 }],                      // up to the third
+      [{ at: 6, by: -3 }],                      // down to the fifth below
+    ];
+    const lifts = LIFTS[rng.int(LIFTS.length)];
 
     for (let bar = 0; bar < totalBars; bar++) {
       const section = arrangement.sectionAtBar(bar);
@@ -1105,10 +1318,11 @@ export class EarwormGenerator {
         let degree = chord;
         if ((mode === 'driving' || mode === 'acid') && inBar % 8 === 4) degree += 7;
         if (mode === 'walking' && inBar >= 12) degree = chord + 1;
+        for (const lift of lifts) if (inBar === lift.at) degree = chord + lift.by;
 
         notes.push({
           id: `bass-${step}`,
-          note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
+          note: midiToNoteName(degreeToMidi(degree, scaleIntervals) + transpose),
           startStep: step,
           duration: mode === 'sustained' ? STEPS_PER_BAR : 1,
           velocity: 0.9 * layers.energy,
@@ -1125,6 +1339,8 @@ export class EarwormGenerator {
     hook: Candidate,
     ornament: number,
     arrangement: ResolvedArrangement,
+    planKick?: number[],
+    excludeKick?: number[],
   ): { drumTracks: Track[]; kickSteps: SequencerStep[]; kickPattern: number[] } {
     // Build with a factory, not Array.fill: fill() shares one object across
     // every index, which is a live aliasing hazard the moment anything mutates.
@@ -1136,7 +1352,43 @@ export class EarwormGenerator {
     const hihatSteps = blank();
     const fxSteps = blank();
 
-    const kickPattern = mode === 'breakbeat' ? [0, 3, 8, 11] : mode === 'tribal' ? [0, 6, 8, 14] : [0, 4, 8, 12];
+    // A bank per style rather than one fixed figure. Every entry is a whole-bar
+    // pattern repeated unchanged for the song, so the groove-periodicity check
+    // still holds; what varies is which pattern this song uses. Before this,
+    // rebuilding the kick could only ever produce the pattern it already had.
+    const KICK_BANK: Record<string, number[][]> = {
+      'four-floor': [
+        [0, 4, 8, 12], [0, 4, 8, 12, 14], [0, 4, 8, 11, 12], [0, 4, 6, 8, 12],
+        [0, 4, 8, 12, 15], [0, 3, 4, 8, 12], [0, 4, 8, 10, 12],
+      ],
+      breakbeat: [
+        [0, 3, 8, 11], [0, 3, 8, 10], [0, 6, 8, 11], [0, 3, 7, 8, 11],
+        [0, 3, 8, 11, 14], [0, 2, 8, 11], [0, 3, 6, 8, 11],
+      ],
+      tribal: [
+        [0, 6, 8, 14], [0, 6, 8, 12], [0, 5, 8, 14], [0, 3, 6, 8, 14],
+        [0, 6, 10, 14], [0, 6, 8, 14, 15], [0, 4, 6, 8, 14],
+      ],
+    };
+    const wholeBank = KICK_BANK[mode] ?? KICK_BANK['four-floor'];
+    // When the kick itself is being rebuilt, the pattern it already has is
+    // dropped from the bank. Drawing freely meant one press in seven produced
+    // the pattern that was already playing, which reads as a button that
+    // sometimes does nothing — and a button that works six times in seven is
+    // reported as broken, correctly.
+    const avoid = excludeKick ? JSON.stringify(excludeKick) : null;
+    const kickBank = avoid
+      ? wholeBank.filter((p) => JSON.stringify(p) !== avoid)
+      : wholeBank;
+    const kickPattern = planKick
+      ?? (kickBank.length ? kickBank : wholeBank)[rng.int(Math.max(1, kickBank.length))];
+
+    // Ghost notes on the snare, chosen once and repeated, for the same reason.
+    const GHOSTS: number[][] = [[], [], [7], [14], [7, 14], [3], [10]];
+    const ghostSteps = GHOSTS[rng.int(GHOSTS.length)];
+    // Where the backbeat sits. The second entry is the half-time feel.
+    const BACKBEATS: number[][] = [[4, 12], [4, 12], [4, 12], [12], [4, 12, 15]];
+    const backbeat = BACKBEATS[rng.int(BACKBEATS.length)];
 
     // Decide the 16th-note hat fills once, then repeat them every bar. Rolling
     // the dice per step, as this used to, meant the pattern never repeated —
@@ -1158,8 +1410,10 @@ export class EarwormGenerator {
       }
 
       if (section.kind !== 'intro') {
-        if (inBar === 4 || inBar === 12) {
+        if (backbeat.includes(inBar)) {
           snareSteps[step] = { active: true, velocity: 0.9 * layers.energy };
+        } else if (ghostSteps.includes(inBar)) {
+          snareSteps[step] = { active: true, velocity: 0.28 * layers.energy };
         }
         if (inBar % 2 === 0) {
           hihatSteps[step] = {
@@ -1184,10 +1438,32 @@ export class EarwormGenerator {
     const twistStep = hook.notes.find(
       (n) => Math.floor(n.step / STEPS_PER_BAR) === hook.rhythm.twistBar,
     )?.step ?? 0;
+    // Every phrase carried the gesture, always in the same place, which made
+    // the FX lane the one track a rebuild could never alter. It still lands on
+    // the twist — that is the point of it — but how often, and whether a
+    // section boundary gets its own hit, now varies.
+    const fxEvery = [1, 2, 4][rng.int(3)];
+    const fxOnTails = rng.chance(0.6);
+    const tailAt = [8, 12, 14][rng.int(3)];
+    const echoHit = rng.chance(0.4) ? [4, 6, 8][rng.int(3)] : 0;
+    let phrase = 0;
     for (let bar = 0; bar < Math.floor(totalSteps / STEPS_PER_BAR); bar += BARS_PER_PHRASE) {
-      if (arrangement.sectionAtBar(bar).kind === 'intro') continue;
-      const step = bar * STEPS_PER_BAR + twistStep;
-      if (step < totalSteps) fxSteps[step] = { active: true, velocity: 0.8 };
+      const section = arrangement.sectionAtBar(bar);
+      if (section.kind === 'intro') continue;
+      if (phrase++ % fxEvery === 0) {
+        const step = bar * STEPS_PER_BAR + twistStep;
+        if (step < totalSteps) fxSteps[step] = { active: true, velocity: 0.8 };
+        if (echoHit && step + echoHit < totalSteps) {
+          fxSteps[step + echoHit] = { active: true, velocity: 0.45 };
+        }
+      }
+    }
+    if (fxOnTails) {
+      for (let bar = 0; bar < Math.floor(totalSteps / STEPS_PER_BAR); bar++) {
+        if (!isSectionTail(arrangement.sectionAtBar(bar))) continue;
+        const step = bar * STEPS_PER_BAR + tailAt;
+        if (step < totalSteps) fxSteps[step] = { active: true, velocity: 0.6 };
+      }
     }
 
     const drumTracks: Track[] = [

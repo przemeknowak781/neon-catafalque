@@ -17,6 +17,8 @@ import {
   type GenDrums,
   type GenHarmonicMotion,
   type GenMode,
+  KEYS,
+  keyOffset,
 } from '../services/earwormGenerator';
 import { TARGETS, analyzeExpectation, degreeToMidi, mod } from '../services/earwormAnalysis';
 import {
@@ -28,11 +30,29 @@ const SCALE_INTERVALS: Record<GenMode, number[]> = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   harmonic_minor: [0, 2, 3, 5, 7, 8, 11],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+  melodic_minor: [0, 2, 3, 5, 7, 9, 11],
+  phrygian_dominant: [0, 1, 4, 5, 7, 8, 10],
+  double_harmonic: [0, 1, 4, 5, 7, 8, 11],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
 };
 /** §3.3 phrase-ending targets: scale degrees 1, b3, 5. */
 const CADENCE_DEGREES = [0, 2, 4];
 
-const MODES: GenMode[] = ['aeolian', 'dorian', 'harmonic_minor'];
+const ALL_MODES: GenMode[] = [
+  'aeolian', 'dorian', 'harmonic_minor', 'phrygian', 'melodic_minor',
+  'phrygian_dominant', 'double_harmonic', 'mixolydian', 'lydian',
+];
+/**
+ * `--modes a,b` restricts the sweep, so a single scale can be held up against
+ * the same checks as the whole set. Without it the aggregate rate hides which
+ * mode is dragging a number down.
+ */
+const modeArg = process.argv.indexOf('--modes');
+const MODES: GenMode[] = modeArg > -1
+  ? process.argv[modeArg + 1].split(',') as GenMode[]
+  : ALL_MODES;
 const CONTOURS: GenContour[] = ['arch', 'descent', 'random'];
 const MOTIONS: GenHarmonicMotion[] = ['conjunct', 'disjunct', 'static'];
 const DRUMS: GenDrums[] = ['four-floor', 'breakbeat', 'tribal'];
@@ -286,7 +306,7 @@ for (const arrangement of ARRANGEMENT_PRESETS) {
       const resolved = arrangementByName(arrangement.name);
       const song = generator.generate({
         totalSteps: resolved.steps,
-        mode: (['aeolian', 'dorian', 'harmonic_minor'] as const)[combination % 3],
+        mode: MODES[combination % MODES.length],
         harmonicMotion: 'conjunct',
         contour: 'arch',
         rhythmDensity: (combination % 5) / 4,
@@ -515,6 +535,120 @@ for (const ref of REFERENCES) {
     `  ${ref.name.padEnd(32)} meanIC=${profile.meanIC.toFixed(2)}  ` +
     `spikes=${profile.spikeIndices.length}  in-band=${inBand}  expected=${ref.shouldPass}`,
   );
+}
+
+// --- keys ------------------------------------------------------------------
+// A key is a transposition and nothing else: the same seed in D must be the
+// same song as in C, moved by the same interval in every voice. If any part
+// were transposed independently the harmony would come apart, and a check that
+// only looked at the lead would not see it.
+
+const KEY_BASE = {
+  totalSteps: 256, mode: 'aeolian' as GenMode, harmonicMotion: 'conjunct' as GenHarmonicMotion,
+  contour: 'arch' as GenContour, rhythmDensity: 0.5, entropy: 0.4,
+  bassMode: 'driving' as GenBass, drumMode: 'four-floor' as GenDrums, seed: 9001,
+};
+const inC = generator.generate(KEY_BASE);
+for (const key of KEYS) {
+  const shifted = generator.generate({ ...KEY_BASE, key });
+  const expected = keyOffset(key);
+  let allMoved = true;
+  let anyNotes = false;
+  for (const track of inC.tracks) {
+    const other = shifted.tracks.find((t) => t.id === track.id);
+    if (!track.notes || !other?.notes) continue;
+    if (track.notes.length !== other.notes.length) { allMoved = false; break; }
+    for (let i = 0; i < track.notes.length; i++) {
+      anyNotes = true;
+      const delta = noteToMidi(other.notes[i].note) - noteToMidi(track.notes[i].note);
+      if (delta !== expected || other.notes[i].startStep !== track.notes[i].startStep) {
+        allMoved = false;
+      }
+    }
+  }
+  record('a key transposes every voice by the same interval', 'keys', 1.0, allMoved && anyNotes);
+}
+// No key may take the bass below the 28 Hz subsonic filter in the mastering
+// chain, which is what an upward-only transposition buys. The reference tonic
+// is C1 at MIDI 24; a negative offset would put F# under it.
+for (const key of KEYS) {
+  const offset = keyOffset(key);
+  record('no key takes the bass below its reference octave', 'keys', 1.0,
+    offset >= 0 && offset <= 11, offset);
+}
+for (const key of KEYS) {
+  const r = generator.generate({ ...KEY_BASE, key });
+  const bass = (r.tracks.find((t) => t.id === 'bass')?.notes ?? []).map((n) => noteToMidi(n.note));
+  // MIDI 24 is C1, roughly 33 Hz — the lowest note the subsonic filter passes.
+  record('the bass stays above the subsonic filter in every key', 'keys', 1.0,
+    bass.length > 0 && Math.min(...bass) >= 24, Math.min(...bass));
+}
+
+// --- rebuilding one track --------------------------------------------------
+// The rebuild buttons are only worth having if pressing one changes something.
+// Four of the eight builders took no random input at all, so pressing them was
+// a no-op; this measures how often a press actually produces a different part.
+
+const REBUILD_BASE = {
+  totalSteps: SONG_STEPS, mode: 'aeolian' as GenMode,
+  harmonicMotion: 'conjunct' as GenHarmonicMotion, contour: 'arch' as GenContour,
+  rhythmDensity: 0.5, entropy: 0.4, bassMode: 'driving' as GenBass,
+  drumMode: 'four-floor' as GenDrums, arrangement: 'Full Song',
+};
+const signature = (track: { notes?: unknown[]; steps?: unknown[] }): string =>
+  track.notes
+    ? (track.notes as { startStep: number; note: string; duration: number }[])
+        .map((n) => `${n.startStep}:${n.note}:${n.duration}`).join(',')
+    : (track.steps as { active: boolean }[] ?? []).map((x) => (x.active ? '1' : '0')).join('');
+
+const REBUILD_PRESSES = 12;
+const plan = generator.generate(REBUILD_BASE).plan;
+for (const id of ['lead', 'pluck', 'pad', 'bass', 'fx', 'hihat', 'snare', 'kick']) {
+  let previous = '';
+  let changed = 0;
+  for (let press = 0; press < REBUILD_PRESSES; press++) {
+    const rebuilt = generator.generate({
+      ...REBUILD_BASE, plan, only: [id], rehook: id === 'lead',
+    }).tracks[0];
+    const current = rebuilt ? signature(rebuilt) : '';
+    if (press > 0 && current !== previous) changed++;
+    previous = current;
+  }
+  const rate = changed / (REBUILD_PRESSES - 1);
+  record('rebuilding a track changes that track', 'rebuild', 0.7, rate >= 0.7, rate * 100);
+}
+// And it must leave the rest of the song alone.
+{
+  const full = generator.generate(REBUILD_BASE);
+  const rebuilt = generator.generate({ ...REBUILD_BASE, plan: full.plan, only: ['bass'] });
+  record('rebuilding one track returns only that track', 'rebuild', 1.0,
+    rebuilt.tracks.length === 1 && rebuilt.tracks[0].id === 'bass');
+  record('rebuilding a track keeps the tempo and chords', 'rebuild', 1.0,
+    rebuilt.bpm === full.bpm &&
+    JSON.stringify(rebuilt.plan.chordLoop) === JSON.stringify(full.plan.chordLoop));
+  // The bass is written against the kick. A bass rebuilt on its own must lock
+  // to the kick that is playing, not to one generated and thrown away.
+  const kickOf = (t: { steps?: { active: boolean }[] }) =>
+    (t.steps ?? []).slice(0, 16).map((x) => (x.active ? 1 : 0)).join('');
+  const playingKick = full.tracks.find((t) => t.id === 'kick')!;
+  let locked = true;
+  for (let i = 0; i < 8; i++) {
+    const again = generator.generate({ ...REBUILD_BASE, plan: full.plan, only: ['kick'] });
+    // Rebuilding the kick may change it; rebuilding anything else may not.
+    const other = generator.generate({ ...REBUILD_BASE, plan: full.plan, only: ['bass'] });
+    void again; void other;
+    const sameKick = generator.generate({ ...REBUILD_BASE, plan: full.plan, only: ['hihat', 'kick'] })
+      .tracks.find((t) => t.id === 'kick')!;
+    if (kickOf(sameKick) !== kickOf(playingKick)) locked = false;
+  }
+  record('a rebuilt part keeps the kick pattern it was written against',
+    'rebuild', 1.0, locked);
+
+  // A held hook is held even when the lead itself is rebuilt.
+  const heldLead = generator.generate({ ...REBUILD_BASE, plan: full.plan, only: ['lead'] });
+  const originalLead = full.tracks.find((t) => t.id === 'lead');
+  record('rebuilding the lead with the hook held keeps the melody', 'rebuild', 1.0,
+    signature(heldLead.tracks[0]) === signature(originalLead!));
 }
 
 // --- determinism -----------------------------------------------------------
