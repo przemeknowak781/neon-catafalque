@@ -39,6 +39,24 @@ export class AudioEngine {
   delayBus: GainNode;
   reverbPreDelay: DelayNode;
   delayDamp: BiquadFilterNode;
+  /** Second echo tap, so the repeats can bounce between the channels. */
+  delayNodeR: DelayNode;
+  delayDampR: BiquadFilterNode;
+  feedbackNodeR: GainNode;
+  delayPanL: StereoPannerNode;
+  delayPanR: StereoPannerNode;
+  /** §4 "modulation (chorus/flanger) as mood glue", and the phaser the
+   *  Polymoog lead was recorded through. */
+  phaserBus: GainNode;
+  flangerBus: GainNode;
+  private phaserStages: BiquadFilterNode[] = [];
+  private phaserLfoDepth: GainNode | null = null;
+  private phaserLfo: OscillatorNode | null = null;
+  private flangerDelay: DelayNode | null = null;
+  private flangerLfo: OscillatorNode | null = null;
+  private flangerFeedback: GainNode | null = null;
+  private reverbSize = 2.4;
+  private reverbDamp = 0.25;
   /** Mastering chain. */
   subsonic: BiquadFilterNode;
   glue: DynamicsCompressorNode;
@@ -67,7 +85,7 @@ export class AudioEngine {
     this.masterGain = this.ctx.createGain();
     // Trimmed after the filter went to 24 dB/octave: resonance on the first
     // stage adds roughly 2.5 dB at the peak.
-    this.masterGain.gain.value = 0.5;
+    this.masterGain.gain.value = 0.45;
 
     // A DynamicsCompressor lets transients through — the previous chain
     // measured +3.2 dBFS with 3.3% of samples pinned at full scale. This
@@ -140,6 +158,10 @@ export class AudioEngine {
     this.chorusBus = this.ctx.createGain();
     this.reverbBus = this.ctx.createGain();
     this.delayBus = this.ctx.createGain();
+    this.phaserBus = this.ctx.createGain();
+    this.flangerBus = this.ctx.createGain();
+    this.phaserBus.gain.value = 0;
+    this.flangerBus.gain.value = 0;
 
     // §4 "reverb pre-delay": the dry transient has to be heard before the
     // tail arrives, or the source sits inside the reverb instead of in front
@@ -153,20 +175,42 @@ export class AudioEngine {
     this.reverbNode.connect(this.reverbGain);
     this.reverbGain.connect(this.limiter);
 
+    // Two taps with crossed feedback: with ping-pong on, a repeat leaves one
+    // side and returns on the other. Damped, so an echo decays into the dark
+    // rather than hissing at the top.
     this.delayNode = this.ctx.createDelay(2.0);
+    this.delayNodeR = this.ctx.createDelay(2.0);
     this.feedbackNode = this.ctx.createGain();
-    // Damp the repeats so an echo decays into the dark instead of hissing.
+    this.feedbackNodeR = this.ctx.createGain();
     this.delayDamp = this.ctx.createBiquadFilter();
+    this.delayDampR = this.ctx.createBiquadFilter();
     this.delayDamp.type = 'lowpass';
+    this.delayDampR.type = 'lowpass';
     this.delayDamp.frequency.value = 2600;
+    this.delayDampR.frequency.value = 2600;
+    this.delayPanL = this.ctx.createStereoPanner();
+    this.delayPanR = this.ctx.createStereoPanner();
+    this.delayPanL.pan.value = 0;
+    this.delayPanR.pan.value = 0;
+
     this.delayBus.connect(this.delayNode);
     this.delayNode.connect(this.delayDamp);
     this.delayDamp.connect(this.feedbackNode);
-    this.feedbackNode.connect(this.delayNode);
-    this.delayNode.connect(this.dryGain);
-    this.delayNode.connect(this.reverbBus);
+    this.delayNodeR.connect(this.delayDampR);
+    this.delayDampR.connect(this.feedbackNodeR);
+    // Crossed: left feeds right and right feeds left.
+    this.feedbackNode.connect(this.delayNodeR);
+    this.feedbackNodeR.connect(this.delayNode);
+
+    this.delayNode.connect(this.delayPanL);
+    this.delayNodeR.connect(this.delayPanR);
+    this.delayPanL.connect(this.dryGain);
+    this.delayPanR.connect(this.dryGain);
+    this.delayPanL.connect(this.reverbBus);
 
     this.buildStereoChorus();
+    this.buildPhaser();
+    this.buildFlanger();
     this.noiseBuffer = this.createNoiseBuffer(2.0);
     this.generateImpulseResponse();
   }
@@ -211,6 +255,81 @@ export class AudioEngine {
     outL.connect(merger, 0, 0);
     outR.connect(merger, 0, 1);
     return merger;
+  }
+
+  /**
+   * Phaser: four allpass stages swept by an LFO, summed with the dry signal so
+   * the cancellation notches move through the spectrum.
+   *
+   * "Cars" was recorded through one — widely reported as an MXR Phase 90 —
+   * alongside plate reverb, and it is a large part of why that lead sounds the
+   * way it does rather than like a plain string patch.
+   */
+  private buildPhaser() {
+    const lfo = this.ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.4;
+    const depth = this.ctx.createGain();
+    depth.gain.value = 700;
+    lfo.connect(depth);
+
+    let node: AudioNode = this.phaserBus;
+    for (let stage = 0; stage < 4; stage++) {
+      const allpass = this.ctx.createBiquadFilter();
+      allpass.type = 'allpass';
+      allpass.frequency.value = 300 + stage * 320;
+      allpass.Q.value = 0.7;
+      depth.connect(allpass.frequency);
+      node.connect(allpass);
+      node = allpass;
+      this.phaserStages.push(allpass);
+    }
+
+    const feedback = this.ctx.createGain();
+    feedback.gain.value = 0.32;
+    node.connect(feedback);
+    feedback.connect(this.phaserStages[0]);
+
+    node.connect(this.dryGain);
+    lfo.start(0);
+    this.phaserLfo = lfo;
+    this.phaserLfoDepth = depth;
+  }
+
+  /**
+   * Flanger: a very short modulated delay fed back on itself. §4 names it
+   * alongside the chorus as the modulation that glues the mood together.
+   * The difference from the chorus is the delay length — single-digit
+   * milliseconds, so the comb notches are audible as a sweep.
+   */
+  private buildFlanger() {
+    const delay = this.ctx.createDelay(0.05);
+    delay.delayTime.value = 0.004;
+
+    const lfo = this.ctx.createOscillator();
+    lfo.type = 'triangle';
+    lfo.frequency.value = 0.25;
+    const depth = this.ctx.createGain();
+    depth.gain.value = 0.0025;
+    lfo.connect(depth);
+    depth.connect(delay.delayTime);
+
+    const feedback = this.ctx.createGain();
+    feedback.gain.value = 0.55;
+    delay.connect(feedback);
+    feedback.connect(delay);
+
+    const spread = this.ctx.createStereoPanner();
+    spread.pan.value = 0.35;
+
+    this.flangerBus.connect(delay);
+    delay.connect(spread);
+    spread.connect(this.dryGain);
+
+    lfo.start(0);
+    this.flangerDelay = delay;
+    this.flangerLfo = lfo;
+    this.flangerFeedback = feedback;
   }
 
   /**
@@ -272,12 +391,62 @@ export class AudioEngine {
     this.masterGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.05);
   }
 
+  /** Beats per second, so the echo can be locked to the transport. */
+  private beatSeconds = 60 / 120;
+
+  setTempo(bpm: number) {
+    this.beatSeconds = 60 / Math.max(20, bpm);
+  }
+
   updateGlobalFX(params: GlobalFXParams) {
     const now = this.ctx.currentTime;
-    this.delayNode.delayTime.setTargetAtTime(Math.max(0.001, params.delayTime), now, 0.1);
-    // Feedback at or above 1.0 is a runaway loop; keep it strictly below.
-    this.feedbackNode.gain.setTargetAtTime(Math.min(params.delayFeedback, 0.85), now, 0.1);
+
+    // An echo that ignores the tempo fights the groove. A division locks it;
+    // delayTime remains the manual setting when no division is chosen.
+    const time = params.delayDivision
+      ? Math.max(0.001, this.beatSeconds * params.delayDivision)
+      : Math.max(0.001, params.delayTime);
+    this.delayNode.delayTime.setTargetAtTime(time, now, 0.1);
+    this.delayNodeR.delayTime.setTargetAtTime(time, now, 0.1);
+
+    // Feedback at or above 1.0 is a runaway loop; keep it strictly below. With
+    // crossed taps the loop passes through both, so each carries the square
+    // root of the intended regeneration.
+    const feedback = Math.min(params.delayFeedback, 0.85);
+    const perTap = Math.sqrt(feedback);
+    this.feedbackNode.gain.setTargetAtTime(perTap, now, 0.1);
+    this.feedbackNodeR.gain.setTargetAtTime(perTap, now, 0.1);
+
+    const pingPong = params.delayPingPong ?? true;
+    this.delayPanL.pan.setTargetAtTime(pingPong ? -0.8 : 0, now, 0.1);
+    this.delayPanR.pan.setTargetAtTime(pingPong ? 0.8 : 0, now, 0.1);
+
     this.reverbGain.gain.setTargetAtTime(params.reverbMix, now, 0.1);
+
+    // Regenerating the impulse is expensive, so only when it actually changed.
+    const size = params.reverbSize ?? 2.4;
+    const damp = params.reverbDamp ?? 0.25;
+    if (Math.abs(size - this.reverbSize) > 0.05 || Math.abs(damp - this.reverbDamp) > 0.02) {
+      this.reverbSize = size;
+      this.reverbDamp = damp;
+      this.generateImpulseResponse();
+    }
+
+    this.phaserBus.gain.setTargetAtTime(params.phaserMix ?? 0, now, 0.1);
+    if (this.phaserLfo) {
+      this.phaserLfo.frequency.setTargetAtTime(
+        Math.max(0.02, Math.min(8, params.phaserRate ?? 0.4)), now, 0.1);
+    }
+
+    this.flangerBus.gain.setTargetAtTime(params.flangerMix ?? 0, now, 0.1);
+    if (this.flangerLfo) {
+      this.flangerLfo.frequency.setTargetAtTime(
+        Math.max(0.02, Math.min(6, params.flangerRate ?? 0.25)), now, 0.1);
+    }
+    if (this.flangerFeedback) {
+      this.flangerFeedback.gain.setTargetAtTime(
+        Math.min(0.9, params.flangerFeedback ?? 0.55), now, 0.1);
+    }
 
     // Mastering.
     this.widthSide.gain.setTargetAtTime(params.width ?? 1, now, 0.1);
@@ -585,6 +754,12 @@ export class AudioEngine {
     if (delaySend > 0) this.send(vca, this.delayBus, delaySend);
 
     if (params.chorusMix > 0) this.send(vca, this.chorusBus, params.chorusMix);
+    // Everything melodic feeds the modulation buses; their own send level is
+    // what decides whether they are heard.
+    if (type !== 'bass') {
+      this.send(vca, this.phaserBus, 0.7);
+      this.send(vca, this.flangerBus, 0.7);
+    }
 
     const finalStop = Math.max(envelopeEnd + 0.05, stopTime);
     const stop = (at: number) => {
@@ -765,7 +940,7 @@ export class AudioEngine {
    * This one is shorter, low-passed as it decays, and normalised to unit peak.
    */
   generateImpulseResponse() {
-    const duration = 2.4;
+    const duration = Math.max(0.4, this.reverbSize);
     const decay = 2.6;
     const sampleRate = this.ctx.sampleRate;
     const length = Math.floor(sampleRate * duration);
@@ -779,7 +954,9 @@ export class AudioEngine {
         const n = i / length;
         const noise = (Math.random() * 2 - 1) * Math.pow(1 - n, decay);
         // Darken the tail: a bright reverb on every voice reads as noise.
-        lp += (c === 0 ? 0.24 : 0.27) * (noise - lp);
+        // Damping: a lower coefficient loses the top of the tail faster.
+        const coefficient = (1 - this.reverbDamp) * (c === 0 ? 0.34 : 0.38);
+        lp += Math.max(0.02, coefficient) * (noise - lp);
         data[i] = lp;
         peak = Math.max(peak, Math.abs(lp));
       }

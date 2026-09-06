@@ -187,6 +187,18 @@ export const DEFAULT_GLOBAL_FX: GlobalFXParams = {
   airShelf: 3.0,
   glue: 0.4,
   masterDrive: 0.22,
+  // Effects. The phaser is on gently by default because it is the treatment
+  // documented on the record the lead patch reconstructs; the flanger sits
+  // just under it, per §4's "chorus/flanger as mood glue".
+  phaserMix: 0.18,
+  phaserRate: 0.35,
+  flangerMix: 0.1,
+  flangerRate: 0.22,
+  flangerFeedback: 0.5,
+  delayDivision: 0.75,
+  delayPingPong: true,
+  reverbSize: 2.4,
+  reverbDamp: 0.25,
 };
 
 /**

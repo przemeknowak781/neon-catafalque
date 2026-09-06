@@ -11,6 +11,10 @@ import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
 import { ARRANGEMENT_PRESETS, arrangementByName } from './services/arrangement';
 import { HARMONY_PRESETS, VOICE_LEADING_PRESETS } from './services/harmonyPresets';
+import { renderOffline } from './services/offlineRender';
+import {
+  buildPresetFile, downloadBlob, encodeWav, exportMidi, parsePresetFile,
+} from './services/songExport';
 import {
   MissingApiKeyError,
   clearApiKey,
@@ -54,6 +58,9 @@ const App: React.FC = () => {
   const [genDensity, setGenDensity] = useState<number>(0.7);
   const [genEntropy, setGenEntropy] = useState<number>(0.4);
   const [genArrangement, setGenArrangement] = useState<string>(ARRANGEMENT_PRESETS[0].name);
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [isRenderingWav, setIsRenderingWav] = useState(false);
+  const presetFileInput = useRef<HTMLInputElement>(null);
   const [genHarmony, setGenHarmony] = useState<string>(HARMONY_PRESETS[0].name);
   const [genVoiceLeading, setGenVoiceLeading] = useState<string>(VOICE_LEADING_PRESETS[0].name);
   const [genAnalysis, setGenAnalysis] = useState<ScoreBreakdown | null>(null);
@@ -105,6 +112,12 @@ const App: React.FC = () => {
     fxRef.current = globalFX;
     audioEngine.updateGlobalFX(globalFX);
   }, [globalFX]);
+  // The echo divisions are relative to the transport, so the engine needs to
+  // know the tempo before they mean anything.
+  useEffect(() => {
+    audioEngine.setTempo(bpm);
+    audioEngine.updateGlobalFX(fxRef.current);
+  }, [bpm]);
   useEffect(() => { bpmRef.current = bpm; }, [bpm]);
   useEffect(() => { totalStepsRef.current = totalSteps; }, [totalSteps]);
   useEffect(() => { audioEngine.setMasterVolume(masterVolume); }, [masterVolume]);
@@ -372,25 +385,96 @@ const App: React.FC = () => {
     }
   };
 
+  const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+
   const handleDownloadParams = () => {
-    const data = {
-      timestamp: new Date().toISOString(),
+    const preset = buildPresetFile({
       theme: currentTheme,
-      bpm: bpm,
+      bpm,
+      masterVolume,
       instrumentParams: allInstrumentParams,
-      globalFX: globalFX,
-      masterVolume: masterVolume
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `neon-catafalque-params-${new Date().getTime()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      globalFX,
+      generator: {
+        mode: genMode, harmonicMotion: genHarmonicMotion, contour: genContour,
+        bassMode: genBass, drumMode: genDrums, rhythmDensity: genDensity,
+        entropy: genEntropy, arrangement: genArrangement,
+        harmony: genHarmony, voiceLeading: genVoiceLeading,
+      },
+    });
+    downloadBlob(
+      new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }),
+      `neon-catafalque-${stamp()}.json`,
+    );
+    setExportStatus('Preset saved');
+  };
+
+  /** Load a preset file, applying only the parts it actually contains. */
+  const handleImportPreset = async (file: File) => {
+    const { preset, error } = parsePresetFile(await file.text());
+    if (!preset) {
+      setExportStatus(error ?? 'Could not read that file');
+      return;
+    }
+
+    setAllInstrumentParams((prev) => ({ ...prev, ...preset.instrumentParams }));
+    setGlobalFX((prev) => ({ ...prev, ...preset.globalFX }));
+    if (preset.bpm) setBpm(preset.bpm);
+    if (typeof preset.masterVolume === 'number') setMasterVolume(preset.masterVolume);
+    if (preset.theme) setCurrentTheme(preset.theme);
+
+    const gen = preset.generator as Record<string, string | number> | undefined;
+    if (gen) {
+      if (gen.mode) setGenMode(gen.mode as GenMode);
+      if (gen.harmonicMotion) setGenHarmonicMotion(gen.harmonicMotion as GenHarmonicMotion);
+      if (gen.contour) setGenContour(gen.contour as GenContour);
+      if (gen.bassMode) setGenBass(gen.bassMode as GenBass);
+      if (gen.drumMode) setGenDrums(gen.drumMode as GenDrums);
+      if (typeof gen.rhythmDensity === 'number') setGenDensity(gen.rhythmDensity);
+      if (typeof gen.entropy === 'number') setGenEntropy(gen.entropy);
+      if (gen.arrangement) setGenArrangement(gen.arrangement as string);
+      if (gen.harmony) setGenHarmony(gen.harmony as string);
+      if (gen.voiceLeading) setGenVoiceLeading(gen.voiceLeading as string);
+    }
+    setExportStatus(`Loaded ${file.name}`);
+  };
+
+  const handleExportMidi = () => {
+    const hasNotes = tracks.some((t) => t.notes?.length || t.steps?.some((s) => s.active));
+    if (!hasNotes) {
+      setExportStatus('Nothing to export — generate a song first');
+      return;
+    }
+    downloadBlob(exportMidi(tracks, bpm, totalSteps), `neon-catafalque-${stamp()}.mid`);
+    setExportStatus('MIDI saved');
+  };
+
+  const handleExportWav = async () => {
+    if (isRenderingWav) return;
+    const hasNotes = tracks.some((t) => t.notes?.length || t.steps?.some((s) => s.active));
+    if (!hasNotes) {
+      setExportStatus('Nothing to export — generate a song first');
+      return;
+    }
+    setIsRenderingWav(true);
+    setExportStatus('Rendering…');
+    try {
+      const { channels, sampleRate } = await renderOffline({
+        tracks,
+        params: allInstrumentParams,
+        globalFX,
+        bpm,
+        totalSteps,
+        masterVolume,
+        onProgress: (f) => setExportStatus(`Rendering ${Math.round(f * 100)}%`),
+      });
+      downloadBlob(encodeWav(channels, sampleRate), `neon-catafalque-${stamp()}.wav`);
+      setExportStatus('WAV saved');
+    } catch (e) {
+      console.error('WAV render failed', e);
+      setExportStatus('Render failed — see the console');
+    } finally {
+      setIsRenderingWav(false);
+    }
   };
 
   const handlePreviewNote = (trackId: string, noteOrType: string) => {
@@ -408,6 +492,10 @@ const App: React.FC = () => {
       ...prev,
       [selectedTrackId]: { ...prev[selectedTrackId], [key]: val }
     }));
+  }
+
+  function updateGlobalFXFlag(key: keyof GlobalFXParams, val: boolean) {
+    setGlobalFX(prev => ({ ...prev, [key]: val }));
   }
 
   function updateGlobalFX(key: keyof GlobalFXParams, val: number) {
@@ -706,14 +794,44 @@ const App: React.FC = () => {
             )}
           </div>
           <div className="min-h-0 flex-1" />
-          <button 
-            onClick={handleDownloadParams}
-            className="group relative h-8 w-full shrink-0 overflow-hidden rounded border border-zinc-800 bg-zinc-900/40 transition-all hover:bg-zinc-800"
-          >
-            <span className="relative z-10 font-mono text-[9px] font-bold tracking-widest text-zinc-500 group-hover:text-white uppercase flex items-center justify-center gap-2">
-                ⤓ Export
-            </span>
-          </button>
+          <div className="shrink-0 space-y-1">
+            <div className="grid grid-cols-2 gap-1">
+              <button onClick={handleDownloadParams} title="Save every instrument, effect and generator setting as JSON"
+                className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
+                ⤓ Preset
+              </button>
+              <button onClick={() => presetFileInput.current?.click()} title="Load a preset file"
+                className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
+                ⤒ Import
+              </button>
+              <button onClick={handleExportMidi} title="Export the arrangement as a type 1 MIDI file, drums on channel 10"
+                className="h-6 rounded border border-zinc-800 bg-zinc-900/40 font-mono text-[8px] uppercase tracking-widest text-zinc-500 transition-all hover:bg-zinc-800 hover:text-white">
+                ⤓ MIDI
+              </button>
+              <button onClick={handleExportWav} disabled={isRenderingWav}
+                title="Render the song offline and save it as a 16-bit stereo WAV"
+                className={`h-6 rounded border font-mono text-[8px] uppercase tracking-widest transition-all ${
+                  isRenderingWav
+                    ? 'animate-pulse border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan'
+                    : 'border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:bg-zinc-800 hover:text-white'}`}>
+                ⤓ WAV
+              </button>
+            </div>
+            {exportStatus && (
+              <div className="truncate font-mono text-[7px] text-zinc-600" title={exportStatus}>{exportStatus}</div>
+            )}
+            <input
+              ref={presetFileInput}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImportPreset(file);
+                e.target.value = '';
+              }}
+            />
+          </div>
         </aside>
 
         {/* CENTRE — every track at once */}
@@ -829,11 +947,49 @@ const App: React.FC = () => {
           ) : (
             <div className="space-y-3 pb-4">
                <section className="space-y-2 border-b border-zinc-800 pb-3">
-                <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">Send FX</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">Echo</h2>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={String(globalFX.delayDivision ?? 0)}
+                      onChange={(e) => updateGlobalFX('delayDivision', Number(e.target.value))}
+                      title="Lock the echo to the transport"
+                      className="rounded border border-zinc-800 bg-zinc-900 px-1 py-0.5 font-mono text-[7px] text-zinc-400 focus:outline-none"
+                    >
+                      <option value="0">free</option>
+                      <option value="0.25">1/16</option>
+                      <option value="0.5">1/8</option>
+                      <option value="0.75">1/8 dot</option>
+                      <option value="1">1/4</option>
+                      <option value="1.5">1/4 dot</option>
+                    </select>
+                    <button
+                      onClick={() => updateGlobalFXFlag('delayPingPong', !(globalFX.delayPingPong ?? true))}
+                      title="Bounce the repeats between the channels"
+                      className={`rounded border px-1 py-0.5 font-mono text-[7px] uppercase transition-colors ${
+                        (globalFX.delayPingPong ?? true)
+                          ? 'border-neon-cyan/50 bg-neon-cyan/10 text-neon-cyan'
+                          : 'border-zinc-800 bg-zinc-900 text-zinc-600'}`}
+                    >
+                      L/R
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
                   <Knob label="Dly T" value={globalFX.delayTime} min={0} max={1} onChange={(v) => updateGlobalFX('delayTime', v)} color="text-white" size="sm" />
                   <Knob label="Dly F" value={globalFX.delayFeedback} min={0} max={0.85} onChange={(v) => updateGlobalFX('delayFeedback', v)} color="text-white" size="sm" />
                   <Knob label="Reverb" value={globalFX.reverbMix} min={0} max={1} onChange={(v) => updateGlobalFX('reverbMix', v)} color="text-white" size="sm" />
+                  <Knob label="Size" value={globalFX.reverbSize ?? 2.4} min={0.6} max={5} step={0.1} onChange={(v) => updateGlobalFX('reverbSize', v)} color="text-white" size="sm" />
+                  <Knob label="Damp" value={globalFX.reverbDamp ?? 0.25} min={0} max={1} onChange={(v) => updateGlobalFX('reverbDamp', v)} color="text-white" size="sm" />
+                </div>
+
+                <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Modulation</h2>
+                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                  <Knob label="Phase" value={globalFX.phaserMix ?? 0} min={0} max={1} onChange={(v) => updateGlobalFX('phaserMix', v)} color="text-neon-purple" size="sm" />
+                  <Knob label="Ph Rt" value={globalFX.phaserRate ?? 0.35} min={0.02} max={4} step={0.01} onChange={(v) => updateGlobalFX('phaserRate', v)} color="text-neon-purple" size="sm" />
+                  <Knob label="Flang" value={globalFX.flangerMix ?? 0} min={0} max={1} onChange={(v) => updateGlobalFX('flangerMix', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Fl Rt" value={globalFX.flangerRate ?? 0.22} min={0.02} max={3} step={0.01} onChange={(v) => updateGlobalFX('flangerRate', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Fl Fb" value={globalFX.flangerFeedback ?? 0.5} min={0} max={0.9} onChange={(v) => updateGlobalFX('flangerFeedback', v)} color="text-neon-pink" size="sm" />
                 </div>
 
                 <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Mastering</h2>

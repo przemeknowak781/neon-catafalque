@@ -60,6 +60,27 @@ export interface GlobalFXParams {
   glue?: number;
   /** Master saturation, 0-1. */
   masterDrive?: number;
+
+  // --- Effects. §4 asks for "modulation (chorus/flanger) as mood glue"; the
+  // phaser is the treatment documented on the record the lead patch comes from.
+  /** Phaser send, 0-1. */
+  phaserMix?: number;
+  /** Phaser sweep rate in Hz. */
+  phaserRate?: number;
+  /** Flanger send, 0-1. */
+  flangerMix?: number;
+  /** Flanger sweep rate in Hz. */
+  flangerRate?: number;
+  /** Flanger regeneration, 0-0.9. */
+  flangerFeedback?: number;
+  /** Echo division of a beat: 0.25 = sixteenth, 0.5 = eighth, 0.75 = dotted. */
+  delayDivision?: number;
+  /** Bounce the echo between the channels. */
+  delayPingPong?: boolean;
+  /** Reverb tail length in seconds, 0.6-5. */
+  reverbSize?: number;
+  /** How fast the tail loses its top end, 0-1. */
+  reverbDamp?: number;
 }
 
 export interface NoteEvent {

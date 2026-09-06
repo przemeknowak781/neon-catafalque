@@ -6,8 +6,8 @@
  * so they can be measured and written to a WAV.
  */
 
-import { AudioEngine } from '../services/audioEngine';
-import { scheduleStep, secondsPerStepAt } from '../services/songScheduler';
+import { renderOffline } from '../services/offlineRender';
+import { secondsPerStepAt } from '../services/songScheduler';
 import { generatorService, type GeneratorSettings } from '../services/earwormGenerator';
 import {
   INSTRUMENT_PRESETS,
@@ -96,46 +96,32 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
 
   const secondsPerStep = secondsPerStepAt(song.bpm);
   const steps = bars * 16;
-  // Tail so the last note's release is captured rather than cut off.
-  const durationSeconds = steps * secondsPerStep + 4;
-
-  const ctx = new OfflineAudioContext(2, Math.ceil(durationSeconds * sampleRate), sampleRate);
-  const engine = new AudioEngine(ctx);
-  engine.updateGlobalFX(fx);
-  engine.setMasterVolume(0.8);
 
   // Count how many notes are sounding at once — voice pile-up is the usual
   // cause of a mix turning to mush, and it is invisible in the note data.
   let peakVoices = 0;
   let noteCount = 0;
   const releases: number[] = [];
-
   for (let step = 0; step < steps; step++) {
     const time = 0.05 + step * secondsPerStep;
-
     for (const track of tracks) {
       if (!track.notes) continue;
       for (const n of track.notes) {
         if (Math.floor(n.startStep) !== step) continue;
         noteCount++;
-        const patch = params[track.id];
-        const end = time + n.duration * secondsPerStep + (patch?.release ?? 0);
-        releases.push(end);
+        releases.push(time + n.duration * secondsPerStep + (params[track.id]?.release ?? 0));
       }
     }
-    const alive = releases.filter((end) => end > time).length;
-    peakVoices = Math.max(peakVoices, alive);
-
-    scheduleStep(engine, tracks, params, step, time, secondsPerStep);
+    peakVoices = Math.max(peakVoices, releases.filter((end) => end > time).length);
   }
 
-  const buffer = await ctx.startRendering();
-  const channels: Float32Array[] = [];
-  for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+  const { channels, sampleRate: rate, durationSeconds } = await renderOffline({
+    tracks, params, globalFX: fx, bpm: song.bpm, totalSteps: steps, sampleRate,
+  });
 
   return {
     channels,
-    sampleRate,
+    sampleRate: rate,
     bpm: song.bpm,
     durationSeconds,
     peakVoices,
