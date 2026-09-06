@@ -8,6 +8,13 @@ import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
+import {
+  MissingApiKeyError,
+  clearApiKey,
+  hasApiKey,
+  setApiKey as persistApiKey,
+  subscribeToApiKey,
+} from './services/geminiClient';
 import { generateAIPresetSet, generateSingleAIPreset, AIPresetSet, AISinglePreset } from './services/aiPresetService';
 import { composeAISong, AISongResult, AISectionData } from './services/aiComposer';
 import { composerAgent } from './services/composerAgent';
@@ -29,6 +36,9 @@ const App: React.FC = () => {
   const [isTransmuting, setIsTransmuting] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [transmutingTracks, setTransmutingTracks] = useState<Record<string, boolean>>({});
+  const [aiKeyInput, setAiKeyInput] = useState('');
+  const [hasKey, setHasKey] = useState<boolean>(() => hasApiKey());
+  const [aiError, setAiError] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<string | null>("Aeolian Stasis");
   
   // Generator Parameters State
@@ -203,7 +213,27 @@ const App: React.FC = () => {
     }
   };
 
+  useEffect(() => subscribeToApiKey(() => setHasKey(hasApiKey())), []);
+
+  const handleSaveApiKey = () => {
+    persistApiKey(aiKeyInput);
+    setAiKeyInput('');
+    setAiError(null);
+  };
+
+  const handleClearApiKey = () => {
+    clearApiKey();
+    setAiKeyInput('');
+    setAiError(null);
+  };
+
+  const describeAiError = (e: unknown): string =>
+    e instanceof MissingApiKeyError
+      ? e.message
+      : 'AI request failed. Check the key, the quota, and the console.';
+
   const handleAICompose = async (fullSong: boolean = false) => {
+    setAiError(null);
     setIsComposing(true);
     if (isPlaying) setIsPlaying(false);
 
@@ -270,13 +300,14 @@ const App: React.FC = () => {
 
     } catch (e) {
       console.error("AI Composition failed", e);
-      alert("The machine spirit failed to compose. Try again.");
+      setAiError(describeAiError(e));
     } finally {
       setIsComposing(false);
     }
   };
 
   const handleAITransmute = async () => {
+    setAiError(null);
     setIsTransmuting(true);
     try {
       const promptContext = `Darkwave in ${genMode} mode with ${genHarmonicMotion} harmonic motion`;
@@ -297,6 +328,7 @@ const App: React.FC = () => {
       }));
     } catch (error) {
       console.error("Transmutation failed:", error);
+      setAiError(describeAiError(error));
     } finally {
       setIsTransmuting(false);
     }
@@ -315,6 +347,7 @@ const App: React.FC = () => {
       setTracks(prev => prev.map(t => t.id === trackId ? { ...t, name: preset.name.toUpperCase() } : t));
     } catch (error) {
       console.error(`Transmutation of ${trackId} failed:`, error);
+      setAiError(describeAiError(error));
     } finally {
       setTransmutingTracks(prev => ({ ...prev, [trackId]: false }));
     }
@@ -469,29 +502,88 @@ const App: React.FC = () => {
              </div>
           </div>
 
+          {/* GEMINI API KEY */}
+          <div className="border border-zinc-800 rounded bg-black/40 p-2 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[8px] text-zinc-600 uppercase tracking-widest">Gemini API Key</span>
+              <span className={`font-mono text-[8px] uppercase tracking-widest ${hasKey ? 'text-neon-cyan' : 'text-zinc-600'}`}>
+                {hasKey ? '\u25cf Set' : '\u25cb Not set'}
+              </span>
+            </div>
+
+            <div className="flex gap-1">
+              <input
+                type="password"
+                value={aiKeyInput}
+                onChange={(e) => setAiKeyInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveApiKey(); }}
+                placeholder={hasKey ? 'replace key\u2026' : 'paste key\u2026'}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Gemini API key"
+                className="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 px-2 py-1 font-mono text-[9px] text-neon-cyan rounded focus:outline-none focus:border-neon-cyan/50"
+              />
+              <button
+                onClick={handleSaveApiKey}
+                disabled={!aiKeyInput.trim()}
+                className={`px-2 rounded border font-mono text-[8px] uppercase tracking-widest transition-all ${aiKeyInput.trim() ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/30' : 'border-zinc-800 bg-zinc-900 text-zinc-700'}`}
+              >
+                Save
+              </button>
+              {hasKey && (
+                <button
+                  onClick={handleClearApiKey}
+                  title="Forget the stored key"
+                  className="px-2 rounded border border-zinc-800 bg-zinc-900 font-mono text-[8px] text-zinc-500 hover:text-neon-pink hover:border-neon-pink/40 transition-all"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {aiError && (
+              <div className="font-mono text-[8px] text-neon-pink leading-relaxed">{aiError}</div>
+            )}
+
+            {!hasKey && (
+              <div className="font-mono text-[7px] text-zinc-600 leading-relaxed">
+                AI features need a key from{' '}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-zinc-500 underline hover:text-neon-cyan"
+                >
+                  aistudio.google.com
+                </a>
+                . Stored in this browser only. The sequencer and the Ritual generator work without it.
+              </div>
+            )}
+          </div>
+
           {/* ACTIONS */}
           <div className="space-y-2">
             <div className="flex gap-2">
               <button 
                 onClick={() => handleAICompose(false)}
-                disabled={isComposing}
-                className={`flex-1 h-12 relative overflow-hidden group rounded border-2 transition-all ${isComposing ? 'border-zinc-700 bg-zinc-900' : 'border-neon-pink/70 bg-neon-pink/10 hover:bg-neon-pink/20 hover:shadow-[0_0_15px_#ff00ff60]'}`}
+                disabled={isComposing || !hasKey}
+                className={`flex-1 h-12 relative overflow-hidden group rounded border-2 transition-all ${isComposing || !hasKey ? 'border-zinc-700 bg-zinc-900' : 'border-neon-pink/70 bg-neon-pink/10 hover:bg-neon-pink/20 hover:shadow-[0_0_15px_#ff00ff60]'}`}
               >
                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neon-pink/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-                 <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing ? 'text-zinc-500 animate-pulse' : 'text-neon-pink group-hover:text-white'}`}>
-                    {isComposing ? 'CONJURING...' : 'AI LOOP'}
+                 <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing || !hasKey ? 'text-zinc-500' : 'text-neon-pink group-hover:text-white'} ${isComposing ? 'animate-pulse' : ''}`}>
+                    {isComposing ? 'CONJURING...' : hasKey ? 'AI LOOP' : 'NO API KEY'}
                     <span className="text-[7px] font-normal opacity-70">128 STEPS</span>
                  </span>
               </button>
 
               <button 
                 onClick={() => handleAICompose(true)}
-                disabled={isComposing}
-                className={`flex-1 h-12 relative overflow-hidden group rounded border-2 transition-all ${isComposing ? 'border-zinc-700 bg-zinc-900' : 'border-neon-cyan/70 bg-neon-cyan/10 hover:bg-neon-cyan/20 hover:shadow-[0_0_15px_#00f3ff60]'}`}
+                disabled={isComposing || !hasKey}
+                className={`flex-1 h-12 relative overflow-hidden group rounded border-2 transition-all ${isComposing || !hasKey ? 'border-zinc-700 bg-zinc-900' : 'border-neon-cyan/70 bg-neon-cyan/10 hover:bg-neon-cyan/20 hover:shadow-[0_0_15px_#00f3ff60]'}`}
               >
                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-neon-cyan/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-                 <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing ? 'text-zinc-500 animate-pulse' : 'text-neon-cyan group-hover:text-white'}`}>
-                    {isComposing ? 'ARRANGING...' : 'FULL SONG'}
+                 <span className={`relative z-10 font-mono text-[9px] font-black tracking-[0.1em] uppercase flex flex-col items-center justify-center leading-tight ${isComposing || !hasKey ? 'text-zinc-500' : 'text-neon-cyan group-hover:text-white'} ${isComposing ? 'animate-pulse' : ''}`}>
+                    {isComposing ? 'ARRANGING...' : hasKey ? 'FULL SONG' : 'NO API KEY'}
                     <span className="text-[7px] font-normal opacity-70">416 STEPS</span>
                  </span>
               </button>
@@ -509,8 +601,8 @@ const App: React.FC = () => {
 
                 <button 
                 onClick={handleAITransmute}
-                disabled={isTransmuting}
-                className={`w-full h-8 relative overflow-hidden group rounded border transition-all ${isTransmuting ? 'border-zinc-800 bg-zinc-900 animate-pulse' : 'border-neon-cyan/50 bg-neon-cyan/5 hover:bg-neon-cyan/20'}`}
+                disabled={isTransmuting || !hasKey}
+                className={`w-full h-8 relative overflow-hidden group rounded border transition-all ${isTransmuting || !hasKey ? 'border-zinc-800 bg-zinc-900 animate-pulse' : 'border-neon-cyan/50 bg-neon-cyan/5 hover:bg-neon-cyan/20'}`}
                 >
                 <span className="relative z-10 font-mono text-[8px] font-bold tracking-widest text-neon-cyan group-hover:text-white uppercase flex items-center justify-center gap-1">
                     {isTransmuting ? '...' : '✧ Transmute'}
@@ -586,7 +678,7 @@ const App: React.FC = () => {
                       </h2>
                       <button 
                         onClick={() => handleSingleTransmute(selectedTrackId)}
-                        disabled={transmutingTracks[selectedTrackId]}
+                        disabled={transmutingTracks[selectedTrackId] || !hasKey}
                         className={`px-2 py-1 rounded text-[7px] font-mono uppercase tracking-widest transition-all border ${transmutingTracks[selectedTrackId] ? 'border-zinc-700 bg-zinc-800 animate-pulse text-zinc-500' : 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/30 shadow-[0_0_8px_#00f3ff40]'}`}
                       >
                         {transmutingTracks[selectedTrackId] ? 'Transmuting...' : '✧ Transmute'}
@@ -672,7 +764,7 @@ const App: React.FC = () => {
                               {!['kick', 'snare', 'hihat', 'fx'].includes(track.id) && (
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); handleSingleTransmute(track.id); }}
-                                  disabled={transmutingTracks[track.id]}
+                                  disabled={transmutingTracks[track.id] || !hasKey}
                                   className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] transition-all border ${transmutingTracks[track.id] ? 'bg-zinc-800 border-zinc-700 animate-spin' : 'bg-neon-cyan/10 border-neon-cyan/40 text-neon-cyan hover:bg-neon-cyan hover:text-black'}`}
                                   title="AI Transmute this engine"
                                 >

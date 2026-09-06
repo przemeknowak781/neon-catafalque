@@ -1,8 +1,7 @@
 
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { Type, Schema } from "@google/genai";
+import { getGeminiClient } from "./geminiClient";
 import { InstrumentParams } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export interface AINote {
   n: string; // Note name (e.g., "C3")
@@ -122,7 +121,7 @@ export const composeAISong = async (): Promise<AISongResult> => {
        - Generate Note/Drum patterns for INTRO, VERSE, and CHORUS sections separately.
   `;
 
-  const response = await ai.models.generateContent({
+  const response = await getGeminiClient().models.generateContent({
     model: "gemini-3-flash-preview",
     contents: prompt,
     config: {

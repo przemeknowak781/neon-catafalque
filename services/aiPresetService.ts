@@ -1,8 +1,7 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { getGeminiClient } from "./geminiClient";
 import { InstrumentParams } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export interface AIPresetSet {
   themeName: string;
@@ -54,7 +53,7 @@ export const generateAIPresetSet = async (prompt?: string): Promise<AIPresetSet>
     ? `Generate a Darkwave preset set themed around: ${prompt}` 
     : "Generate a cohesive set of 4 Darkwave synthesizer presets (Lead, Bass, Pad, Pluck).";
 
-  const response = await ai.models.generateContent({
+  const response = await getGeminiClient().models.generateContent({
     model: "gemini-3-flash-preview",
     contents: finalPrompt,
     config: {
@@ -91,7 +90,7 @@ export const generateSingleAIPreset = async (instrumentType: string, prompt?: st
     ? `Generate a single ${instrumentType} preset themed around: ${prompt}` 
     : `Generate a killer Darkwave ${instrumentType} synthesizer preset.`;
 
-  const response = await ai.models.generateContent({
+  const response = await getGeminiClient().models.generateContent({
     model: "gemini-3-flash-preview",
     contents: finalPrompt,
     config: {
