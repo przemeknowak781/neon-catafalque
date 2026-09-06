@@ -21,8 +21,9 @@ import { generateAIPresetSet, generateSingleAIPreset, AIPresetSet, AISinglePrese
 import { composeAISong, AISongResult, AISectionData } from './services/aiComposer';
 import { composerAgent } from './services/composerAgent';
 import { Track, TrackType, InstrumentParams, GlobalFXParams, NoteEvent, SequencerStep } from './types';
+import type { SongPreset } from './constants';
 import { 
-  INITIAL_TRACKS, DEFAULT_BPM, 
+  INITIAL_TRACKS, DEFAULT_BPM, SONG_PRESETS, 
   DEFAULT_LEAD_PARAMS, DEFAULT_BASS_PARAMS, DEFAULT_PAD_PARAMS, DEFAULT_PLUCK_PARAMS,
   DEFAULT_GLOBAL_FX, INSTRUMENT_PRESETS
 } from './constants';
@@ -171,6 +172,32 @@ const App: React.FC = () => {
   const handleToggleCollapse = (trackId: string) => {
     setTracks(prev => prev.map(t => t.id === trackId ? { ...t, isCollapsed: !t.isCollapsed } : t));
     setSelectedTrackId(trackId as TrackType);
+  };
+
+  /** One click sets all four instruments and the effects that go with them. */
+  const applySongPreset = (preset: SongPreset) => {
+    const patch = (track: TrackType, name: string) =>
+      INSTRUMENT_PRESETS[track]?.[name];
+
+    setAllInstrumentParams((prev) => ({
+      ...prev,
+      lead: patch('lead', preset.lead) ?? prev.lead,
+      bass: patch('bass', preset.bass) ?? prev.bass,
+      pad: patch('pad', preset.pad) ?? prev.pad,
+      pluck: patch('pluck', preset.pluck) ?? prev.pluck,
+    }));
+    setGlobalFX((prev) => ({ ...prev, ...preset.fx }));
+    setCurrentTheme(preset.name);
+    // Map only the instrument tracks by name. Indexing the preset by track id
+    // also matched its `fx` key, which holds the effect settings rather than a
+    // patch name — and calling toUpperCase on that object crashed the app.
+    const patchNames: Partial<Record<TrackType, string>> = {
+      lead: preset.lead, bass: preset.bass, pad: preset.pad, pluck: preset.pluck,
+    };
+    setTracks((prev) => prev.map((t) => {
+      const name = patchNames[t.id];
+      return name ? { ...t, name: name.toUpperCase() } : t;
+    }));
   };
 
   const handleGenerateRitual = () => {
@@ -553,32 +580,41 @@ const App: React.FC = () => {
 
             {genAnalysis && (
               <div className="shrink-0 rounded border border-zinc-800 bg-black/40 p-1.5 font-mono text-[8px] leading-tight">
-                <div className="text-zinc-600 uppercase tracking-widest mb-1">Hook analysis</div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>contour</span><span className="text-neon-purple">{genAnalysis.detail.contourClass}</span>
-                </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>twist turns</span><span className="text-neon-pink">{genAnalysis.detail.atypicalTurns}</span>
-                </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>range (st)</span><span className="text-neon-cyan">{genAnalysis.detail.range}</span>
-                </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>stepwise</span><span className="text-neon-cyan">{Math.round(genAnalysis.detail.stepwiseRatio * 100)}%</span>
-                </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>mean IC</span><span className="text-neon-cyan">{genAnalysis.detail.meanIC.toFixed(2)} bits</span>
-                </div>
-                <div className="flex justify-between text-zinc-400">
-                  <span>IC spikes</span><span className="text-neon-cyan">{genAnalysis.detail.spikes}</span>
-                </div>
-                <div className="flex justify-between text-zinc-500 border-t border-zinc-800 mt-1 pt-1">
-                  <span>earworm score</span>
+                <div className="mb-1 flex items-baseline justify-between">
+                  <span className="uppercase tracking-widest text-zinc-600">Hook</span>
                   <span className="text-white">{genAnalysis.total.toFixed(3)}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-2 text-zinc-400">
+                  <span>contour</span><span className="text-right text-neon-purple">{genAnalysis.detail.contourClass}</span>
+                  <span>twists</span><span className="text-right text-neon-pink">{genAnalysis.detail.atypicalTurns}</span>
+                  <span>range</span><span className="text-right text-neon-cyan">{genAnalysis.detail.range} st</span>
+                  <span>step</span><span className="text-right text-neon-cyan">{Math.round(genAnalysis.detail.stepwiseRatio * 100)}%</span>
+                  <span>IC</span><span className="text-right text-neon-cyan">{genAnalysis.detail.meanIC.toFixed(2)}b</span>
+                  <span>spikes</span><span className="text-right text-neon-cyan">{genAnalysis.detail.spikes}</span>
                 </div>
               </div>
             )}
           </div>
+          {/* SONG PRESETS — a whole instrument set, not one patch */}
+          <div className="shrink-0 space-y-0.5 rounded border border-zinc-800 bg-zinc-900/20 p-1.5">
+            <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">Song Preset</span>
+            <div className="flex flex-wrap gap-0.5">
+              {SONG_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => applySongPreset(preset)}
+                  title={preset.note}
+                  className={`rounded border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-tight transition-colors ${
+                    currentTheme === preset.name
+                      ? 'border-neon-purple/60 bg-neon-purple/20 text-neon-purple'
+                      : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-600 hover:text-white'}`}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* GEMINI API KEY */}
           <div className="shrink-0 space-y-1 rounded border border-zinc-800 bg-black/40 p-1.5">
             <div className="flex items-center justify-between">
@@ -624,7 +660,6 @@ const App: React.FC = () => {
 
             {!hasKey && (
               <div className="font-mono text-[7px] text-zinc-600 leading-relaxed">
-                Key from{' '}
                 <a
                   href="https://aistudio.google.com/apikey"
                   target="_blank"
@@ -632,8 +667,8 @@ const App: React.FC = () => {
                   className="text-zinc-500 underline hover:text-neon-cyan"
                 >
                   aistudio.google.com
-                </a>
-                . Stored in this browser only; the sequencer works without it.
+                </a>{' '}
+                — stored locally; the sequencer works without it.
               </div>
             )}
           </div>

@@ -15,9 +15,9 @@ interface KnobProps {
 export const Knob: React.FC<KnobProps> = ({ 
   label, value, min, max, onChange, step = 0.01, color = 'text-neon-cyan', size = 'md'
 }) => {
-  const px = size === 'sm' ? 44 : 64;
+  const px = size === 'sm' ? 40 : 64;
   const centre = px / 2;
-  const radius = size === 'sm' ? 14 : 20;
+  const radius = size === 'sm' ? 13 : 20;
   const stroke = size === 'sm' ? 3 : 4;
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef<number>(0);

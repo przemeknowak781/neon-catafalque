@@ -14,6 +14,8 @@ const seed = seedArg > -1 ? Number(process.argv[seedArg + 1]) : 7;
 const presetArg = process.argv.indexOf('--preset');
 const presets = presetArg > -1
   ? { [process.argv[presetArg + 1]]: process.argv[presetArg + 2] } : undefined;
+const songArg = process.argv.indexOf('--song');
+const songPreset = songArg > -1 ? process.argv[songArg + 1] : undefined;
 const onlyArg = process.argv.indexOf('--only');
 const only = onlyArg > -1 ? process.argv[onlyArg + 1].split(',') : undefined;
 
@@ -25,13 +27,13 @@ page.on('pageerror', e => { console.error('PAGEERROR:', e.message); process.exit
 await page.goto('about:blank');
 await page.addScriptTag({ content: bundle });
 
-const result = await page.evaluate(async ({ seed, useAppMixerLevels, only, presets }) => {
-  const r = await window.renderSong({ seed, bars: 16, useAppMixerLevels, only, presets });
+const result = await page.evaluate(async ({ seed, useAppMixerLevels, only, presets, songPreset }) => {
+  const r = await window.renderSong({ seed, bars: 16, useAppMixerLevels, only, presets, songPreset });
   return {
     sampleRate: r.sampleRate, bpm: r.bpm, peakVoices: r.peakVoices, noteCount: r.noteCount,
     left: Array.from(r.channels[0]), right: Array.from(r.channels[1] ?? r.channels[0]),
   };
-}, { seed, useAppMixerLevels, only, presets });
+}, { seed, useAppMixerLevels, only, presets, songPreset });
 await browser.close();
 
 const L = Float32Array.from(result.left);

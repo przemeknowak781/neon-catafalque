@@ -64,8 +64,8 @@ export const DEFAULT_LEAD_PARAMS: InstrumentParams = {
   filterSustain: 0.3,
   filterRelease: 0.25,
   glide: 0,
-  vibratoRate: 1.9,
-  vibratoDepth: 0.12,
+  vibratoRate: 4.8,
+  vibratoDepth: 9,
   // Chorus is the genre's signature: detuned saws smeared wide. The lead sits
   // slightly right of centre so it is not fighting the pad for the middle.
   chorusMix: 0.42,
@@ -128,8 +128,8 @@ export const DEFAULT_PAD_PARAMS: InstrumentParams = {
   filterSustain: 0.7,
   filterRelease: 1.0,
   glide: 0,
-  vibratoRate: 1.2,
-  vibratoDepth: 0.05,
+  vibratoRate: 3.6,
+  vibratoDepth: 7,
   // §4 "space: long reverb tails + modulation as mood glue". The pad is the
   // widest thing in the mix and carries most of the plate.
   chorusMix: 0.85,
@@ -222,7 +222,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       cutoff: 3400, resonance: 1.6, filterEnvAmount: 0.12,
       attack: 0.12, decay: 0.6, sustain: 0.85, release: 0.7,
       filterAttack: 0.3, filterDecay: 0.6, filterSustain: 0.8, filterRelease: 0.6,
-      vibratoRate: 5.2, vibratoDepth: 6.5,
+      vibratoRate: 5.2, vibratoDepth: 24, lfoToFilter: 0.05,
       chorusMix: 0.95, drive: 0.1, pan: 0.05,
       reverbSend: 0.62, delaySend: 0.18,
     },
@@ -250,7 +250,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       cutoff: 2600, resonance: 2.5, filterEnvAmount: 0.2,
       attack: 0.02, decay: 0.4, sustain: 0.6, release: 0.45,
       filterAttack: 0.05, filterDecay: 0.4, filterSustain: 0.6, filterRelease: 0.4,
-      vibratoRate: 4.2, vibratoDepth: 2,
+      vibratoRate: 4.2, vibratoDepth: 11, lfoToFilter: 0.12,
       chorusMix: 0.98, drive: 0.08, pan: -0.06,
       reverbSend: 0.45, delaySend: 0.2,
     },
@@ -284,7 +284,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       cutoff: 2200, resonance: 4, filterEnvAmount: 0.35,
       attack: 0.2, decay: 0.7, sustain: 0.8, release: 1.1,
       filterAttack: 0.35, filterDecay: 0.7, filterSustain: 0.7, filterRelease: 0.9,
-      glide: 190, vibratoRate: 4.6, vibratoDepth: 8,
+      glide: 190, vibratoRate: 4.6, vibratoDepth: 34,
       chorusMix: 0.92, drive: 0.06, pan: -0.14,
       reverbSend: 0.75, delaySend: 0.34,
     },
@@ -340,6 +340,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       subLevel: 0.6, noiseLevel: 0,
       cutoff: 540, resonance: 3, filterEnvAmount: 0.3,
       attack: 0.01, decay: 0.22, sustain: 0.75, release: 0.18,
+      vibratoRate: 3.1, vibratoDepth: 4, lfoToFilter: 0.1,
       chorusMix: 0.35, drive: 0.25, pan: 0, reverbSend: 0.06, delaySend: 0,
     },
   },
@@ -355,7 +356,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       cutoff: 1500, resonance: 1.4, filterEnvAmount: 0.15,
       attack: 0.5, decay: 1.2, sustain: 0.9, release: 1.6,
       filterAttack: 0.6, filterDecay: 1.0, filterSustain: 0.85, filterRelease: 1.4,
-      vibratoRate: 5.0, vibratoDepth: 5,
+      vibratoRate: 5.0, vibratoDepth: 21, lfoToFilter: 0.05,
       chorusMix: 0.98, drive: 0.08, pan: -0.08,
       reverbSend: 0.8, delaySend: 0.12,
     },
@@ -369,6 +370,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       cutoff: 850, resonance: 1.2, filterEnvAmount: 0.1,
       attack: 0.9, decay: 1.4, sustain: 0.9, release: 1.8,
       filterAttack: 1.0, filterDecay: 1.2, filterSustain: 0.85, filterRelease: 1.5,
+      vibratoRate: 2.4, vibratoDepth: 6, lfoToFilter: 0.14,
       chorusMix: 1.0, drive: 0.05, pan: -0.12,
       reverbSend: 0.7, delaySend: 0.08,
     },
@@ -379,7 +381,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       subLevel: 0.06, noiseLevel: 0.02,
       cutoff: 2100, resonance: 1, filterEnvAmount: 0.08,
       attack: 0.35, decay: 1.0, sustain: 0.95, release: 1.4,
-      vibratoRate: 6.2, vibratoDepth: 4,
+      vibratoRate: 6.2, vibratoDepth: 15,
       chorusMix: 1.0, drive: 0.04, pan: 0.1,
       reverbSend: 0.72, delaySend: 0.1,
     },
@@ -400,7 +402,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       unison: 5, unisonDetune: 28,
       noiseLevel: 0.09, cutoff: 1800, resonance: 5, filterEnvAmount: 0.4,
       attack: 0.7, decay: 1.6, sustain: 0.8, release: 2.0,
-      vibratoRate: 1.4, vibratoDepth: 22,
+      vibratoRate: 1.4, vibratoDepth: 46, lfoToFilter: 0.3,
       chorusMix: 0.9, drive: 0.16, pan: 0.14,
       reverbSend: 0.85, delaySend: 0.3,
     },
@@ -451,6 +453,63 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
   },
 };
 
+
+/**
+ * Song presets: a whole instrument set plus the effects that go with it.
+ *
+ * Per-instrument patches are useful for building a sound; these are for
+ * arriving at one. Each names its provenance, and each is honest about
+ * whether that provenance is a documented instrument or a genre convention.
+ */
+export interface SongPreset {
+  name: string;
+  /** Where the sound comes from, and how firmly. */
+  note: string;
+  lead: string;
+  bass: string;
+  pad: string;
+  pluck: string;
+  fx: Partial<GlobalFXParams>;
+}
+
+export const SONG_PRESETS: readonly SongPreset[] = [
+  {
+    name: 'Machine 1979',
+    note: 'Polymoog 280A "Vox Humana" — the preset Numan bought the instrument for, with the phaser-and-plate treatment the record used.',
+    lead: 'Vox Humana', bass: 'Source Bass', pad: 'Vox Humana Wide', pluck: 'Glass Rosary',
+    fx: { reverbMix: 0.55, delayTime: 0.28, delayFeedback: 0.3, width: 1.5, airShelf: 4, lowShelf: -2, glue: 0.35, masterDrive: 0.18 },
+  },
+  {
+    name: 'Blue Sequence',
+    note: 'Moog Source over an Oberheim DMX: monophonic lead and bass, both driven by a sequencer. Dry, hard and narrow by design.',
+    lead: 'Source Sequence', bass: 'Source Bass', pad: 'Juno Fog', pluck: 'Cold Arp',
+    fx: { reverbMix: 0.26, delayTime: 0.38, delayFeedback: 0.42, width: 1.15, airShelf: 2, lowShelf: 0, glue: 0.5, masterDrive: 0.3 },
+  },
+  {
+    name: 'Juno Winter',
+    note: 'Roland Juno-106 practice: one oscillator per voice, the filter left almost still, and the built-in chorus doing the work.',
+    lead: 'Juno Cold', bass: 'Juno Bass', pad: 'Juno Fog', pluck: 'Ghost Echoes',
+    fx: { reverbMix: 0.48, delayTime: 0.3, delayFeedback: 0.34, width: 1.55, airShelf: 2.5, lowShelf: -1, glue: 0.3, masterDrive: 0.15 },
+  },
+  {
+    name: 'Cold Cathedral',
+    note: 'Genre convention rather than a specific instrument: slow attacks, long releases, everything soaked in the plate.',
+    lead: 'Ether Glide', bass: 'Sub Anchor', pad: 'Cathedral', pluck: 'Ghost Echoes',
+    fx: { reverbMix: 0.72, delayTime: 0.45, delayFeedback: 0.46, width: 1.6, airShelf: 1.5, lowShelf: -2.5, glue: 0.25, masterDrive: 0.12 },
+  },
+  {
+    name: 'Acid Procession',
+    note: 'Genre convention: a resonant sequenced bass line under a hard lead, closer to EBM than to coldwave.',
+    lead: 'Ice Pick', bass: 'Acid Cell', pad: 'Event Horizon', pluck: 'Bit Mercy',
+    fx: { reverbMix: 0.3, delayTime: 0.24, delayFeedback: 0.5, width: 1.25, airShelf: 3.5, lowShelf: 0.5, glue: 0.55, masterDrive: 0.42 },
+  },
+  {
+    name: 'Velvet Ruin',
+    note: 'Genre convention: a wide chorused lead over a driven bass, the loudest and most forward of these.',
+    lead: 'Blade Chorus', bass: 'Ghost Train', pad: 'Solina Veil', pluck: 'Cold Arp',
+    fx: { reverbMix: 0.44, delayTime: 0.33, delayFeedback: 0.38, width: 1.45, airShelf: 3, lowShelf: -1.5, glue: 0.42, masterDrive: 0.26 },
+  },
+];
 
 export const INITIAL_TRACKS: Track[] = [
   { id: 'lead', name: 'NOCTURNAL LEAD', color: 'bg-neon-purple', volume: MIX_LEVELS.lead, isCollapsed: false, notes: [] },

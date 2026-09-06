@@ -11,6 +11,7 @@ import { scheduleStep, secondsPerStepAt } from '../services/songScheduler';
 import { generatorService, type GeneratorSettings } from '../services/earwormGenerator';
 import {
   INSTRUMENT_PRESETS,
+  SONG_PRESETS,
   DEFAULT_LEAD_PARAMS,
   DEFAULT_BASS_PARAMS,
   DEFAULT_PAD_PARAMS,
@@ -32,6 +33,8 @@ export interface RenderOptions {
   only?: string[];
   /** Override an instrument's patch, e.g. { lead: 'Vox Humana' }. */
   presets?: Record<string, string>;
+  /** Apply a whole song preset by name, instruments and effects together. */
+  songPreset?: string;
 }
 
 export interface RenderResult {
@@ -75,6 +78,17 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
   }
 
   const params: Record<string, InstrumentParams> = { ...PARAMS };
+  let fx = { ...DEFAULT_GLOBAL_FX };
+
+  const song_preset = SONG_PRESETS.find((p) => p.name === options.songPreset);
+  if (song_preset) {
+    for (const track of ['lead', 'bass', 'pad', 'pluck'] as const) {
+      const patch = INSTRUMENT_PRESETS[track]?.[song_preset[track]];
+      if (patch) params[track] = patch;
+    }
+    fx = { ...fx, ...song_preset.fx };
+  }
+
   for (const [track, name] of Object.entries(options.presets ?? {})) {
     const bank = INSTRUMENT_PRESETS[track as keyof typeof INSTRUMENT_PRESETS];
     if (bank?.[name]) params[track] = bank[name];
@@ -87,7 +101,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
 
   const ctx = new OfflineAudioContext(2, Math.ceil(durationSeconds * sampleRate), sampleRate);
   const engine = new AudioEngine(ctx);
-  engine.updateGlobalFX(DEFAULT_GLOBAL_FX);
+  engine.updateGlobalFX(fx);
   engine.setMasterVolume(0.8);
 
   // Count how many notes are sounding at once — voice pile-up is the usual

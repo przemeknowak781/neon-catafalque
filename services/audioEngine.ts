@@ -65,7 +65,9 @@ export class AudioEngine {
     this.limiter.release.setValueAtTime(0.15, this.ctx.currentTime);
 
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.56;
+    // Trimmed after the filter went to 24 dB/octave: resonance on the first
+    // stage adds roughly 2.5 dB at the peak.
+    this.masterGain.gain.value = 0.5;
 
     // A DynamicsCompressor lets transients through — the previous chain
     // measured +3.2 dBFS with 3.3% of samples pinned at full scale. This
@@ -219,9 +221,14 @@ export class AudioEngine {
    * is a mono mix by any other name.
    */
   private buildStereoChorus() {
+    // Juno-106 figures: Chorus I runs its LFO at roughly 0.5 Hz and Chorus II
+    // at roughly 0.8 Hz. The delay sits around 6 ms — a user measurement
+    // rather than Roland documentation, which is the only figure available.
+    // The previous 17 and 23 ms taps at a third of a hertz were a doubler,
+    // not a chorus.
     const spread = 0.85;
-    const rates = [0.33, 0.47];
-    const bases = [0.017, 0.023];
+    const rates = [0.5, 0.8];
+    const bases = [0.006, 0.0075];
 
     for (let side = 0; side < 2; side++) {
       const delay = this.ctx.createDelay(0.2);
@@ -230,7 +237,7 @@ export class AudioEngine {
       const lfo = this.ctx.createOscillator();
       lfo.frequency.value = rates[side];
       const depth = this.ctx.createGain();
-      depth.gain.value = 0.0035;
+      depth.gain.value = 0.0025;
       lfo.connect(depth);
 
       if (side === 1) {
@@ -434,11 +441,23 @@ export class AudioEngine {
     noise.connect(noiseGain);
     noiseGain.connect(mixer);
 
+    // The Juno-106's LFO is a triangle running 0.1-30 Hz into three
+    // destinations: DCO pitch, VCF cutoff and pulse width. Two of those are
+    // implemented here.
     const lfo = this.ctx.createOscillator();
+    lfo.type = 'triangle';
+    lfo.frequency.value = Math.max(0.1, Math.min(30, params.vibratoRate));
+
+    // Pitch modulation belongs on detune, in cents. Driving frequency in Hz,
+    // as this did, means a fixed deviation: the same setting is over an
+    // octave of wobble on a bass note and a few cents on a lead.
     const lfoGain = this.ctx.createGain();
-    lfo.frequency.value = params.vibratoRate;
     lfoGain.gain.value = params.vibratoDepth;
     lfo.connect(lfoGain);
+
+    const lfoToFilter = this.ctx.createGain();
+    lfoToFilter.gain.value = (params.lfoToFilter ?? 0) * 2000;
+    lfo.connect(lfoToFilter);
 
     // Portamento. A zero-length exponential ramp is degenerate, so only glide
     // when the patch actually asks for it.
@@ -474,7 +493,7 @@ export class AudioEngine {
       osc.detune.setValueAtTime(detuneCents + drift, t);
       osc.detune.linearRampToValueAtTime(
         detuneCents + drift + (Math.random() * 2 - 1) * 4.5, stopTime);
-      lfoGain.connect(osc.frequency);
+      lfoGain.connect(osc.detune);
 
       const gain = this.ctx.createGain();
       gain.gain.value = level;
@@ -509,10 +528,24 @@ export class AudioEngine {
       addOscillator('sine', freq / 2, params.subLevel * 0.6, 0, 0);
     }
 
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.Q.value = params.resonance;
-    this.applyFilterEnvelope(filter.frequency, t, duration, params);
+    // Two cascaded biquads: 24 dB/octave, which is the slope of the Moog
+    // ladder the Source is built on and of the filters these patches are
+    // reconstructing. One BiquadFilterNode is 12 dB/octave — half the
+    // steepness, and audibly a different instrument.
+    const filterA = this.ctx.createBiquadFilter();
+    const filterB = this.ctx.createBiquadFilter();
+    filterA.type = 'lowpass';
+    filterB.type = 'lowpass';
+    // Resonance on the first stage only; peaking both would square the
+    // emphasis and self-oscillate at ordinary settings.
+    filterA.Q.value = params.resonance;
+    filterB.Q.value = 0.5;
+    this.applyFilterEnvelope(filterA.frequency, t, duration, params);
+    this.applyFilterEnvelope(filterB.frequency, t, duration, params);
+    lfoToFilter.connect(filterA.frequency);
+    lfoToFilter.connect(filterB.frequency);
+    filterA.connect(filterB);
+    const filter = filterB;
 
     const vca = this.ctx.createGain();
     const instrumentMultiplier = 0.5;
@@ -520,7 +553,7 @@ export class AudioEngine {
       vca.gain, t, duration, params, volume * instrumentMultiplier,
     );
 
-    mixer.connect(filter);
+    mixer.connect(filterA);
 
     // §4 "mild chorus/saturation". Drive before the VCA so the envelope shapes
     // the saturated tone rather than the saturation reacting to the envelope.

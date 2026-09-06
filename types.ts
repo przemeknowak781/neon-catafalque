@@ -39,6 +39,9 @@ export interface InstrumentParams {
   unison?: number;
   /** Total detune spread across the unison stack, in cents. */
   unisonDetune?: number;
+  /** LFO to filter cutoff, 0-1. The Juno-106's LFO reaches the VCF as well as
+   *  the oscillators; this is that destination. */
+  lfoToFilter?: number;
 }
 
 export interface GlobalFXParams {
