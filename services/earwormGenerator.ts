@@ -2,13 +2,18 @@ import type { NoteEvent, Track, SequencerStep } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
   BARS_PER_PHRASE,
-  SONG_STEPS,
   STEPS_PER_BAR,
+  arrangementByName,
   isSectionTail,
   layersFor,
-  sectionAtBar,
   type PlacedSection,
+  type ResolvedArrangement,
 } from "./arrangement";
+import {
+  harmonyByName,
+  voiceLeadingByName,
+  type VoiceLeadingPreset,
+} from "./harmonyPresets";
 import {
   SeededRng,
   type ContourClass,
@@ -160,6 +165,12 @@ export interface GeneratorSettings {
   drumMode: GenDrums;
   /** Optional seed; omit for a fresh random song, supply for reproducibility. */
   seed?: number;
+  /** Form template by name; see ARRANGEMENT_PRESETS. */
+  arrangement?: string;
+  /** Chord loop by name; see HARMONY_PRESETS. */
+  harmony?: string;
+  /** Melodic conduct by name; see VOICE_LEADING_PRESETS. */
+  voiceLeading?: string;
 }
 
 export interface GenerationResult {
@@ -207,9 +218,16 @@ export class EarwormGenerator {
     // The motif's own density is deliberately a narrower reading of the knob.
     const hookDensity = clamp01(config.rhythmDensity);
 
-    const chordLoop = this.generateProgression(rng, config.harmonicMotion, config.mode);
-    const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps || SONG_STEPS);
-    const chords = this.expandChords(chordLoop, totalSteps);
+    const arrangement = arrangementByName(config.arrangement);
+    const harmony = harmonyByName(config.harmony);
+    const voicing = voiceLeadingByName(config.voiceLeading);
+
+    // A named progression is used as given; 'Auto' keeps the weighted walk.
+    const chordLoop = harmony.loop
+      ? this.fitLoopToMode([...harmony.loop], rng, config.mode)
+      : this.generateProgression(rng, config.harmonicMotion, config.mode);
+    const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps || arrangement.steps);
+    const chords = this.expandChords(chordLoop, totalSteps, arrangement);
 
     // §1 / §8 — generate N, score, keep top K, mutate, take the best.
     const ctx: BuildContext = {
@@ -219,16 +237,17 @@ export class EarwormGenerator {
       density: hookDensity,
       twist: config.entropy,
       modeName: config.mode,
+      voicing,
     };
 
     const best = this.searchHook(rng, ctx);
     const variation = this.mutate(rng, best, ctx);
 
-    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best, ornament);
-    const bassTrack = this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals);
-    const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals);
-    const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament);
-    const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals);
+    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best, ornament, arrangement);
+    const bassTrack = this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement);
+    const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals, arrangement);
+    const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament, arrangement);
+    const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals, arrangement);
 
     return {
       tracks: [leadTrack, pluckTrack, padTrack, bassTrack, ...drumTracks],
@@ -251,6 +270,27 @@ export class EarwormGenerator {
   }
 
   // --- §3.2 HARMONY --------------------------------------------------------
+
+  /**
+   * A named progression may name a chord the chosen mode does not have — the
+   * §3.2 loops are Aeolian, and Dorian's triad on the natural 6th is
+   * diminished while harmonic minor's on b3 is augmented. Substitute the
+   * nearest chord the mode does have rather than sounding one it does not.
+   */
+  private fitLoopToMode(loop: number[], rng: SeededRng, mode: GenMode): number[] {
+    const palette = CHORD_PALETTES[mode] ?? CHORD_PALETTES.aeolian;
+    return loop.map((degree) => {
+      if (palette.includes(degree)) return degree;
+      let best = palette[0];
+      let bestDistance = Infinity;
+      for (const candidate of palette) {
+        const diff = Math.min(mod(candidate - degree, 7), mod(degree - candidate, 7));
+        if (diff < bestDistance) { bestDistance = diff; best = candidate; }
+      }
+      void rng;
+      return best;
+    });
+  }
 
   private generateProgression(
     rng: SeededRng,
@@ -321,10 +361,14 @@ export class EarwormGenerator {
    * written for chord 1 of the loop would have landed on chord 3. Restarting
    * the progression with each section is also what a section is.
    */
-  private expandChords(loop: number[], totalSteps: number): number[] {
+  private expandChords(
+    loop: number[],
+    totalSteps: number,
+    arrangement: ResolvedArrangement,
+  ): number[] {
     const chords: number[] = [];
     for (let step = 0; step < totalSteps; step++) {
-      const section = sectionAtBar(Math.floor(step / STEPS_PER_BAR));
+      const section = arrangement.sectionAtBar(Math.floor(step / STEPS_PER_BAR));
       chords.push(loop[section.barInSection % loop.length]);
     }
     return chords;
@@ -458,7 +502,7 @@ export class EarwormGenerator {
     if (positions.length < 4) return [];
 
     const contour = this.pickContour(rng, ctx.contour);
-    const amplitude = rng.range(3, 5);
+    const amplitude = rng.range(ctx.voicing.amplitude[0], ctx.voicing.amplitude[1]);
     const skeleton = this.contourSkeleton(contour, positions.length, amplitude);
 
     // Degree 21 is C4. Picking the base from the cadence degrees also makes
@@ -494,7 +538,7 @@ export class EarwormGenerator {
 
     // --- 2. fill the spaces with stepwise voice leading --------------------
     for (let a = 0; a < anchors.length - 1; a++) {
-      this.fillSpan(rng, degrees, skeleton, anchors[a], anchors[a + 1]);
+      this.fillSpan(rng, degrees, skeleton, anchors[a], anchors[a + 1], ctx.voicing.maxFillMove);
     }
 
     // --- 3. the one uncommon gradient (§2.1B / §7) -------------------------
@@ -542,13 +586,17 @@ export class EarwormGenerator {
   ): number {
     const tones = [chord, chord + 2, chord + 4].map((d) => mod(d, 7));
     const roll = rng.next();
+    // The style decides how firmly a strong beat locks to the chord; §6's own
+    // figure is 0.65, and every preset here sits at or above it.
+    const lock = ctx.voicing.chordToneBias;
+    const colourUntil = lock + (1 - lock) * 0.72;
 
-    if (roll >= 0.82 && roll < 0.95) {
+    if (roll >= lock && roll < colourUntil) {
       const wanted = ctx.modeName === 'dorian' ? [5] : [5, 6];
       const safe = wanted.filter((d) => !this.clashesWithChord(d, tones, ctx.scaleIntervals));
       if (safe.length) return this.nearestDegree(target, safe);
       // No safe colour tone against this chord: take a chord tone instead.
-    } else if (roll >= 0.95) {
+    } else if (roll >= colourUntil) {
       return target;
     }
     return this.nearestDegree(target, tones);
@@ -577,6 +625,7 @@ export class EarwormGenerator {
     skeleton: readonly number[],
     a: number,
     b: number,
+    maxMove: number,
   ): void {
     const gap = b - a;
     if (gap < 2) return;
@@ -607,7 +656,7 @@ export class EarwormGenerator {
     for (let k = 1; k < gap; k++) {
       const i = a + k;
       const move = degrees[i] - degrees[i - 1];
-      if (Math.abs(move) > 2) degrees[i] = degrees[i - 1] + Math.sign(move) * 2;
+      if (Math.abs(move) > maxMove) degrees[i] = degrees[i - 1] + Math.sign(move) * maxMove;
     }
   }
 
@@ -639,7 +688,7 @@ export class EarwormGenerator {
     // steps at the halfway point made the default setting feel unsettled: the
     // one deliberate leap in the phrase was landing as a jump rather than as
     // a lift.
-    let size = 2 + Math.round(clamp01(ctx.twist) * 0.55);
+    let size = 2 + Math.round(clamp01(ctx.twist) * 0.55 * ctx.voicing.twistScale);
     let target = previous + direction * Math.min(size, MAX_LEAP_MOVE);
     const semitones =
       degreeToMidi(target, ctx.scaleIntervals) - degreeToMidi(previous, ctx.scaleIntervals);
@@ -816,12 +865,13 @@ export class EarwormGenerator {
     hook: Candidate,
     variation: Candidate,
     scaleIntervals: readonly number[],
+    arrangement: ResolvedArrangement,
   ): Track {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = sectionAtBar(bar);
+      const section = arrangement.sectionAtBar(bar);
       const layers = layersFor(section);
       if (!layers.lead) continue;
 
@@ -866,6 +916,7 @@ export class EarwormGenerator {
     hook: Candidate,
     scaleIntervals: readonly number[],
     density: number,
+    arrangement: ResolvedArrangement,
   ): Track {
     const notes: NoteEvent[] = [];
     const arpPattern = [0, 2, 4];
@@ -877,7 +928,7 @@ export class EarwormGenerator {
     );
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = sectionAtBar(bar);
+      const section = arrangement.sectionAtBar(bar);
       const layers = layersFor(section);
       if (!layers.pluck) continue;
 
@@ -912,12 +963,17 @@ export class EarwormGenerator {
    * supported the harmony. It now voices an actual triad in a mid register,
    * below the lead so the two do not compete for the same octave.
    */
-  private generateAtmosphere(totalSteps: number, chords: number[], scaleIntervals: readonly number[]): Track {
+  private generateAtmosphere(
+    totalSteps: number,
+    chords: number[],
+    scaleIntervals: readonly number[],
+    arrangement: ResolvedArrangement,
+  ): Track {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = sectionAtBar(bar);
+      const section = arrangement.sectionAtBar(bar);
       const layers = layersFor(section);
       const step = bar * STEPS_PER_BAR;
       if (!layers.pad) continue;
@@ -952,6 +1008,7 @@ export class EarwormGenerator {
     kickPattern: number[],
     mode: GenBass,
     scaleIntervals: readonly number[],
+    arrangement: ResolvedArrangement,
   ): Track {
     const notes: NoteEvent[] = [];
     const driving = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
@@ -971,7 +1028,7 @@ export class EarwormGenerator {
     });
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = sectionAtBar(bar);
+      const section = arrangement.sectionAtBar(bar);
       const layers = layersFor(section);
       if (!layers.bass) continue;
 
@@ -1002,6 +1059,7 @@ export class EarwormGenerator {
     mode: GenDrums,
     hook: Candidate,
     ornament: number,
+    arrangement: ResolvedArrangement,
   ): { drumTracks: Track[]; kickSteps: SequencerStep[]; kickPattern: number[] } {
     // Build with a factory, not Array.fill: fill() shares one object across
     // every index, which is a live aliasing hazard the moment anything mutates.
@@ -1025,7 +1083,7 @@ export class EarwormGenerator {
 
     for (let step = 0; step < totalSteps; step++) {
       const bar = Math.floor(step / STEPS_PER_BAR);
-      const section = sectionAtBar(bar);
+      const section = arrangement.sectionAtBar(bar);
       const layers = layersFor(section);
       const inBar = step % STEPS_PER_BAR;
       if (!layers.drums) continue;
@@ -1062,7 +1120,7 @@ export class EarwormGenerator {
       (n) => Math.floor(n.step / STEPS_PER_BAR) === hook.rhythm.twistBar,
     )?.step ?? 0;
     for (let bar = 0; bar < Math.floor(totalSteps / STEPS_PER_BAR); bar += BARS_PER_PHRASE) {
-      if (sectionAtBar(bar).kind === 'intro') continue;
+      if (arrangement.sectionAtBar(bar).kind === 'intro') continue;
       const step = bar * STEPS_PER_BAR + twistStep;
       if (step < totalSteps) fxSteps[step] = { active: true, velocity: 0.8 };
     }
@@ -1095,6 +1153,8 @@ interface BuildContext {
   contour: GenContour;
   /** Motif size only, deliberately a narrow band. */
   density: number;
+  /** Melodic conduct: how firmly the line locks to the chord, and how far it moves. */
+  voicing: VoiceLeadingPreset;
   /** How far the A' variation departs, and how wide the twist leaps. */
   twist: number;
   modeName: GenMode;

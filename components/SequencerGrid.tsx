@@ -1,12 +1,14 @@
 import React from 'react';
 import { Track } from '../types';
-import { STEPS_PER_BAR, sectionAtBar } from '../services/arrangement';
+import { STEPS_PER_BAR, arrangementByName } from '../services/arrangement';
 
 interface SequencerGridProps {
   tracks: Track[];
   currentStep: number;
   totalSteps: number;
   selectedTrackId: string;
+  /** Which form template the grid is drawing. */
+  arrangement: string;
   onToggleStep: (trackId: string, stepIndex: number) => void;
   onSelectTrack: (trackId: string) => void;
   onToggleMute: (trackId: string) => void;
@@ -34,8 +36,8 @@ const SECTION_TINTS: Record<string, string> = {
 };
 
 /** The grid reads the same arrangement the generator builds from. */
-function sectionOf(bar: number): { name: string; tint: string; isStart: boolean } {
-  const section = sectionAtBar(bar);
+function sectionOf(bar: number, arrangement: string): { name: string; tint: string; isStart: boolean } {
+  const section = arrangementByName(arrangement).sectionAtBar(bar);
   return {
     name: section.label,
     tint: SECTION_TINTS[section.kind] ?? 'transparent',
@@ -60,7 +62,7 @@ const noteToMidi = (note: string): number => {
  * scrolls in either direction. The selected lane grows to stay editable.
  */
 export const SequencerGrid: React.FC<SequencerGridProps> = ({
-  tracks, currentStep, totalSteps, selectedTrackId,
+  tracks, currentStep, totalSteps, selectedTrackId, arrangement,
   onToggleStep, onSelectTrack, onToggleMute, onToggleSolo,
 }) => {
   const bars = Math.max(1, Math.ceil(totalSteps / STEPS_PER_BAR));
@@ -74,7 +76,7 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
         <div className="relative flex-1">
           <svg className="h-full w-full" viewBox={`0 0 ${totalSteps} 10`} preserveAspectRatio="none">
             {Array.from({ length: bars }, (_, bar) => {
-              const { tint } = sectionOf(bar);
+              const { tint } = sectionOf(bar, arrangement);
               return (
                 <rect key={bar} x={bar * STEPS_PER_BAR} y={0} width={STEPS_PER_BAR} height={10}
                       fill={tint} />
@@ -83,7 +85,7 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
           </svg>
           <div className="pointer-events-none absolute inset-0 flex">
             {Array.from({ length: bars }, (_, bar) => {
-              const { name, isStart } = sectionOf(bar);
+              const { name, isStart } = sectionOf(bar, arrangement);
               return (
                 <div key={bar}
                      className={`min-w-0 flex-1 overflow-visible whitespace-nowrap pl-1 text-[7px] uppercase tracking-widest ${
@@ -134,7 +136,7 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
               {/* Content */}
               <div className="relative min-w-0 flex-1">
                 <Lane track={track} totalSteps={totalSteps} bars={bars} colour={colour}
-                      dimmed={dimmed} onToggleStep={onToggleStep} />
+                      dimmed={dimmed} arrangement={arrangement} onToggleStep={onToggleStep} />
                 <div className="pointer-events-none absolute inset-y-0 w-px bg-white/70"
                      style={{ left: `${(currentStep / totalSteps) * 100}%` }} />
               </div>
@@ -150,8 +152,9 @@ const LANE_UNITS = 100;
 
 const Lane: React.FC<{
   track: Track; totalSteps: number; bars: number; colour: string; dimmed: boolean;
+  arrangement: string;
   onToggleStep: (trackId: string, stepIndex: number) => void;
-}> = ({ track, totalSteps, bars, colour, dimmed, onToggleStep }) => {
+}> = ({ track, totalSteps, bars, colour, dimmed, arrangement, onToggleStep }) => {
   const opacity = dimmed ? 0.22 : 1;
 
   // Map pitch into the lane, with a little padding so notes never touch the edge.
@@ -180,12 +183,12 @@ const Lane: React.FC<{
          onClick={handleClick}>
       {Array.from({ length: bars }, (_, bar) => (
         <rect key={`s${bar}`} x={bar * STEPS_PER_BAR} y={0} width={STEPS_PER_BAR} height={LANE_UNITS}
-              fill={sectionOf(bar).tint} />
+              fill={sectionOf(bar, arrangement).tint} />
       ))}
       {Array.from({ length: bars }, (_, bar) => (
         <line key={`b${bar}`} x1={bar * STEPS_PER_BAR} x2={bar * STEPS_PER_BAR} y1={0} y2={LANE_UNITS}
-              stroke={sectionOf(bar).isStart ? '#52525b' : '#27272a'}
-              strokeWidth={sectionOf(bar).isStart ? 0.9 : 0.4} vectorEffect="non-scaling-stroke" />
+              stroke={sectionOf(bar, arrangement).isStart ? '#52525b' : '#27272a'}
+              strokeWidth={sectionOf(bar, arrangement).isStart ? 0.9 : 0.4} vectorEffect="non-scaling-stroke" />
       ))}
 
       {track.notes?.map((note) => (

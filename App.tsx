@@ -9,7 +9,8 @@ import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
-import { SONG_STEPS } from './services/arrangement';
+import { ARRANGEMENT_PRESETS, arrangementByName } from './services/arrangement';
+import { HARMONY_PRESETS, VOICE_LEADING_PRESETS } from './services/harmonyPresets';
 import {
   MissingApiKeyError,
   clearApiKey,
@@ -52,6 +53,9 @@ const App: React.FC = () => {
   const [genDrums, setGenDrums] = useState<GenDrums>('four-floor');
   const [genDensity, setGenDensity] = useState<number>(0.7);
   const [genEntropy, setGenEntropy] = useState<number>(0.4);
+  const [genArrangement, setGenArrangement] = useState<string>(ARRANGEMENT_PRESETS[0].name);
+  const [genHarmony, setGenHarmony] = useState<string>(HARMONY_PRESETS[0].name);
+  const [genVoiceLeading, setGenVoiceLeading] = useState<string>(VOICE_LEADING_PRESETS[0].name);
   const [genAnalysis, setGenAnalysis] = useState<ScoreBreakdown | null>(null);
 
   const [tracks, setTracks] = useState<Track[]>(() => {
@@ -201,8 +205,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerateRitual = () => {
-    // The full arrangement, shared with composerAgent and the sequencer grid.
-    const GEN_STEPS = SONG_STEPS;
+    // Length follows the chosen form template.
+    const GEN_STEPS = arrangementByName(genArrangement).steps;
     const result = generatorService.generate({ 
       totalSteps: GEN_STEPS, 
       mode: genMode,
@@ -211,7 +215,10 @@ const App: React.FC = () => {
       bassMode: genBass,
       drumMode: genDrums,
       rhythmDensity: genDensity,
-      entropy: genEntropy
+      entropy: genEntropy,
+      arrangement: genArrangement,
+      harmony: genHarmony,
+      voiceLeading: genVoiceLeading,
     });
     setTracks(result.tracks.map(t => ({ ...t, isMuted: false, isSoloed: false })));
     setTotalSteps(GEN_STEPS);
@@ -475,53 +482,80 @@ const App: React.FC = () => {
           <div className="shrink-0 space-y-2 rounded border border-zinc-800 bg-zinc-900/20 p-2">
              <h3 className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-1">Generator Engine</h3>
              
-             <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                   <label className="text-[8px] text-zinc-600 uppercase">Mode</label>
+             <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Mode</label>
                    <select value={genMode} onChange={e => setGenMode(e.target.value as GenMode)} className={selectClass}>
-                      <option value="aeolian">Aeolian (Minor)</option>
+                      <option value="aeolian">Aeolian</option>
                       <option value="dorian">Dorian</option>
                       <option value="harmonic_minor">Harm. Minor</option>
                    </select>
                 </div>
-                <div className="space-y-1">
-                   <label className="text-[8px] text-zinc-600 uppercase">Motion</label>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Motion</label>
                    <select value={genHarmonicMotion} onChange={e => setGenHarmonicMotion(e.target.value as GenHarmonicMotion)} className={selectClass}>
-                      <option value="conjunct">Conjunct (Stepwise)</option>
-                      <option value="disjunct">Disjunct (Leaps)</option>
-                      <option value="static">Static (Drone)</option>
+                      <option value="conjunct">Conjunct</option>
+                      <option value="disjunct">Disjunct</option>
+                      <option value="static">Static</option>
                    </select>
                 </div>
-             </div>
-
-             <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                   <label className="text-[8px] text-zinc-600 uppercase">Contour</label>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Contour</label>
                    <select value={genContour} onChange={e => setGenContour(e.target.value as GenContour)} className={selectClass}>
-                      <option value="arch">Arch (Rise/Fall)</option>
+                      <option value="arch">Arch</option>
                       <option value="descent">Descent</option>
                       <option value="wave">Wave</option>
                       <option value="random">Random</option>
                    </select>
                 </div>
-                <div className="space-y-1">
-                   <label className="text-[8px] text-zinc-600 uppercase">Bass Logic</label>
-                   <select value={genBass} onChange={e => setGenBass(e.target.value as GenBass)} className={selectClass}>
-                      <option value="driving">Driving</option>
-                      <option value="acid">Acid</option>
-                      <option value="walking">Walking</option>
-                      <option value="sustained">Sustained</option>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Voicing</label>
+                   <select value={genVoiceLeading} onChange={e => setGenVoiceLeading(e.target.value)}
+                           title={VOICE_LEADING_PRESETS.find(v => v.name === genVoiceLeading)?.note}
+                           className={selectClass}>
+                      {VOICE_LEADING_PRESETS.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
                    </select>
                 </div>
-             </div>
-             
-             <div className="space-y-1">
-                  <label className="text-[8px] text-zinc-600 uppercase">Drum Logic</label>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Bass</label>
+                   <select value={genBass} onChange={e => setGenBass(e.target.value as GenBass)} className={selectClass}>
+                      <option value="driving">Driving</option>
+                      <option value="sustained">Sustained</option>
+                      <option value="acid">Acid</option>
+                      <option value="walking">Walking</option>
+                   </select>
+                </div>
+                <div className="space-y-0.5">
+                   <label className="text-[8px] uppercase text-zinc-600">Drums</label>
                    <select value={genDrums} onChange={e => setGenDrums(e.target.value as GenDrums)} className={selectClass}>
                       <option value="four-floor">Four-on-Floor</option>
                       <option value="breakbeat">Breakbeat</option>
                       <option value="tribal">Tribal</option>
                    </select>
+                </div>
+             </div>
+
+             <div className="space-y-0.5">
+                <label className="text-[8px] uppercase text-zinc-600">Structure</label>
+                <select value={genArrangement} onChange={e => setGenArrangement(e.target.value)}
+                        title={ARRANGEMENT_PRESETS.find(a => a.name === genArrangement)?.note}
+                        className={selectClass}>
+                   {ARRANGEMENT_PRESETS.map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+                </select>
+             </div>
+
+             <div className="space-y-0.5">
+                <label className="flex items-baseline justify-between text-[8px] uppercase text-zinc-600">
+                  <span>Harmony</span>
+                  <span className="normal-case tracking-normal text-zinc-500">
+                    {HARMONY_PRESETS.find(h => h.name === genHarmony)?.figures}
+                  </span>
+                </label>
+                <select value={genHarmony} onChange={e => setGenHarmony(e.target.value)}
+                        title={HARMONY_PRESETS.find(h => h.name === genHarmony)?.note}
+                        className={selectClass}>
+                   {HARMONY_PRESETS.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
+                </select>
              </div>
 
              <div className="flex justify-between pt-1">
@@ -597,22 +631,21 @@ const App: React.FC = () => {
           </div>
           {/* SONG PRESETS — a whole instrument set, not one patch */}
           <div className="shrink-0 space-y-0.5 rounded border border-zinc-800 bg-zinc-900/20 p-1.5">
-            <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-500">Song Preset</span>
-            <div className="flex flex-wrap gap-0.5">
+            <label className="text-[8px] uppercase tracking-widest text-zinc-500">Song Preset</label>
+            <select
+              value={SONG_PRESETS.some((p) => p.name === currentTheme) ? currentTheme : ''}
+              onChange={(e) => {
+                const preset = SONG_PRESETS.find((p) => p.name === e.target.value);
+                if (preset) applySongPreset(preset);
+              }}
+              title={SONG_PRESETS.find((p) => p.name === currentTheme)?.note}
+              className={selectClass}
+            >
+              <option value="">— choose a sound —</option>
               {SONG_PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  onClick={() => applySongPreset(preset)}
-                  title={preset.note}
-                  className={`rounded border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-tight transition-colors ${
-                    currentTheme === preset.name
-                      ? 'border-neon-purple/60 bg-neon-purple/20 text-neon-purple'
-                      : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-600 hover:text-white'}`}
-                >
-                  {preset.name}
-                </button>
+                <option key={preset.name} value={preset.name}>{preset.name}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* GEMINI API KEY */}
@@ -691,6 +724,7 @@ const App: React.FC = () => {
               currentStep={currentStep}
               totalSteps={totalSteps}
               selectedTrackId={selectedTrackId}
+              arrangement={genArrangement}
               onToggleStep={handleToggleStep}
               onSelectTrack={(id) => setSelectedTrackId(id as TrackType)}
               onToggleMute={(id) => setTracks(prev => prev.map(t => t.id === id ? { ...t, isMuted: !t.isMuted } : t))}

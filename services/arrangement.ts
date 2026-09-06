@@ -24,19 +24,78 @@ export interface Section {
 export const STEPS_PER_BAR = 16;
 export const BARS_PER_PHRASE = 4;
 
-export const SONG_ARRANGEMENT: readonly Section[] = [
-  { kind: 'intro',  label: 'INTRO',    bars: 2, repeat: 0 },
-  { kind: 'verse',  label: 'VERSE 1',  bars: 4, repeat: 0 },
-  { kind: 'chorus', label: 'CHORUS 1', bars: 4, repeat: 0 },
-  { kind: 'verse',  label: 'VERSE 2',  bars: 4, repeat: 1 },
-  { kind: 'chorus', label: 'CHORUS 2', bars: 4, repeat: 1 },
-  { kind: 'bridge', label: 'BRIDGE',   bars: 2, repeat: 0 },
-  { kind: 'chorus', label: 'CHORUS 3', bars: 4, repeat: 2 },
-  { kind: 'outro',  label: 'OUTRO',    bars: 2, repeat: 0 },
+/**
+ * Form templates. §3.1 lists three by name; the others are composerAgent's
+ * full song and two genre-convention shapes, each labelled as such.
+ */
+export interface Arrangement {
+  name: string;
+  note: string;
+  sections: readonly Section[];
+}
+
+export const ARRANGEMENT_PRESETS: readonly Arrangement[] = [
+  {
+    name: 'Full Song',
+    note: "composerAgent's arrangement: the hook is withheld through the intro and the first verse so the first chorus lands.",
+    sections: [
+      { kind: 'intro',  label: 'INTRO',    bars: 2, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 1',  bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 1', bars: 4, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 2',  bars: 4, repeat: 1 },
+      { kind: 'chorus', label: 'CHORUS 2', bars: 4, repeat: 1 },
+      { kind: 'bridge', label: 'BRIDGE',   bars: 2, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 3', bars: 4, repeat: 2 },
+      { kind: 'outro',  label: 'OUTRO',    bars: 2, repeat: 0 },
+    ],
+  },
+  {
+    name: 'Mini-Song',
+    note: '§3.1 "Mini-song (16 bars): Intro (4) -> Verse groove (4) -> Hook/Chorus (4) -> Hook variation (4)".',
+    sections: [
+      { kind: 'intro',  label: 'INTRO',    bars: 4, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE',    bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS',   bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'HOOK VAR', bars: 4, repeat: 1 },
+    ],
+  },
+  {
+    name: 'Hook Phrase',
+    note: "§3.1 \"Hook Phrase (4 bars): A (2 bars) + A' (2 bars) with a cadence-like landing\". The hook alone, looped.",
+    sections: [
+      { kind: 'chorus', label: 'A',  bars: 4, repeat: 0 },
+      { kind: 'chorus', label: "A'", bars: 4, repeat: 1 },
+    ],
+  },
+  {
+    name: 'Long Form',
+    note: 'The full song with verses and choruses doubled — the same shape given room to breathe.',
+    sections: [
+      { kind: 'intro',  label: 'INTRO',    bars: 4, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 1',  bars: 8, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 1', bars: 8, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 2',  bars: 8, repeat: 1 },
+      { kind: 'chorus', label: 'CHORUS 2', bars: 8, repeat: 1 },
+      { kind: 'bridge', label: 'BRIDGE',   bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 3', bars: 8, repeat: 2 },
+      { kind: 'outro',  label: 'OUTRO',    bars: 4, repeat: 0 },
+    ],
+  },
+  {
+    name: 'Club Edit',
+    note: 'Genre convention rather than a spec template: long drum-led intro and outro for mixing.',
+    sections: [
+      { kind: 'intro',  label: 'INTRO',    bars: 8, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 1',  bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 1', bars: 8, repeat: 0 },
+      { kind: 'bridge', label: 'BREAK',    bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 2', bars: 8, repeat: 1 },
+      { kind: 'outro',  label: 'OUTRO',    bars: 8, repeat: 0 },
+    ],
+  },
 ];
 
-export const SONG_BARS = SONG_ARRANGEMENT.reduce((n, s) => n + s.bars, 0);
-export const SONG_STEPS = SONG_BARS * STEPS_PER_BAR;
+export const DEFAULT_ARRANGEMENT = ARRANGEMENT_PRESETS[0];
 
 export interface PlacedSection extends Section {
   startBar: number;
@@ -44,24 +103,56 @@ export interface PlacedSection extends Section {
   barInSection: number;
 }
 
-const PLACED: PlacedSection[] = [];
-{
+/** An arrangement resolved to a per-bar lookup. */
+export interface ResolvedArrangement {
+  name: string;
+  bars: number;
+  steps: number;
+  sectionAtBar(bar: number): PlacedSection;
+  sectionAtStep(step: number): PlacedSection;
+}
+
+const resolvedCache = new Map<string, ResolvedArrangement>();
+
+export function resolveArrangement(arrangement: Arrangement): ResolvedArrangement {
+  const cached = resolvedCache.get(arrangement.name);
+  if (cached) return cached;
+
+  const placed: PlacedSection[] = [];
   let bar = 0;
-  for (const section of SONG_ARRANGEMENT) {
+  for (const section of arrangement.sections) {
     for (let i = 0; i < section.bars; i++) {
-      PLACED.push({ ...section, startBar: bar, barInSection: i });
+      placed.push({ ...section, startBar: bar, barInSection: i });
     }
     bar += section.bars;
   }
+
+  const bars = placed.length;
+  const sectionAtBar = (b: number) => placed[((b % bars) + bars) % bars];
+  const resolved: ResolvedArrangement = {
+    name: arrangement.name,
+    bars,
+    steps: bars * STEPS_PER_BAR,
+    sectionAtBar,
+    sectionAtStep: (step: number) => sectionAtBar(Math.floor(step / STEPS_PER_BAR)),
+  };
+  resolvedCache.set(arrangement.name, resolved);
+  return resolved;
 }
 
-/** The section covering a bar. Repeats the whole arrangement past its end. */
-export function sectionAtBar(bar: number): PlacedSection {
-  return PLACED[((bar % SONG_BARS) + SONG_BARS) % SONG_BARS];
+export function arrangementByName(name?: string): ResolvedArrangement {
+  return resolveArrangement(
+    ARRANGEMENT_PRESETS.find((a) => a.name === name) ?? DEFAULT_ARRANGEMENT,
+  );
 }
 
+/** Defaults, for callers that do not choose a shape. */
+export const SONG_BARS = resolveArrangement(DEFAULT_ARRANGEMENT).bars;
+export const SONG_STEPS = resolveArrangement(DEFAULT_ARRANGEMENT).steps;
+export const sectionAtBar = (bar: number): PlacedSection =>
+  resolveArrangement(DEFAULT_ARRANGEMENT).sectionAtBar(bar);
 export const sectionAtStep = (step: number): PlacedSection =>
-  sectionAtBar(Math.floor(step / STEPS_PER_BAR));
+  resolveArrangement(DEFAULT_ARRANGEMENT).sectionAtStep(step);
 
 /**
  * Which layers play, per section — composerAgent's variation rules, which it

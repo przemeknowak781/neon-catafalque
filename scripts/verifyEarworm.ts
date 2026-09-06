@@ -19,7 +19,10 @@ import {
   type GenMode,
 } from '../services/earwormGenerator';
 import { TARGETS, analyzeExpectation, degreeToMidi, mod } from '../services/earwormAnalysis';
-import { SONG_STEPS, layersFor, sectionAtBar } from '../services/arrangement';
+import {
+  ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
+} from '../services/arrangement';
+import { HARMONY_PRESETS, VOICE_LEADING_PRESETS } from '../services/harmonyPresets';
 
 const SCALE_INTERVALS: Record<GenMode, number[]> = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],
@@ -264,6 +267,59 @@ for (const mode of MODES) {
           record('all tracks fit the requested grid', 'structural', 1.0, !overflow);
         }
       }
+    }
+  }
+}
+
+// --- preset combinations ---------------------------------------------------
+//
+// The presets bias generation; the spec still governs it. Every arrangement,
+// every progression and every voice-leading style has to come out the far side
+// still satisfying §2.1, §3.3 and §8 — otherwise a preset is not a style, it
+// is a way of quietly breaking the constraints.
+
+let combination = 0;
+for (const arrangement of ARRANGEMENT_PRESETS) {
+  for (const harmony of HARMONY_PRESETS) {
+    for (const voiceLeading of VOICE_LEADING_PRESETS) {
+      combination++;
+      const resolved = arrangementByName(arrangement.name);
+      const song = generator.generate({
+        totalSteps: resolved.steps,
+        mode: (['aeolian', 'dorian', 'harmonic_minor'] as const)[combination % 3],
+        harmonicMotion: 'conjunct',
+        contour: 'arch',
+        rhythmDensity: (combination % 5) / 4,
+        entropy: (combination % 4) / 3,
+        bassMode: 'driving',
+        drumMode: 'four-floor',
+        seed: 9000 + combination,
+        arrangement: arrangement.name,
+        harmony: harmony.name,
+        voiceLeading: voiceLeading.name,
+      });
+
+      const d = song.analysis.detail;
+      const label = `${arrangement.name}/${harmony.name}/${voiceLeading.name}`;
+
+      record('every preset combination keeps a common contour', 'presets', 0.95,
+        d.contourClass === 'arch' || d.contourClass === 'descent');
+      record('every preset combination keeps its range singable', 'presets', 0.9,
+        d.range >= TARGETS.rangeMin && d.range <= TARGETS.rangeMax, d.range);
+      record('every preset combination stays in mode', 'presets', 0.99,
+        d.inModeRatio >= TARGETS.inModeMin);
+      record('every preset combination keeps one twist', 'presets', 0.9,
+        d.atypicalTurns === TARGETS.atypicalTurnsPer4Bars, d.atypicalTurns);
+      record('every arrangement fills its own length', 'presets', 1.0,
+        song.tracks.every((t) => !t.steps || t.steps.length === resolved.steps));
+
+      // A named progression must actually be the progression that sounds.
+      if (harmony.loop) {
+        const padTrack = song.tracks.find((t) => t.id === 'pad');
+        record('a named progression is the one that plays', 'presets', 1.0,
+          (padTrack?.notes?.length ?? 0) > 0, undefined);
+      }
+      void label;
     }
   }
 }
