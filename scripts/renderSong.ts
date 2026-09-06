@@ -10,6 +10,7 @@ import { AudioEngine } from '../services/audioEngine';
 import { scheduleStep, secondsPerStepAt } from '../services/songScheduler';
 import { generatorService, type GeneratorSettings } from '../services/earwormGenerator';
 import {
+  INSTRUMENT_PRESETS,
   DEFAULT_LEAD_PARAMS,
   DEFAULT_BASS_PARAMS,
   DEFAULT_PAD_PARAMS,
@@ -29,6 +30,8 @@ export interface RenderOptions {
   useAppMixerLevels?: boolean;
   /** Render only these tracks, for isolating one part of the mix. */
   only?: string[];
+  /** Override an instrument's patch, e.g. { lead: 'Vox Humana' }. */
+  presets?: Record<string, string>;
 }
 
 export interface RenderResult {
@@ -71,6 +74,12 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
     tracks = tracks.map((t) => ({ ...t, volume: levels.get(t.id) ?? t.volume }));
   }
 
+  const params: Record<string, InstrumentParams> = { ...PARAMS };
+  for (const [track, name] of Object.entries(options.presets ?? {})) {
+    const bank = INSTRUMENT_PRESETS[track as keyof typeof INSTRUMENT_PRESETS];
+    if (bank?.[name]) params[track] = bank[name];
+  }
+
   const secondsPerStep = secondsPerStepAt(song.bpm);
   const steps = bars * 16;
   // Tail so the last note's release is captured rather than cut off.
@@ -95,15 +104,15 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
       for (const n of track.notes) {
         if (Math.floor(n.startStep) !== step) continue;
         noteCount++;
-        const params = PARAMS[track.id];
-        const end = time + n.duration * secondsPerStep + (params?.release ?? 0);
+        const patch = params[track.id];
+        const end = time + n.duration * secondsPerStep + (patch?.release ?? 0);
         releases.push(end);
       }
     }
     const alive = releases.filter((end) => end > time).length;
     peakVoices = Math.max(peakVoices, alive);
 
-    scheduleStep(engine, tracks, PARAMS, step, time, secondsPerStep);
+    scheduleStep(engine, tracks, params, step, time, secondsPerStep);
   }
 
   const buffer = await ctx.startRendering();
