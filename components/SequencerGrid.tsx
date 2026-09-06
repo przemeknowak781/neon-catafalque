@@ -1,252 +1,200 @@
-
 import React from 'react';
 import { Track } from '../types';
-import { SCALE_NOTES } from '../constants';
 
 interface SequencerGridProps {
   tracks: Track[];
   currentStep: number;
   totalSteps: number;
+  selectedTrackId: string;
   onToggleStep: (trackId: string, stepIndex: number) => void;
-  onAddNote: (trackId: string, note: string, step: number) => void;
-  onPreviewNote: (trackId: string, note: string) => void;
-  onToggleCollapse: (trackId: string) => void;
+  onSelectTrack: (trackId: string) => void;
+  onToggleMute: (trackId: string) => void;
+  onToggleSolo: (trackId: string) => void;
 }
 
-export const SequencerGrid: React.FC<SequencerGridProps> = ({ 
-  tracks, currentStep, totalSteps, onToggleStep, onAddNote, onPreviewNote, onToggleCollapse 
+/** SVG needs real colours, not utility class names. */
+const TRACK_COLOURS: Record<string, string> = {
+  lead: '#b026ff',
+  pluck: '#2dd4bf',
+  pad: '#3b82f6',
+  bass: '#6366f1',
+  fx: '#ff00ff',
+  hihat: '#facc15',
+  snare: '#22d3ee',
+  kick: '#ef4444',
+};
+
+const STEPS_PER_BAR = 16;
+
+/** Matches the generator's 16-bar mini-song: intro, verse, chorus, variation. */
+function sectionOf(bar: number): { name: string; tint: string } {
+  const position = bar % 16;
+  if (position < 4) return { name: 'INTRO', tint: 'transparent' };
+  if (position < 8) return { name: 'VERSE', tint: 'rgba(255,255,255,0.022)' };
+  if (position < 12) return { name: 'CHORUS', tint: 'rgba(176,38,255,0.075)' };
+  return { name: 'HOOK VAR', tint: 'rgba(0,243,255,0.05)' };
+}
+
+const noteToMidi = (note: string): number => {
+  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const m = note.match(/^([A-G]#?)(-?\d+)$/);
+  return m ? (parseInt(m[2], 10) + 1) * 12 + names.indexOf(m[1]) : 60;
+};
+
+/**
+ * One lane per track, all of them on screen at once.
+ *
+ * The previous grid gave an expanded track a full 29-row piano roll at 32 px a
+ * row and 24 px a step — nearly a thousand pixels tall and six thousand wide
+ * for a single part, so one track filled the viewport and the other seven were
+ * somewhere below the fold. Here every track is a fixed-height lane drawn as a
+ * scaling SVG, so the whole arrangement is legible at a glance and nothing
+ * scrolls in either direction. The selected lane grows to stay editable.
+ */
+export const SequencerGrid: React.FC<SequencerGridProps> = ({
+  tracks, currentStep, totalSteps, selectedTrackId,
+  onToggleStep, onSelectTrack, onToggleMute, onToggleSolo,
 }) => {
-  const pianoRollTracks = tracks.filter(t => t.notes);
-  const rhythmTracks = tracks.filter(t => t.steps);
-  const reversedNotes = [...SCALE_NOTES].reverse();
+  const bars = Math.max(1, Math.ceil(totalSteps / STEPS_PER_BAR));
+  const anySoloed = tracks.some((t) => t.isSoloed);
 
-  // Pixel Dimensions
-  const LABEL_W = 100;
-  const ROW_H = 32;
-  const TRACK_HEADER_H = 36;
-  const HEADER_H = 32;
-  const STEP_W = 24; // Fixed width per step for scrolling
+  return (
+    <div className="flex h-full min-h-0 w-full select-none flex-col font-mono">
+      {/* Ruler */}
+      <div className="flex h-5 shrink-0 items-stretch border-b border-zinc-800">
+        <div className="w-[112px] shrink-0 border-r border-zinc-800" />
+        <div className="relative flex-1">
+          <svg className="h-full w-full" viewBox={`0 0 ${totalSteps} 10`} preserveAspectRatio="none">
+            {Array.from({ length: bars }, (_, bar) => {
+              const { tint } = sectionOf(bar);
+              return (
+                <rect key={bar} x={bar * STEPS_PER_BAR} y={0} width={STEPS_PER_BAR} height={10}
+                      fill={tint} />
+              );
+            })}
+          </svg>
+          <div className="pointer-events-none absolute inset-0 flex">
+            {Array.from({ length: bars }, (_, bar) => {
+              const { name } = sectionOf(bar);
+              const isSectionStart = bar % 4 === 0;
+              return (
+                <div key={bar}
+                     className="min-w-0 flex-1 truncate border-l border-zinc-800/60 pl-1 text-[7px] uppercase tracking-widest text-zinc-600">
+                  {isSectionStart ? name : ''}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
 
-  const totalWidth = totalSteps * STEP_W;
+      {/* Lanes */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {tracks.map((track) => {
+          const isSelected = track.id === selectedTrackId;
+          const colour = TRACK_COLOURS[track.id] ?? '#a1a1aa';
+          const dimmed = track.isMuted || (anySoloed && !track.isSoloed);
 
-  const getSectionName = (stepIndex: number) => {
-      // Logic for the Full Song Structure (416 steps)
-      if (totalSteps >= 400) {
-          if (stepIndex === 0) return "INTRO";
-          if (stepIndex === 32) return "VERSE 1";
-          if (stepIndex === 96) return "CHORUS 1";
-          if (stepIndex === 160) return "VERSE 2";
-          if (stepIndex === 224) return "CHORUS 2";
-          if (stepIndex === 288) return "BRIDGE";
-          if (stepIndex === 320) return "CHORUS 3";
-          if (stepIndex === 384) return "OUTRO";
-          return "";
-      }
-      
-      // Fallback for AI Loop (128 steps)
-      if (totalSteps === 128) {
-          if (stepIndex === 0) return "INTRO";
-          if (stepIndex === 32) return "VERSE";
-          if (stepIndex === 64) return "CHORUS";
-          return "";
-      }
+          return (
+            <div key={track.id}
+                 onClick={() => onSelectTrack(track.id)}
+                 style={{ flexGrow: isSelected ? 3 : 1 }}
+                 className={`flex min-h-0 basis-0 cursor-pointer items-stretch border-b border-zinc-900 transition-colors ${
+                   isSelected ? 'bg-white/[0.03]' : 'hover:bg-white/[0.015]'}`}>
 
-      // Generic
-      if (stepIndex % 32 === 0) return `${Math.floor(stepIndex/32) + 1}`;
-      return "";
+              {/* Label */}
+              <div className={`flex w-[112px] shrink-0 items-center gap-1.5 border-r px-2 ${
+                isSelected ? 'border-zinc-700' : 'border-zinc-800'}`}>
+                <span className="h-3 w-[3px] shrink-0 rounded-full"
+                      style={{ backgroundColor: colour, opacity: dimmed ? 0.25 : 1 }} />
+                <span className={`min-w-0 flex-1 truncate text-[9px] font-bold uppercase tracking-wider ${
+                  dimmed ? 'text-zinc-600' : 'text-zinc-300'}`}>
+                  {track.name}
+                </span>
+                <button onClick={(e) => { e.stopPropagation(); onToggleMute(track.id); }}
+                        title="Mute"
+                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
+                          track.isMuted ? 'border-neon-pink/60 bg-neon-pink/20 text-neon-pink'
+                                        : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>M</button>
+                <button onClick={(e) => { e.stopPropagation(); onToggleSolo(track.id); }}
+                        title="Solo"
+                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
+                          track.isSoloed ? 'border-neon-cyan/60 bg-neon-cyan/20 text-neon-cyan'
+                                         : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>S</button>
+              </div>
+
+              {/* Content */}
+              <div className="relative min-w-0 flex-1">
+                <Lane track={track} totalSteps={totalSteps} bars={bars} colour={colour}
+                      dimmed={dimmed} onToggleStep={onToggleStep} />
+                <div className="pointer-events-none absolute inset-y-0 w-px bg-white/70"
+                     style={{ left: `${(currentStep / totalSteps) * 100}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const LANE_UNITS = 100;
+
+const Lane: React.FC<{
+  track: Track; totalSteps: number; bars: number; colour: string; dimmed: boolean;
+  onToggleStep: (trackId: string, stepIndex: number) => void;
+}> = ({ track, totalSteps, bars, colour, dimmed, onToggleStep }) => {
+  const opacity = dimmed ? 0.22 : 1;
+
+  // Map pitch into the lane, with a little padding so notes never touch the edge.
+  let low = 0, high = 1;
+  if (track.notes?.length) {
+    const midi = track.notes.map((n) => noteToMidi(n.note));
+    low = Math.min(...midi);
+    high = Math.max(...midi);
+    if (high === low) { high = low + 1; }
+  }
+  const yOf = (midi: number) => {
+    const t = (midi - low) / (high - low);
+    return 8 + (1 - t) * (LANE_UNITS - 22);
+  };
+
+  const handleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!track.steps) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const step = Math.floor(((e.clientX - rect.left) / rect.width) * totalSteps);
+    if (step >= 0 && step < totalSteps) onToggleStep(track.id, step);
   };
 
   return (
-    <div className="flex flex-col select-none h-full font-mono text-zinc-300 w-full overflow-hidden">
-      <div className="flex-1 border border-zinc-800 rounded bg-zinc-950 shadow-2xl relative flex flex-col overflow-hidden">
-        {/* Timeline / Header */}
-        <div className="flex bg-black/80 sticky top-0 z-50 w-full border-b border-zinc-800 h-[32px]">
-          <div 
-            className="sticky left-0 bg-black z-[60] border-r border-zinc-800 flex items-center px-4 shrink-0" 
-            style={{ width: `${LABEL_W}px` }}
-          >
-             <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">Track</span>
-          </div>
-          
-          <div className="flex-1 overflow-hidden relative">
-             <div className="absolute inset-0 overflow-hidden" style={{ transform: `translateX(0)` }}>
-                {/* Visual Header Placeholders */}
-             </div>
-          </div>
-        </div>
+    <svg className={`h-full w-full ${track.steps ? 'cursor-pointer' : ''}`}
+         viewBox={`0 0 ${totalSteps} ${LANE_UNITS}`} preserveAspectRatio="none"
+         onClick={handleClick}>
+      {Array.from({ length: bars }, (_, bar) => (
+        <rect key={`s${bar}`} x={bar * STEPS_PER_BAR} y={0} width={STEPS_PER_BAR} height={LANE_UNITS}
+              fill={sectionOf(bar).tint} />
+      ))}
+      {Array.from({ length: bars }, (_, bar) => (
+        <line key={`b${bar}`} x1={bar * STEPS_PER_BAR} x2={bar * STEPS_PER_BAR} y1={0} y2={LANE_UNITS}
+              stroke={bar % 4 === 0 ? '#3f3f46' : '#27272a'} strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
+      ))}
 
-        {/* Scrollable Container for Grid + Header */}
-        <div className="flex-1 overflow-auto custom-scrollbar relative flex flex-col">
-            <div className="min-w-max flex flex-col h-full" style={{ width: `${LABEL_W + totalWidth}px` }}>
-                
-                {/* Header Row (re-implemented inside scroll to move with content) */}
-                <div className="flex h-[32px] border-b border-zinc-800 bg-black/80 sticky top-0 z-[50]">
-                     <div className="sticky left-0 w-[100px] bg-black border-r border-zinc-800 z-[60] flex items-center px-4">
-                        <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-bold">Timeline</span>
-                     </div>
-                     <div className="flex h-full relative">
-                        {Array(totalSteps).fill(0).map((_, i) => (
-                            <div 
-                                key={i} 
-                                className={`text-[9px] text-zinc-600 flex items-center justify-start pl-1 border-r border-zinc-800/20 relative ${i % 16 === 0 ? 'border-r-zinc-600/40' : ''}`}
-                                style={{ width: `${STEP_W}px` }}
-                            >
-                                {(i % 4 === 0) && <span className="opacity-50">{i + 1}</span>}
-                                {(i % 32 === 0 || [96, 160, 224, 288, 320, 384].includes(i)) && getSectionName(i) && (
-                                    <span className="absolute top-0 left-1 h-full flex items-center text-neon-cyan/50 font-bold tracking-widest text-[9px] z-10 whitespace-nowrap bg-black/40 px-1 backdrop-blur-sm">
-                                        {getSectionName(i)}
-                                    </span>
-                                )}
-                            </div>
-                        ))}
-                     </div>
-                </div>
+      {track.notes?.map((note) => (
+        <rect key={note.id}
+              x={note.startStep}
+              y={yOf(noteToMidi(note.note)) - 4}
+              width={Math.max(0.8, note.duration)}
+              height={8}
+              rx={1.5}
+              fill={colour}
+              opacity={opacity * (0.45 + note.velocity * 0.55)} />
+      ))}
 
-                {/* Grid Body */}
-                <div className="flex flex-col relative">
-                    {/* INSTRUMENT SECTION */}
-                    {pianoRollTracks.map(track => (
-                    <div key={track.id} className="flex flex-col border-b-2 border-black">
-                        {/* Track Header */}
-                        <div 
-                        onClick={() => onToggleCollapse(track.id)}
-                        style={{ height: `${TRACK_HEADER_H}px` }}
-                        className="flex sticky left-0 w-full z-40"
-                        >
-                            <div className="sticky left-0 w-[100px] bg-zinc-900 border-r border-zinc-800 flex items-center justify-between px-4 z-[50] cursor-pointer hover:bg-zinc-800">
-                                <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${track.color.replace('bg-', 'text-')}`}>{track.name}</span>
-                                <span className="text-[8px] text-zinc-600">{track.isCollapsed ? '▶' : '▼'}</span>
-                            </div>
-                            <div className="flex-1 bg-zinc-900/40 border-b border-zinc-800/50 flex items-center px-2">
-                                {!track.isCollapsed && <div className="text-[8px] text-zinc-600 font-mono tracking-widest">{getSectionName(0)}...</div>}
-                            </div>
-                        </div>
-
-                        {!track.isCollapsed && (
-                        <div className="relative flex">
-                            {/* Sticky Notes Labels */}
-                            <div className="sticky left-0 w-[100px] bg-black/95 border-r border-zinc-800 z-[45] flex flex-col shrink-0">
-                                {reversedNotes.map((note) => (
-                                    <div key={note} style={{ height: `${ROW_H}px` }} className="flex items-center justify-end pr-3 text-[9px] text-zinc-600 border-b border-zinc-800/20">
-                                        {note}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* The Grid */}
-                            <div className="relative" style={{ width: `${totalWidth}px` }}>
-                                {reversedNotes.map((note) => (
-                                    <div key={note} style={{ height: `${ROW_H}px` }} className="flex border-b border-zinc-800/10 w-full">
-                                        {Array(totalSteps).fill(0).map((_, stepIdx) => (
-                                            <div 
-                                                key={stepIdx}
-                                                style={{ width: `${STEP_W}px` }}
-                                                className={`border-r border-zinc-800/10 hover:bg-white/[0.05] cursor-crosshair ${stepIdx % 4 === 0 ? 'bg-white/[0.01]' : ''} ${stepIdx % 16 === 0 ? 'border-r-zinc-700/30' : ''}`}
-                                                onClick={() => onAddNote(track.id, note, stepIdx)}
-                                            />
-                                        ))}
-                                    </div>
-                                ))}
-
-                                {/* Notes Overlay */}
-                                <div className="absolute inset-0 pointer-events-none">
-                                    {track.notes?.map(event => {
-                                        const noteIndex = reversedNotes.indexOf(event.note);
-                                        if (noteIndex === -1) return null;
-                                        return (
-                                        <div
-                                            key={event.id}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onAddNote(track.id, event.note, event.startStep);
-                                            }}
-                                            className={`absolute rounded-sm shadow-xl border border-white/20 flex items-center justify-center cursor-pointer pointer-events-auto transition-all hover:brightness-125 z-20 ${track.color} group`}
-                                            style={{
-                                                height: `${ROW_H - 6}px`,
-                                                top: `${noteIndex * ROW_H + 3}px`,
-                                                left: `${event.startStep * STEP_W}px`,
-                                                width: `${event.duration * STEP_W}px`,
-                                                marginLeft: '2px',
-                                            }}
-                                        >
-                                            <span className="text-[7px] font-black text-black/60 overflow-hidden whitespace-nowrap px-0.5 group-hover:text-black">
-                                                {event.note}
-                                            </span>
-                                        </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                        )}
-                    </div>
-                    ))}
-
-                    {/* RHYTHM SECTION */}
-                    <div className="bg-zinc-900/20 border-t-2 border-black pb-12">
-                         {rhythmTracks.map(track => (
-                            <div key={track.id} style={{ height: '52px' }} className="flex border-b border-zinc-800/40 w-full">
-                                <div 
-                                    onClick={() => onToggleCollapse(track.id)}
-                                    className="sticky left-0 w-[100px] z-[45] flex items-center justify-between pr-4 bg-black border-r border-zinc-800 cursor-pointer hover:bg-zinc-900 group"
-                                >
-                                    <span className={`pl-4 text-[10px] font-mono tracking-widest uppercase ${track.color.replace('bg-', 'text-')}`}>{track.name}</span>
-                                    <span className="text-[8px] text-zinc-700">{track.isCollapsed ? '▶' : '▼'}</span>
-                                </div>
-                                
-                                {!track.isCollapsed ? (
-                                    <div className="flex h-full relative" style={{ width: `${totalWidth}px` }}>
-                                        {track.steps?.map((step, i) => (
-                                            <div 
-                                                key={i}
-                                                style={{ width: `${STEP_W}px` }}
-                                                className={`flex items-center justify-center border-r border-zinc-800/20 h-full ${i % 4 === 0 ? 'bg-white/[0.03]' : ''} ${i % 16 === 0 ? 'border-r-zinc-700/30' : ''}`}
-                                            >
-                                                <button
-                                                    onClick={() => {
-                                                        onToggleStep(track.id as string, i);
-                                                        if (!step.active) onPreviewNote(track.id as string, '');
-                                                    }}
-                                                    className={`
-                                                        w-[80%] h-[80%] rounded-sm transition-all duration-150 transform
-                                                        ${step.active 
-                                                            ? `${track.color} shadow-[0_0_12px_currentColor] opacity-100 scale-100` 
-                                                            : 'bg-zinc-800/40 hover:bg-zinc-700/60 opacity-30 scale-90'}
-                                                        ${currentStep === i ? 'ring-2 ring-neon-cyan ring-inset brightness-150 z-10 scale-105' : ''}
-                                                    `}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center px-4 bg-black/60 w-full h-full">
-                                        <div className="flex gap-1">
-                                            {track.steps?.filter((_, idx) => idx < 32).map((s, idx) => s.active && (
-                                                <div key={idx} className={`w-1.5 h-1.5 rounded-full shrink-0 ${track.color}`}></div>
-                                            ))}
-                                            <span className="text-zinc-700 text-[9px] ml-2">...</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                         ))}
-                    </div>
-
-                    {/* PLAYHEAD */}
-                    <div 
-                        className="absolute top-0 bottom-0 border-l-2 border-neon-cyan shadow-[0_0_20px_rgba(0,243,255,0.7)] bg-neon-cyan/5 pointer-events-none z-[40] transition-all duration-75"
-                        style={{ 
-                            left: `${100 + (currentStep * STEP_W)}px`, 
-                            width: `${STEP_W}px` 
-                        }}
-                    >
-                        <div className="h-full w-full bg-gradient-to-r from-neon-cyan/10 to-transparent"></div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-      </div>
-    </div>
+      {track.steps?.map((step, i) => step.active ? (
+        <rect key={i} x={i + 0.15} y={LANE_UNITS * 0.18} width={0.7}
+              height={LANE_UNITS * (0.28 + step.velocity * 0.5)}
+              rx={0.3} fill={colour} opacity={opacity * (0.5 + step.velocity * 0.5)} />
+      ) : null)}
+    </svg>
   );
 };

@@ -396,38 +396,54 @@ const App: React.FC = () => {
   const selectClass = "w-full bg-zinc-900 border border-zinc-800 text-neon-cyan text-[9px] font-mono py-1 px-1 rounded focus:outline-none focus:border-neon-cyan uppercase appearance-none cursor-pointer hover:bg-zinc-800 transition-colors";
 
   return (
-    <div className="flex h-screen w-screen bg-neutral-950 text-gray-200 font-sans overflow-hidden">
-      <aside className="w-80 h-full border-r border-zinc-800 bg-black flex flex-col z-50 shrink-0">
-        <div className="p-6 space-y-4 border-b border-zinc-800 overflow-y-auto custom-scrollbar">
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold font-mono tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-neon-purple to-neon-cyan">
-              NEON CATAFALQUE
-            </h1>
-            {currentTheme && (
-              <span className="text-[7px] font-mono text-neon-cyan/60 tracking-[0.3em] uppercase mt-1 animate-pulse">
-                Theme: {currentTheme}
-              </span>
-            )}
-          </div>
-          
-          {/* BPM & MIDI */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex flex-col flex-1">
-               <span className="text-[9px] font-mono text-zinc-600 mb-1 uppercase tracking-widest">BPM</span>
-               <input type="number" value={bpm} onChange={(e) => setBpm(Number(e.target.value))} className="w-full bg-zinc-900 border border-zinc-800 px-2 py-1 font-mono text-neon-cyan rounded focus:outline-none" />
-            </div>
-            <div className="relative">
-              <button onClick={() => setMidiEnabled(!midiEnabled)} className={`h-9 px-3 text-[9px] font-mono border rounded transition-all ${midiEnabled ? 'border-neon-purple text-neon-purple bg-neon-purple/5' : 'border-zinc-800 text-zinc-600'}`}>
-                MIDI {midiEnabled ? 'ON' : 'OFF'}
-              </button>
-              {midiActive && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-neon-cyan rounded-full animate-ping shadow-[0_0_8px_#00f3ff]" />
-              )}
-            </div>
-          </div>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950 font-sans text-gray-200">
 
+      {/* TOP BAR — identity and transport, always visible */}
+      <header className="flex h-12 shrink-0 items-center gap-4 border-b border-zinc-800 bg-black px-3">
+        <div className="flex min-w-0 shrink-0 items-baseline gap-2">
+          <h1 className="bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text font-mono text-sm font-bold tracking-tighter text-transparent">
+            NEON CATAFALQUE
+          </h1>
+          {currentTheme && (
+            <span className="truncate font-mono text-[7px] uppercase tracking-[0.25em] text-neon-cyan/60">
+              {currentTheme}
+            </span>
+          )}
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">BPM</span>
+          <input type="number" value={bpm} onChange={(e) => setBpm(Number(e.target.value))}
+                 className="w-14 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-neon-cyan focus:outline-none" />
+        </div>
+
+        <div className="relative shrink-0">
+          <button onClick={() => setMidiEnabled(!midiEnabled)}
+                  className={`h-6 rounded border px-2 font-mono text-[8px] transition-all ${midiEnabled ? 'border-neon-purple bg-neon-purple/5 text-neon-purple' : 'border-zinc-800 text-zinc-600'}`}>
+            MIDI {midiEnabled ? 'ON' : 'OFF'}
+          </button>
+          {midiActive && (
+            <div className="absolute -right-1 -top-1 h-2 w-2 animate-ping rounded-full bg-neon-cyan shadow-[0_0_8px_#00f3ff]" />
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1" />
+
+        <div className="w-40 shrink-0">
+          <Fader label="MASTER" value={masterVolume} onChange={setMasterVolume} colorClass="bg-white" />
+        </div>
+
+          <button onClick={() => setIsPlaying(!isPlaying)} className={`h-8 w-28 shrink-0 rounded border-2 transition-all font-mono text-[10px] tracking-[0.2em] font-bold ${isPlaying ? 'border-neon-pink bg-neon-pink/10 text-neon-pink shadow-[0_0_20px_#ff00ff40]' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
+            {isPlaying ? 'STOP' : 'START'}
+          </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+
+        {/* LEFT — the generator */}
+        <aside className="flex w-[236px] shrink-0 flex-col gap-2 overflow-hidden border-r border-zinc-800 bg-black p-2">
           {/* GENERATOR CONTROLS */}
-          <div className="border border-zinc-800 rounded p-3 bg-zinc-900/20 space-y-3">
+          <div className="shrink-0 space-y-2 rounded border border-zinc-800 bg-zinc-900/20 p-2">
              <h3 className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-1">Generator Engine</h3>
              
              <div className="grid grid-cols-2 gap-2">
@@ -479,73 +495,13 @@ const App: React.FC = () => {
                    </select>
              </div>
 
-             <div className="flex justify-between pt-2">
+             <div className="flex justify-between pt-1">
                  <Knob label="Density" value={genDensity} min={0.1} max={1.0} onChange={setGenDensity} color="text-neon-cyan" />
                  <Knob label="Twist/Ent" value={genEntropy} min={0.0} max={1.0} onChange={setGenEntropy} color="text-neon-pink" />
              </div>
           </div>
-
-          {/* GEMINI API KEY */}
-          <div className="border border-zinc-800 rounded bg-black/40 p-2 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-mono text-[8px] text-zinc-600 uppercase tracking-widest">Gemini API Key</span>
-              <span className={`font-mono text-[8px] uppercase tracking-widest ${hasKey ? 'text-neon-cyan' : 'text-zinc-600'}`}>
-                {hasKey ? '\u25cf Set' : '\u25cb Not set'}
-              </span>
-            </div>
-
-            <div className="flex gap-1">
-              <input
-                type="password"
-                value={aiKeyInput}
-                onChange={(e) => setAiKeyInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveApiKey(); }}
-                placeholder={hasKey ? 'replace key\u2026' : 'paste key\u2026'}
-                spellCheck={false}
-                autoComplete="off"
-                aria-label="Gemini API key"
-                className="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 px-2 py-1 font-mono text-[9px] text-neon-cyan rounded focus:outline-none focus:border-neon-cyan/50"
-              />
-              <button
-                onClick={handleSaveApiKey}
-                disabled={!aiKeyInput.trim()}
-                className={`px-2 rounded border font-mono text-[8px] uppercase tracking-widest transition-all ${aiKeyInput.trim() ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/30' : 'border-zinc-800 bg-zinc-900 text-zinc-700'}`}
-              >
-                Save
-              </button>
-              {hasKey && (
-                <button
-                  onClick={handleClearApiKey}
-                  title="Forget the stored key"
-                  className="px-2 rounded border border-zinc-800 bg-zinc-900 font-mono text-[8px] text-zinc-500 hover:text-neon-pink hover:border-neon-pink/40 transition-all"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {aiError && (
-              <div className="font-mono text-[8px] text-neon-pink leading-relaxed">{aiError}</div>
-            )}
-
-            {!hasKey && (
-              <div className="font-mono text-[7px] text-zinc-600 leading-relaxed">
-                AI features need a key from{' '}
-                <a
-                  href="https://aistudio.google.com/apikey"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="text-zinc-500 underline hover:text-neon-cyan"
-                >
-                  aistudio.google.com
-                </a>
-                . Stored in this browser only. The sequencer and the Ritual generator work without it.
-              </div>
-            )}
-          </div>
-
           {/* ACTIONS */}
-          <div className="space-y-2">
+          <div className="shrink-0 space-y-1.5">
             <div className="flex gap-2">
               <button 
                 onClick={() => handleAICompose(false)}
@@ -594,7 +550,7 @@ const App: React.FC = () => {
             </div>
 
             {genAnalysis && (
-              <div className="mt-3 border border-zinc-800 rounded bg-black/40 p-2 font-mono text-[8px] leading-relaxed">
+              <div className="shrink-0 rounded border border-zinc-800 bg-black/40 p-1.5 font-mono text-[8px] leading-tight">
                 <div className="text-zinc-600 uppercase tracking-widest mb-1">Hook analysis</div>
                 <div className="flex justify-between text-zinc-400">
                   <span>contour</span><span className="text-neon-purple">{genAnalysis.detail.contourClass}</span>
@@ -621,42 +577,119 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          {/* GEMINI API KEY */}
+          <div className="shrink-0 space-y-1 rounded border border-zinc-800 bg-black/40 p-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[8px] text-zinc-600 uppercase tracking-widest">Gemini API Key</span>
+              <span className={`font-mono text-[8px] uppercase tracking-widest ${hasKey ? 'text-neon-cyan' : 'text-zinc-600'}`}>
+                {hasKey ? '\u25cf Set' : '\u25cb Not set'}
+              </span>
+            </div>
 
+            <div className="flex gap-1">
+              <input
+                type="password"
+                value={aiKeyInput}
+                onChange={(e) => setAiKeyInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveApiKey(); }}
+                placeholder={hasKey ? 'replace key\u2026' : 'paste key\u2026'}
+                spellCheck={false}
+                autoComplete="off"
+                aria-label="Gemini API key"
+                className="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 px-2 py-1 font-mono text-[9px] text-neon-cyan rounded focus:outline-none focus:border-neon-cyan/50"
+              />
+              <button
+                onClick={handleSaveApiKey}
+                disabled={!aiKeyInput.trim()}
+                className={`px-2 rounded border font-mono text-[8px] uppercase tracking-widest transition-all ${aiKeyInput.trim() ? 'border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan/30' : 'border-zinc-800 bg-zinc-900 text-zinc-700'}`}
+              >
+                Save
+              </button>
+              {hasKey && (
+                <button
+                  onClick={handleClearApiKey}
+                  title="Forget the stored key"
+                  className="px-2 rounded border border-zinc-800 bg-zinc-900 font-mono text-[8px] text-zinc-500 hover:text-neon-pink hover:border-neon-pink/40 transition-all"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {aiError && (
+              <div className="font-mono text-[8px] text-neon-pink leading-relaxed">{aiError}</div>
+            )}
+
+            {!hasKey && (
+              <div className="font-mono text-[7px] text-zinc-600 leading-relaxed">
+                Key from{' '}
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-zinc-500 underline hover:text-neon-cyan"
+                >
+                  aistudio.google.com
+                </a>
+                . Stored in this browser only; the sequencer works without it.
+              </div>
+            )}
+          </div>
+          <div className="min-h-0 flex-1" />
           <button 
             onClick={handleDownloadParams}
-            className="w-full h-8 relative overflow-hidden group rounded border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 transition-all mt-4"
+            className="group relative h-8 w-full shrink-0 overflow-hidden rounded border border-zinc-800 bg-zinc-900/40 transition-all hover:bg-zinc-800"
           >
             <span className="relative z-10 font-mono text-[9px] font-bold tracking-widest text-zinc-500 group-hover:text-white uppercase flex items-center justify-center gap-2">
                 ⤓ Export
             </span>
           </button>
-        </div>
-        
-        <Visualizer />
+        </aside>
 
+        {/* CENTRE — every track at once */}
+        <main className="flex min-w-0 flex-1 flex-col bg-zinc-950">
+          <div className="min-h-0 flex-1">
+            <SequencerGrid
+              tracks={tracks}
+              currentStep={currentStep}
+              totalSteps={totalSteps}
+              selectedTrackId={selectedTrackId}
+              onToggleStep={handleToggleStep}
+              onSelectTrack={(id) => setSelectedTrackId(id as TrackType)}
+              onToggleMute={(id) => setTracks(prev => prev.map(t => t.id === id ? { ...t, isMuted: !t.isMuted } : t))}
+              onToggleSolo={(id) => setTracks(prev => prev.map(t => t.id === id ? { ...t, isSoloed: !t.isSoloed } : t))}
+            />
+          </div>
+          <div className="h-9 shrink-0 border-t border-zinc-800">
+            <Visualizer />
+          </div>
+        </main>
+
+        {/* RIGHT — the selected engine */}
+        <aside className="flex w-[252px] shrink-0 flex-col overflow-hidden border-l border-zinc-800 bg-black">
         <div className="flex border-b border-zinc-800">
           <button 
             onClick={() => setActiveTab('params')}
-            className={`flex-1 py-3 text-[10px] font-mono uppercase tracking-widest transition-colors ${activeTab === 'params' ? 'text-neon-cyan border-b border-neon-cyan bg-zinc-900/40' : 'text-zinc-600 hover:text-zinc-400'}`}
+            className={`flex-1 py-2 text-[9px] font-mono uppercase tracking-widest transition-colors ${activeTab === 'params' ? 'text-neon-cyan border-b border-neon-cyan bg-zinc-900/40' : 'text-zinc-600 hover:text-zinc-400'}`}
           >
             Params
           </button>
           <button 
             onClick={() => setActiveTab('mixer')}
-            className={`flex-1 py-3 text-[10px] font-mono uppercase tracking-widest transition-colors ${activeTab === 'mixer' ? 'text-neon-cyan border-b border-neon-cyan bg-zinc-900/40' : 'text-zinc-600 hover:text-zinc-400'}`}
+            className={`flex-1 py-2 text-[9px] font-mono uppercase tracking-widest transition-colors ${activeTab === 'mixer' ? 'text-neon-cyan border-b border-neon-cyan bg-zinc-900/40' : 'text-zinc-600 hover:text-zinc-400'}`}
           >
             Mixer
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar px-2 py-2">
           {activeTab === 'params' ? (
-            <div className="space-y-8 pb-12">
+            <div className="space-y-2 pb-2">
               {!isDrumTrack && currentParams ? (
-                <section className="space-y-6">
-                  <div className="flex flex-col gap-3">
+                <section className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-center">
-                      <h2 className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+                      <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">
                         {selectedTrackId} Engine
                       </h2>
                       <button 
@@ -669,12 +702,12 @@ const App: React.FC = () => {
                     </div>
                     {/* Presets Row */}
                     {trackPresets && (
-                      <div className="flex flex-wrap gap-1.5 p-1 bg-zinc-900/50 rounded border border-zinc-800">
+                      <div className="flex flex-wrap gap-1 rounded border border-zinc-800 bg-zinc-900/50 p-1">
                         {Object.keys(trackPresets).map(p => (
                           <button 
                             key={p} 
                             onClick={() => loadPreset(p)}
-                            className="px-2 py-1 rounded text-[8px] font-mono uppercase tracking-tight bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors border border-transparent hover:border-zinc-600"
+                            className="rounded border border-transparent bg-zinc-800 px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-tight text-zinc-400 transition-colors hover:border-zinc-600 hover:bg-zinc-700 hover:text-white"
                           >
                             {p}
                           </button>
@@ -683,7 +716,7 @@ const App: React.FC = () => {
                     )}
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-y-6 gap-x-2">
+                  <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
                     <Knob label="Cutoff" value={currentParams.cutoff} min={40} max={12000} onChange={(v) => updateTrackParam('cutoff', v)} step={10} color="text-neon-purple" />
                     <Knob label="Env Amt" value={currentParams.filterEnvAmount} min={0} max={1} onChange={(v) => updateTrackParam('filterEnvAmount', v)} color="text-neon-purple" />
                     <Knob label="Sub" value={currentParams.subLevel} min={0} max={1} onChange={(v) => updateTrackParam('subLevel', v)} />
@@ -692,9 +725,9 @@ const App: React.FC = () => {
                     <Knob label="Detune" value={currentParams.detune} min={0} max={50} onChange={(v) => updateTrackParam('detune', v)} color="text-neon-cyan" />
                   </div>
 
-                  <div className="border-t border-zinc-900 pt-4 space-y-4">
-                     <h3 className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">Envelope</h3>
-                     <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                  <div className="space-y-1 border-t border-zinc-900 pt-1.5">
+                     <h3 className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">Envelope</h3>
+                     <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
                         <Knob label="A" value={currentParams.attack} min={0} max={3} onChange={(v) => updateTrackParam('attack', v)} />
                         <Knob label="R" value={currentParams.release} min={0.05} max={3} onChange={(v) => updateTrackParam('release', v)} />
                         <Knob label="D" value={currentParams.decay} min={0.01} max={3} onChange={(v) => updateTrackParam('decay', v)} />
@@ -702,9 +735,9 @@ const App: React.FC = () => {
                      </div>
                   </div>
 
-                  <div className="border-t border-zinc-900 pt-4 space-y-4">
-                     <h3 className="text-[9px] font-mono text-zinc-600 uppercase tracking-widest">Modulation</h3>
-                     <div className="grid grid-cols-2 gap-y-4 gap-x-2">
+                  <div className="space-y-1 border-t border-zinc-900 pt-1.5">
+                     <h3 className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">Modulation</h3>
+                     <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
                         <Knob label="Chorus" value={currentParams.chorusMix} min={0} max={1} onChange={(v) => updateTrackParam('chorusMix', v)} />
                         <Knob label="Vib D" value={currentParams.vibratoDepth} min={0} max={100} onChange={(v) => updateTrackParam('vibratoDepth', v)} />
                         <Knob label="Vib R" value={currentParams.vibratoRate} min={0} max={20} onChange={(v) => updateTrackParam('vibratoRate', v)} />
@@ -720,17 +753,18 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <section className="space-y-4 border-t border-zinc-900 pt-6">
+              
+            </div>
+          ) : (
+            <div className="space-y-3 pb-4">
+               <section className="space-y-2 border-b border-zinc-800 pb-3">
                 <h2 className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Global Master FX</h2>
-                <div className="grid grid-cols-2 gap-y-6 gap-x-2">
+                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
                   <Knob label="Dly T" value={globalFX.delayTime} min={0} max={1} onChange={(v) => updateGlobalFX('delayTime', v)} color="text-white" />
                   <Knob label="Dly F" value={globalFX.delayFeedback} min={0} max={0.9} onChange={(v) => updateGlobalFX('delayFeedback', v)} color="text-white" />
                   <Knob label="Reverb" value={globalFX.reverbMix} min={0} max={1} onChange={(v) => updateGlobalFX('reverbMix', v)} color="text-white" />
                 </div>
               </section>
-            </div>
-          ) : (
-            <div className="space-y-6 pb-12">
                <div className="pb-4 border-b border-zinc-800">
                   <Fader label="MASTER" value={masterVolume} onChange={setMasterVolume} colorClass="bg-white" />
                </div>
@@ -768,16 +802,8 @@ const App: React.FC = () => {
           )}
         </div>
         
-        <div className="p-6 bg-zinc-900/20 border-t border-zinc-800 flex flex-col gap-4">
-          <button onClick={() => setIsPlaying(!isPlaying)} className={`w-full h-14 rounded border-2 transition-all font-mono text-xs tracking-[0.3em] font-bold ${isPlaying ? 'border-neon-pink bg-neon-pink/10 text-neon-pink shadow-[0_0_20px_#ff00ff40]' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
-            {isPlaying ? 'STOP' : 'START'}
-          </button>
-        </div>
-      </aside>
-
-      <main className="flex-1 h-full flex flex-col bg-zinc-950 overflow-hidden relative">
-        <SequencerGrid tracks={tracks} currentStep={currentStep} totalSteps={totalSteps} onToggleStep={handleToggleStep} onAddNote={handleAddNote} onPreviewNote={handlePreviewNote} onToggleCollapse={handleToggleCollapse} />
-      </main>
+        </aside>
+      </div>
     </div>
   );
 };

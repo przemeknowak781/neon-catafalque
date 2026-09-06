@@ -259,6 +259,54 @@ for (const mode of MODES) {
   }
 }
 
+// --- rhythmic periodicity --------------------------------------------------
+//
+// A groove is periodic by definition. Several tracks used to roll dice at
+// every single step, so the bass line and the hats differed in every bar of
+// the song and the pulse never settled. Nothing here could see that, because
+// the conformance checks only ever looked at the hook's own cell.
+
+for (const drumMode of DRUMS) {
+  for (let seed = 500; seed < 508; seed++) {
+    const song = generator.generate({
+      totalSteps: 256, mode: 'aeolian', harmonicMotion: 'conjunct', contour: 'arch',
+      rhythmDensity: 0.5, entropy: 0.4, bassMode: 'driving', drumMode, seed,
+    });
+
+    // Compare each track's bar-length onset pattern across the bars where it
+    // is active. A periodic part repeats the same bar; a diced one does not.
+    const periodicity = (id: string): number => {
+      const track = song.tracks.find((t) => t.id === id);
+      if (!track) return 1;
+      const bars: string[] = [];
+      for (let bar = 0; bar < 16; bar++) {
+        const cells: string[] = [];
+        for (let i = 0; i < 16; i++) {
+          const step = bar * 16 + i;
+          const on = track.steps
+            ? track.steps[step]?.active
+            : track.notes?.some((n) => Math.floor(n.startStep) === step);
+          cells.push(on ? '1' : '0');
+        }
+        const row = cells.join('');
+        if (row.includes('1')) bars.push(row);
+      }
+      if (bars.length < 2) return 1;
+      const counts = new Map<string, number>();
+      for (const b of bars) counts.set(b, (counts.get(b) ?? 0) + 1);
+      // Share of bars that match the single most common bar pattern.
+      return Math.max(...counts.values()) / bars.length;
+    };
+
+    record('bass keeps one repeating bar pattern', 'groove', 0.95,
+      periodicity('bass') >= 0.9, Math.round(periodicity('bass') * 100));
+    record('hats keep one repeating bar pattern', 'groove', 0.9,
+      periodicity('hihat') >= 0.5, Math.round(periodicity('hihat') * 100));
+    record('kick keeps one repeating bar pattern', 'groove', 0.95,
+      periodicity('kick') >= 0.9, Math.round(periodicity('kick') * 100));
+  }
+}
+
 // --- vertical harmony ------------------------------------------------------
 //
 // The conformance checks above judge the hook in isolation. They cannot see

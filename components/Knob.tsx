@@ -8,11 +8,17 @@ interface KnobProps {
   onChange: (value: number) => void;
   step?: number;
   color?: string;
+  /** 'sm' keeps a dense parameter panel on one screen. */
+  size?: 'sm' | 'md';
 }
 
 export const Knob: React.FC<KnobProps> = ({ 
-  label, value, min, max, onChange, step = 0.01, color = 'text-neon-cyan' 
+  label, value, min, max, onChange, step = 0.01, color = 'text-neon-cyan', size = 'md'
 }) => {
+  const px = size === 'sm' ? 44 : 64;
+  const centre = px / 2;
+  const radius = size === 'sm' ? 14 : 20;
+  const stroke = size === 'sm' ? 3 : 4;
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef<number>(0);
   const startValue = useRef<number>(0);
@@ -24,9 +30,9 @@ export const Knob: React.FC<KnobProps> = ({
   const currentAngle = ((value - min) / (max - min)) * angleArc + startAngle;
 
   // Polar to Cartesian
-  const cx = 32;
-  const cy = 32;
-  const r = 20;
+  const cx = centre;
+  const cy = centre;
+  const r = radius;
   
   const rad = (a: number) => (a - 90) * (Math.PI / 180);
   
@@ -89,34 +95,35 @@ export const Knob: React.FC<KnobProps> = ({
   }, [isDragging, max, min, step, onChange]);
 
   return (
-    <div className="flex flex-col items-center select-none w-16">
-      <div 
-        className="relative w-16 h-16 cursor-ns-resize group"
+    <div className="flex select-none flex-col items-center" style={{ width: px }}>
+      <div
+        className="group relative cursor-ns-resize"
+        style={{ width: px, height: px }}
         onMouseDown={handleMouseDown}
       >
-        <svg width="64" height="64" className="overflow-visible">
+        <svg width={px} height={px} className="overflow-visible">
           {/* Background Track */}
           <path 
-            d={describeArc(32, 32, 20, startAngle, endAngle)} 
-            fill="none" 
-            stroke="#333" 
-            strokeWidth="4" 
+            d={describeArc(centre, centre, radius, startAngle, endAngle)}
+            fill="none"
+            stroke="#333"
+            strokeWidth={stroke} 
             strokeLinecap="round"
           />
           {/* Active Value */}
           <path 
-            d={describeArc(32, 32, 20, startAngle, currentAngle)} 
+            d={describeArc(centre, centre, radius, startAngle, currentAngle)}
             fill="none" 
             className={`stroke-current ${color} filter drop-shadow-[0_0_2px_rgba(176,38,255,0.8)]`}
-            strokeWidth="4" 
+            strokeWidth={stroke}
             strokeLinecap="round"
           />
           {/* Pointer */}
-          <circle cx={x} cy={y} r="3" fill="white" />
+          <circle cx={x} cy={y} r={size === 'sm' ? 2.5 : 3} fill="white" />
         </svg>
       </div>
-      <span className="text-[10px] font-mono text-gray-400 mt-1 uppercase tracking-wider">{label}</span>
-      <span className="text-[9px] font-mono text-gray-500">{Math.round(value * 100) / 100}</span>
+      <span className={`${size === 'sm' ? 'text-[8px]' : 'text-[10px]'} font-mono text-gray-400 uppercase tracking-wider`}>{label}</span>
+      <span className={`${size === 'sm' ? 'text-[7px]' : 'text-[9px]'} font-mono text-gray-500`}>{Math.round(value * 100) / 100}</span>
     </div>
   );
 };

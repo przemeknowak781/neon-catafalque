@@ -53,9 +53,9 @@ export const Visualizer: React.FC = () => {
   }, []);
 
   return (
-    <div className="w-full h-24 bg-black overflow-hidden relative border-b border-zinc-900">
-        <div className="absolute top-1 left-2 text-[8px] text-zinc-600 font-mono z-10">OUTPUT_SIGNAL</div>
-        <canvas ref={canvasRef} width={320} height={96} className="w-full h-full opacity-60" />
+    <div className="relative h-full w-full overflow-hidden bg-black">
+        <div className="absolute left-2 top-0.5 z-10 font-mono text-[7px] uppercase tracking-widest text-zinc-700">Output</div>
+        <canvas ref={canvasRef} width={320} height={96} className="block h-full w-full opacity-60" />
     </div>
   );
 };

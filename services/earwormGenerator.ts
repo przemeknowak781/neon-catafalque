@@ -217,8 +217,8 @@ export class EarwormGenerator {
     const best = this.searchHook(rng, ctx);
     const variation = this.mutate(rng, best, ctx);
 
-    const { drumTracks, kickSteps } = this.generateDrums(rng, totalSteps, config.drumMode, best);
-    const bassTrack = this.generateBass(rng, totalSteps, chords, kickSteps, config.bassMode, scaleIntervals);
+    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best);
+    const bassTrack = this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals);
     const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals);
     const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, hookDensity);
     const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals);
@@ -773,9 +773,10 @@ export class EarwormGenerator {
       const offset = bar * STEPS_PER_BAR;
 
       source.notes.forEach((note, i) => {
-        // Verse states the hook sparsely so the chorus reads as a lift; the
-        // pitches are identical, which is the repetition §2.1D relies on.
-        if (section === 'verse' && i % 3 === 2) return;
+        // Verse states the hook sparsely so the chorus reads as a lift. Thin
+        // it by bar, not by counting every third note: an index-based drop cuts
+        // across the beat and reads as stumbling rather than as space.
+        if (section === 'verse' && Math.floor(note.step / STEPS_PER_BAR) === 2) return;
 
         // Every track sounds the same scale. This used to render the lead in
         // Aeolian while the pad and bass played harmonic minor, so the melody
@@ -824,6 +825,10 @@ export class EarwormGenerator {
     const arpPattern = [0, 2, 4];
     const hookOnsets = hook.rhythm.onsets;
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
+    const answerPattern = Array.from(
+      { length: PHRASE_STEPS },
+      () => rng.chance(0.35 + density * 0.25),
+    );
 
     for (let bar = 0; bar < totalBars; bar++) {
       const section = this.sectionForBar(bar);
@@ -833,9 +838,10 @@ export class EarwormGenerator {
         const step = bar * STEPS_PER_BAR + inBar;
         const phraseStep = step % PHRASE_STEPS;
 
-        // Answer the hook's silences, never its onsets.
+        // Answer the hook's silences, never its onsets — on a pattern fixed
+        // once for the whole phrase rather than re-rolled at every step.
         if (hookOnsets[phraseStep]) continue;
-        if (!rng.chance(0.35 + density * 0.25)) continue;
+        if (!answerPattern[phraseStep]) continue;
 
         const chord = chords[step];
         const arpIndex = Math.floor(inBar / 2) % arpPattern.length;
@@ -895,7 +901,7 @@ export class EarwormGenerator {
     rng: SeededRng,
     totalSteps: number,
     chords: number[],
-    kickSteps: SequencerStep[],
+    kickPattern: number[],
     mode: GenBass,
     scaleIntervals: readonly number[],
   ): Track {
@@ -905,18 +911,25 @@ export class EarwormGenerator {
     const sustained = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
+    // One bar-length pattern, decided once and repeated. The driving bass used
+    // to drop a fifth of its off-kick notes at random on every single step, so
+    // the bass line was different in every bar of the song and the pulse never
+    // settled.
+    const base = mode === 'acid' ? acid : mode === 'sustained' ? sustained : driving;
+    const rhythm = base.map((active, i) => {
+      if (!active) return 0;
+      if (mode !== 'driving') return 1;
+      return kickPattern.includes(i) || !rng.chance(0.2) ? 1 : 0;
+    });
+
     for (let bar = 0; bar < totalBars; bar++) {
       const section = this.sectionForBar(bar);
       if (section === 'intro' && bar % 16 < 2) continue;
-
-      const rhythm = mode === 'acid' ? acid : mode === 'sustained' ? sustained : driving;
 
       rhythm.forEach((active, inBar) => {
         if (!active) return;
         const step = bar * STEPS_PER_BAR + inBar;
         const chord = chords[step];
-
-        if (mode === 'driving' && !kickSteps[step]?.active && rng.chance(0.2)) return;
 
         let degree = chord;
         if ((mode === 'driving' || mode === 'acid') && inBar % 8 === 4) degree += 7;
@@ -939,7 +952,7 @@ export class EarwormGenerator {
     totalSteps: number,
     mode: GenDrums,
     hook: Candidate,
-  ): { drumTracks: Track[]; kickSteps: SequencerStep[] } {
+  ): { drumTracks: Track[]; kickSteps: SequencerStep[]; kickPattern: number[] } {
     // Build with a factory, not Array.fill: fill() shares one object across
     // every index, which is a live aliasing hazard the moment anything mutates.
     const blank = (): SequencerStep[] =>
@@ -951,6 +964,14 @@ export class EarwormGenerator {
     const fxSteps = blank();
 
     const kickPattern = mode === 'breakbeat' ? [0, 3, 8, 11] : mode === 'tribal' ? [0, 6, 8, 14] : [0, 4, 8, 12];
+
+    // Decide the 16th-note hat fills once, then repeat them every bar. Rolling
+    // the dice per step, as this used to, meant the pattern never repeated —
+    // and a groove that never repeats is not a groove.
+    const sixteenthFills = Array.from(
+      { length: STEPS_PER_BAR },
+      (_, i) => i % 2 === 1 && rng.chance(0.4),
+    );
 
     for (let step = 0; step < totalSteps; step++) {
       const bar = Math.floor(step / STEPS_PER_BAR);
@@ -966,7 +987,7 @@ export class EarwormGenerator {
         if (inBar % 2 === 0) {
           hihatSteps[step] = { active: true, velocity: inBar % 4 === 0 ? 0.7 : 0.5 };
         }
-        if ((mode === 'breakbeat' || section === 'chorus') && inBar % 2 === 1 && rng.chance(0.4)) {
+        if ((mode === 'breakbeat' || section === 'chorus') && sixteenthFills[inBar]) {
           hihatSteps[step] = { active: true, velocity: 0.4 };
         }
       }
@@ -989,7 +1010,7 @@ export class EarwormGenerator {
       { id: 'snare', name: 'SD', color: 'bg-cyan-400', volume: MIX_LEVELS.snare, isCollapsed: false, steps: snareSteps },
       { id: 'kick', name: 'BD', color: 'bg-red-500', volume: MIX_LEVELS.kick, isCollapsed: false, steps: kickSteps },
     ];
-    return { drumTracks, kickSteps };
+    return { drumTracks, kickSteps, kickPattern };
   }
 
   private cleanupOverlaps(notes: NoteEvent[]): NoteEvent[] {
