@@ -67,15 +67,39 @@ import {
  */
 const MODES = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],        // Natural minor
+  ionian: [0, 2, 4, 5, 7, 9, 11],         // Natural major
   dorian: [0, 2, 3, 5, 7, 9, 10],         // Minor with major 6
   harmonic_minor: [0, 2, 3, 5, 7, 8, 11], // Raised 7 (spec: cadences only)
   phrygian: [0, 1, 3, 5, 7, 8, 10],       // Minor with a flat 2
   melodic_minor: [0, 2, 3, 5, 7, 9, 11],  // Ascending form: raised 6 and 7
-  phrygian_dominant: [0, 1, 4, 5, 7, 8, 10], // Hijaz: flat 2 over a major 3
-  double_harmonic: [0, 1, 4, 5, 7, 8, 11], // Flat 2, major 3, flat 6, major 7
   mixolydian: [0, 2, 4, 5, 7, 9, 10],     // Major with a flat 7
   lydian: [0, 2, 4, 6, 7, 9, 11],         // Major with a raised 4
+  minor_pentatonic: [0, 2, 3, 5, 7, 8, 10],  // Aeolian; the melody uses five of it
+  major_pentatonic: [0, 2, 4, 5, 7, 9, 11],  // Ionian; the melody uses five of it
+  phrygian_dominant: [0, 1, 4, 5, 7, 8, 10], // Hijaz: flat 2 over a major 3
+  double_harmonic: [0, 1, 4, 5, 7, 8, 11], // Flat 2, major 3, flat 6, major 7
 } as const;
+
+/**
+ * Pentatonic modes, expressed as a parent scale plus the degrees the melody
+ * favours, rather than as five-note scales.
+ *
+ * A real five-note scale would mean changing the degree arithmetic everywhere,
+ * and it would break the harmony: the pad stacks scale thirds as
+ * [d, d+2, d+4], which in a five-note scale is not a triad. More to the point,
+ * a strictly pentatonic melody cannot satisfy §3.3 at all — minor pentatonic
+ * runs 3-2-2-3-2 semitones, so two of its five adjacent moves are minor
+ * thirds, and the stepwise band tops out around 0.6 against a 0.7 floor.
+ *
+ * Which is not how the scale is used anyway. A pentatonic melody in pop lands
+ * on the five tones and passes through the others; the parent scale supplies
+ * the passing notes and the chords. So these bias the anchors — the notes on
+ * strong beats, where the ear places the scale — and leave the fill free.
+ */
+const PENTATONIC_DEGREES: Record<string, number[]> = {
+  minor_pentatonic: [0, 2, 3, 4, 6], // 1 b3 4 5 b7
+  major_pentatonic: [0, 1, 2, 4, 5], // 1 2 3 5 6
+};
 
 /**
  * Keys. The transposition is applied in semitones at the point where a degree
@@ -134,6 +158,12 @@ const DARKWAVE_LOOPS: readonly (readonly number[])[] = [
  */
 const CHORD_PALETTES: Record<string, number[]> = {
   aeolian: [0, 2, 3, 4, 5, 6],
+  // Ionian: everything but the diminished triad on the seventh.
+  ionian: [0, 1, 2, 3, 4, 5],
+  // The pentatonics take their parent's palette; the scale restriction is a
+  // melodic one, and restricting the chords too would leave two of them.
+  minor_pentatonic: [0, 2, 3, 4, 5, 6],
+  major_pentatonic: [0, 1, 2, 3, 4, 5],
   dorian: [0, 2, 3, 4, 6],          // IV is major here and is the mode's colour
   harmonic_minor: [0, 3, 4, 5],
   // Phrygian: the triad on b2 is major and is the whole point of the mode.
@@ -154,9 +184,42 @@ const CHORD_PALETTES: Record<string, number[]> = {
   lydian: [0, 1, 4, 5],
 };
 
+/**
+ * The scale degrees a melody reaches for as colour, per mode.
+ *
+ * This was `mode === 'dorian' ? [5] : [5, 6]` — the flat sixth and flat
+ * seventh, which are the colours of Aeolian and of nothing else. Applied to
+ * the major-side modes it asks the melody to lean on the sixth and the leading
+ * tone, and the leading tone sits a semitone under the tonic, so on a I chord
+ * it is a clash rather than a colour. Chord agreement on strong beats measured
+ * 67% in Ionian against 88% overall.
+ *
+ * Each mode now names the degrees that actually carry its identity: the flat
+ * second in Phrygian, the raised fourth in Lydian, the flat seventh in
+ * Mixolydian, the second and sixth in Ionian — the added tones of pop major,
+ * which colour a chord without fighting it.
+ */
+const COLOUR_TONES_BY_MODE: Record<string, number[]> = {
+  aeolian: [5, 6],
+  ionian: [1, 5],
+  dorian: [5],
+  harmonic_minor: [5, 6],
+  phrygian: [1, 5],
+  melodic_minor: [5, 6],
+  mixolydian: [6],
+  lydian: [3],
+  minor_pentatonic: [5, 6],
+  major_pentatonic: [1, 5],
+  phrygian_dominant: [1, 5],
+  double_harmonic: [1, 5],
+};
+
 /** Chords that can host the twist (§7: align surprise with bVI or bVII). */
 const COLOUR_CHORDS_BY_MODE: Record<string, number[]> = {
   aeolian: [5, 6],
+  ionian: [3, 5],              // IV and vi, the two every pop song turns to.
+  minor_pentatonic: [5, 6],
+  major_pentatonic: [3, 5],
   dorian: [6],
   harmonic_minor: [5],
   phrygian: [1, 6],       // The flat-second major triad is the mode's surprise.
@@ -365,6 +428,7 @@ export class EarwormGenerator {
       twist: config.entropy,
       modeName: config.mode,
       voicing,
+      pentatonic: PENTATONIC_DEGREES[config.mode],
     };
 
     // A supplied plan replaces the search entirely: the melody that was liked
@@ -759,7 +823,15 @@ export class EarwormGenerator {
     chord: number,
     ctx: BuildContext,
   ): number {
-    const tones = [chord, chord + 2, chord + 4].map((d) => mod(d, 7));
+    // In a pentatonic mode the anchors are held to the five tones and the fill
+    // between them is left alone. That is where the ear places a scale: on the
+    // notes that land on the beat, not on the ones passed through.
+    const allowed = (candidates: number[]): number[] => {
+      if (!ctx.pentatonic) return candidates;
+      const kept = candidates.filter((d) => ctx.pentatonic!.includes(mod(d, 7)));
+      return kept.length ? kept : candidates;
+    };
+    const tones = allowed([chord, chord + 2, chord + 4].map((d) => mod(d, 7)));
     const roll = rng.next();
     // The style decides how firmly a strong beat locks to the chord; §6's own
     // figure is 0.65, and every preset here sits at or above it.
@@ -767,12 +839,14 @@ export class EarwormGenerator {
     const colourUntil = lock + (1 - lock) * 0.72;
 
     if (roll >= lock && roll < colourUntil) {
-      const wanted = ctx.modeName === 'dorian' ? [5] : [5, 6];
+      const wanted = allowed(COLOUR_TONES_BY_MODE[ctx.modeName] ?? [5, 6]);
       const safe = wanted.filter((d) => !this.clashesWithChord(d, tones, ctx.scaleIntervals));
       if (safe.length) return this.nearestDegree(target, safe);
       // No safe colour tone against this chord: take a chord tone instead.
     } else if (roll >= colourUntil) {
-      return target;
+      // The one branch that takes whatever the contour asked for. It still has
+      // to be one of the five when the mode is pentatonic.
+      return ctx.pentatonic ? this.nearestDegree(target, ctx.pentatonic) : target;
     }
     return this.nearestDegree(target, tones);
   }
@@ -1490,6 +1564,8 @@ export class EarwormGenerator {
 
 interface BuildContext {
   scaleIntervals: readonly number[];
+  /** Set for the pentatonic modes: the degrees the anchors are held to. */
+  pentatonic?: number[];
   chordLoop: number[];
   contour: GenContour;
   /** Motif size only, deliberately a narrow band. */

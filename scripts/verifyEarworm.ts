@@ -28,6 +28,9 @@ import { HARMONY_PRESETS, VOICE_LEADING_PRESETS } from '../services/harmonyPrese
 
 const SCALE_INTERVALS: Record<GenMode, number[]> = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],
+  ionian: [0, 2, 4, 5, 7, 9, 11],
+  minor_pentatonic: [0, 2, 3, 5, 7, 8, 10],
+  major_pentatonic: [0, 2, 4, 5, 7, 9, 11],
   dorian: [0, 2, 3, 5, 7, 9, 10],
   harmonic_minor: [0, 2, 3, 5, 7, 8, 11],
   phrygian: [0, 1, 3, 5, 7, 8, 10],
@@ -41,8 +44,9 @@ const SCALE_INTERVALS: Record<GenMode, number[]> = {
 const CADENCE_DEGREES = [0, 2, 4];
 
 const ALL_MODES: GenMode[] = [
-  'aeolian', 'dorian', 'harmonic_minor', 'phrygian', 'melodic_minor',
-  'phrygian_dominant', 'double_harmonic', 'mixolydian', 'lydian',
+  'aeolian', 'ionian', 'dorian', 'harmonic_minor', 'phrygian', 'melodic_minor',
+  'mixolydian', 'lydian', 'minor_pentatonic', 'major_pentatonic',
+  'phrygian_dominant', 'double_harmonic',
 ];
 /**
  * `--modes a,b` restricts the sweep, so a single scale can be held up against
@@ -535,6 +539,41 @@ for (const ref of REFERENCES) {
     `  ${ref.name.padEnd(32)} meanIC=${profile.meanIC.toFixed(2)}  ` +
     `spikes=${profile.spikeIndices.length}  in-band=${inBand}  expected=${ref.shouldPass}`,
   );
+}
+
+// --- pentatonic modes ------------------------------------------------------
+// These are a parent scale plus a preference, not five-note scales, so the
+// claim worth checking is the one that makes them pentatonic to the ear: the
+// notes on strong beats are the five, whatever passes between them.
+
+const PENTATONIC_CHECK: Record<string, number[]> = {
+  minor_pentatonic: [0, 2, 3, 4, 6],
+  major_pentatonic: [0, 1, 2, 4, 5],
+};
+for (const [mode, allowed] of Object.entries(PENTATONIC_CHECK)) {
+  for (let i = 0; i < 12; i++) {
+    const r = generator.generate({
+      totalSteps: 256, mode: mode as GenMode, harmonicMotion: 'conjunct',
+      contour: 'arch', rhythmDensity: 0.5, entropy: 0.4,
+      bassMode: 'driving', drumMode: 'four-floor', seed: 700 + i,
+    });
+    const lead = r.tracks.find((t) => t.id === 'lead')?.notes ?? [];
+    // Beats 1 and 3 of the bar, which is where §6 places the harmonic weight.
+    const strong = lead.filter((n) => n.startStep % 8 === 0);
+    const tonic = noteToMidi(lead[0]?.note ?? 'C4');
+    void tonic;
+    const scale = SCALE_INTERVALS[mode as GenMode];
+    const pitchClasses = allowed.map((d) => scale[d]);
+    const onScale = strong.filter((n) => {
+      // Degree is recoverable from the pitch class relative to the song's key,
+      // which is C here: the semitone offset is the scale interval itself.
+      const pc = ((noteToMidi(n.note) - 24) % 12 + 12) % 12;
+      return pitchClasses.includes(pc);
+    });
+    const rate = strong.length ? onScale.length / strong.length : 0;
+    record('a pentatonic mode puts its strong beats on the five tones',
+      'scales', 0.8, rate >= 0.8, rate * 100);
+  }
 }
 
 // --- keys ------------------------------------------------------------------

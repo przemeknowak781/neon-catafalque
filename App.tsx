@@ -34,6 +34,49 @@ import {
   DEFAULT_GLOBAL_FX, INSTRUMENT_PRESETS
 } from './constants';
 
+/**
+ * The scale list as a player would read it, rather than as modal theory names.
+ *
+ * Ordered by how much of the genre actually uses each one: natural minor and
+ * major first, then the lead scales, then the modes that colour them, then the
+ * two Eastern ones. The note on each says what it is for, not what it is made
+ * of — the intervals live in MODES, in the generator.
+ */
+const MODE_GROUPS: { label: string; modes: { value: GenMode; label: string; note: string }[] }[] = [
+  {
+    label: 'Common',
+    modes: [
+      { value: 'aeolian', label: 'Natural Minor', note: 'The default minor. Most of darkwave and synthwave sits here.' },
+      { value: 'ionian', label: 'Major', note: 'Plain major — the brighter, uplifting side of 80s synth pop.' },
+      { value: 'harmonic_minor', label: 'Harmonic Minor', note: 'Natural minor with a raised 7th: the gothic cadence.' },
+      { value: 'dorian', label: 'Dorian', note: 'Minor with a major 6th. Cooler and less mournful than natural minor.' },
+    ],
+  },
+  {
+    label: 'Lead scales',
+    modes: [
+      { value: 'minor_pentatonic', label: 'Minor Pentatonic', note: 'Five notes over a minor bed — the standard lead and solo scale.' },
+      { value: 'major_pentatonic', label: 'Major Pentatonic', note: 'Five notes over a major bed. Open and hook-shaped.' },
+    ],
+  },
+  {
+    label: 'Modal colour',
+    modes: [
+      { value: 'mixolydian', label: 'Mixolydian', note: 'Major with a flat 7th. Rock and 80s film-score major.' },
+      { value: 'lydian', label: 'Lydian', note: 'Major with a raised 4th: the floating, neon, dreamlike major.' },
+      { value: 'phrygian', label: 'Phrygian', note: 'Minor with a flat 2nd. Dark and Spanish-edged.' },
+      { value: 'melodic_minor', label: 'Melodic Minor', note: 'Minor third with a raised 6th and 7th. Tense and cinematic.' },
+    ],
+  },
+  {
+    label: 'Eastern',
+    modes: [
+      { value: 'phrygian_dominant', label: 'Phrygian Dominant', note: 'Hijaz: flat 2nd over a major 3rd. One augmented second.' },
+      { value: 'double_harmonic', label: 'Double Harmonic', note: 'Flat 2nd, major 3rd, flat 6th, major 7th. Two augmented seconds.' },
+    ],
+  },
+];
+
 const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [bpm, setBpm] = useState(DEFAULT_BPM);
@@ -676,21 +719,13 @@ const App: React.FC = () => {
                 <div className="space-y-0.5">
                    <label className="text-[8px] uppercase text-zinc-600">Mode</label>
                    <select value={genMode} onChange={e => setGenMode(e.target.value as GenMode)} className={selectClass}>
-                      <optgroup label="Minor">
-                        <option value="aeolian">Aeolian</option>
-                        <option value="dorian">Dorian</option>
-                        <option value="phrygian">Phrygian</option>
-                        <option value="harmonic_minor">Harmonic Minor</option>
-                        <option value="melodic_minor">Melodic Minor</option>
-                      </optgroup>
-                      <optgroup label="Eastern">
-                        <option value="phrygian_dominant">Phrygian Dominant</option>
-                        <option value="double_harmonic">Double Harmonic</option>
-                      </optgroup>
-                      <optgroup label="Major">
-                        <option value="mixolydian">Mixolydian</option>
-                        <option value="lydian">Lydian</option>
-                      </optgroup>
+                      {MODE_GROUPS.map(group => (
+                        <optgroup key={group.label} label={group.label}>
+                          {group.modes.map(m => (
+                            <option key={m.value} value={m.value} title={m.note}>{m.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                    </select>
                 </div>
                 <div className="space-y-0.5">
