@@ -37,6 +37,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # One-time manual step required before this can ever succeed:
+      #   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
+      # `enablement: true` asks the API to create the Pages site automatically,
+      # but the default GITHUB_TOKEN is usually refused ("Resource not
+      # accessible by integration"), so a human has to flip it once. After
+      # that, this step just reads the existing config and the job proceeds.
       - uses: actions/configure-pages@v5
         with:
           enablement: true
