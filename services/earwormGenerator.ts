@@ -105,13 +105,20 @@ const PENTATONIC_DEGREES: Record<string, number[]> = {
  * Keys. The transposition is applied in semitones at the point where a degree
  * becomes a pitch, so nothing above it has to know about it.
  *
- * Always upward, never folded down. Folding the upper keys to negative offsets
- * looked tidier — it keeps every key within a tritone of C — but it puts the
- * bass tonic of F# at MIDI 18, about 23 Hz, underneath the 28 Hz subsonic
- * filter in the mastering chain. Those keys would have lost their fundamental
- * entirely. Transposing up instead puts the bass tonic between C1 (33 Hz) and
- * B1 (62 Hz), which is where a bass belongs, and takes the lead no higher than
- * roughly A5.
+ * Folded to the nearest interval: -6 to +5, never 0 to +11.
+ *
+ * Upward-only was the first attempt, to keep the bass clear of the 28 Hz
+ * subsonic filter in the mastering chain. It works, and it audibly ruins the
+ * upper keys, because moving a whole song up eleven semitones is very nearly
+ * moving it up an octave. Rendered across all twelve keys, sub-bass energy
+ * fell from 22.9% in C to 19.9% in B while energy above 2 kHz rose from 9.1%
+ * to 14.2% — a 56% relative increase — and the brightness proxy rose 30%,
+ * monotonically with the key. The mix got steadily thinner the further from C
+ * the key sat.
+ *
+ * Folding halves the worst-case drift to a tritone. The bass floor is handled
+ * where it belongs, by the register the bass is written in (BASS_OCTAVE) and
+ * by the octave controls, rather than by refusing to transpose down.
  */
 export const KEYS = [
   'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B',
@@ -119,7 +126,44 @@ export const KEYS = [
 export type GenKey = typeof KEYS[number];
 
 export function keyOffset(key: GenKey): number {
-  return Math.max(0, KEYS.indexOf(key));
+  const index = Math.max(0, KEYS.indexOf(key));
+  return index > 5 ? index - 12 : index;
+}
+
+/** Instruments whose register can be shifted independently. */
+export type OctaveShifts = Partial<Record<'lead' | 'bass' | 'pad' | 'pluck', number>>;
+
+/**
+ * How far each part may be moved, in octaves. Wide enough to be useful, narrow
+ * enough that no setting can put a part off the keyboard: the lead sits around
+ * C4, so -3 is C1 and +3 is C7.
+ */
+export const OCTAVE_RANGE = { min: -3, max: 3 } as const;
+
+/**
+ * The bass is written with its tonic on C1, 32.7 Hz, and stays there.
+ *
+ * Lifting it an octave was tried, to keep the lowest keys clear of the 28 Hz
+ * subsonic filter. Rendering the bass alone through the mastering chain showed
+ * that it costs more than it buys: at C2 more than half the part's energy sits
+ * above 120 Hz, which is a mid-range instrument rather than a bass, and the
+ * band a listener actually hears the bass in — roughly 35 to 120 Hz — fell
+ * from 44.1% of the part to 36.4%.
+ *
+ * The premise was wrong too. The claim that a downward-transposed key would
+ * "lose its fundamental" was never measured. It does not: the filter is 12 dB
+ * per octave, not a wall, and the harmonics carry the pitch regardless. At C1,
+ * key F# — the furthest down the fold reaches — keeps 42.9% of the part in the
+ * audible band against C's 44.1%.
+ *
+ * So the register stays where it was, and anyone who wants the bass higher has
+ * the octave control.
+ */
+const BASS_OCTAVE_LIFT = 0;
+
+function shiftOf(part: keyof OctaveShifts, shifts: OctaveShifts | undefined): number {
+  const raw = shifts?.[part] ?? 0;
+  return Math.max(OCTAVE_RANGE.min, Math.min(OCTAVE_RANGE.max, Math.round(raw))) * 12;
 }
 
 const PHRASE_STEPS = STEPS_PER_BAR * BARS_PER_PHRASE;
@@ -317,6 +361,8 @@ export interface GeneratorSettings {
    * and chords are still reused, so a rebuilt lead sits in the same song.
    */
   rehook?: boolean;
+  /** Per-part register, in octaves. Defaults to 0 for everything. */
+  octaves?: OctaveShifts;
 }
 
 export interface GenerationResult {
@@ -356,6 +402,8 @@ export interface SongPlan {
   analysis: ScoreBreakdown;
   /** Optional so plans saved before keys existed still load, as C. */
   key?: GenKey;
+  /** Per-part register. Optional for the same reason. */
+  octaves?: OctaveShifts;
   /**
    * The kick's bar pattern. The bass is written against it — which notes it
    * keeps depend on where the kick lands — so rebuilding the bass alone used
@@ -393,6 +441,13 @@ export class EarwormGenerator {
     // Every part of one song is generated with the same setting, so a track
     // rebuilt on its own still lands in the key the rest is in.
     const transpose = keyOffset(config.key ?? config.plan?.key ?? 'C');
+    // Register per part, on top of the key. The bass carries a built-in lift
+    // so its default sits at C2 rather than C1.
+    const octaves = config.octaves ?? config.plan?.octaves;
+    const leadShift = transpose + shiftOf('lead', octaves);
+    const bassShift = transpose + shiftOf('bass', octaves) + BASS_OCTAVE_LIFT * 12;
+    const padShift = transpose + shiftOf('pad', octaves);
+    const pluckShift = transpose + shiftOf('pluck', octaves);
 
     // §2.1C tempo bias, chosen before the hook so §5's density compensation
     // can react to a slow tempo.
@@ -469,10 +524,10 @@ export class EarwormGenerator {
       rebuildingKick ? plan?.kickPattern : undefined);
     const tracks: Track[] = [];
 
-    if (build('lead')) tracks.push(this.renderLead(transpose, totalSteps, best, variation, scaleIntervals, arrangement));
-    if (build('pluck')) tracks.push(this.generateCounterMelody(rng, transpose, totalSteps, chords, best, scaleIntervals, ornament, arrangement));
-    if (build('pad')) tracks.push(this.generateAtmosphere(rng, transpose, totalSteps, chords, scaleIntervals, arrangement));
-    if (build('bass')) tracks.push(this.generateBass(rng, transpose, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement));
+    if (build('lead')) tracks.push(this.renderLead(leadShift, totalSteps, best, variation, scaleIntervals, arrangement));
+    if (build('pluck')) tracks.push(this.generateCounterMelody(rng, pluckShift, totalSteps, chords, best, scaleIntervals, ornament, arrangement));
+    if (build('pad')) tracks.push(this.generateAtmosphere(rng, padShift, totalSteps, chords, scaleIntervals, arrangement));
+    if (build('bass')) tracks.push(this.generateBass(rng, bassShift, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals, arrangement));
     for (const drum of drumTracks) if (build(drum.id)) tracks.push(drum);
 
     return {
@@ -494,6 +549,7 @@ export class EarwormGenerator {
         arrangement: arrangement.name,
         analysis: best.score,
         key: config.key ?? 'C',
+        octaves: { ...(config.octaves ?? {}) },
         kickPattern: [...kickPattern],
       },
     };

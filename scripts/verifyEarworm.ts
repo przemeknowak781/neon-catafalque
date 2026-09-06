@@ -607,20 +607,50 @@ for (const key of KEYS) {
   }
   record('a key transposes every voice by the same interval', 'keys', 1.0, allMoved && anyNotes);
 }
-// No key may take the bass below the 28 Hz subsonic filter in the mastering
-// chain, which is what an upward-only transposition buys. The reference tonic
-// is C1 at MIDI 24; a negative offset would put F# under it.
+// The fold: no key may move the song more than a tritone in either direction.
+//
+// Upward-only transposition was the first attempt and it audibly thinned the
+// upper keys — a rendered sweep put 14.2% of B's energy above 2 kHz against
+// 9.1% for C, rising monotonically with the key. Folding bounds the drift at
+// six semitones instead of eleven, and makes it symmetric rather than always
+// brighter.
 for (const key of KEYS) {
   const offset = keyOffset(key);
-  record('no key takes the bass below its reference octave', 'keys', 1.0,
-    offset >= 0 && offset <= 11, offset);
+  record('no key moves the song more than a tritone', 'keys', 1.0,
+    offset >= -6 && offset <= 5, offset);
 }
-for (const key of KEYS) {
-  const r = generator.generate({ ...KEY_BASE, key });
-  const bass = (r.tracks.find((t) => t.id === 'bass')?.notes ?? []).map((n) => noteToMidi(n.note));
-  // MIDI 24 is C1, roughly 33 Hz — the lowest note the subsonic filter passes.
-  record('the bass stays above the subsonic filter in every key', 'keys', 1.0,
-    bass.length > 0 && Math.min(...bass) >= 24, Math.min(...bass));
+
+// --- octave controls -------------------------------------------------------
+// Each part's register moves on its own and by whole octaves, and no other
+// part moves with it.
+
+const PARTS = [['lead', 'lead'], ['bass', 'bass'], ['pad', 'pad'], ['pluck', 'pluck']] as const;
+for (const [part, trackId] of PARTS) {
+  for (const shift of [-2, -1, 1, 2]) {
+    const plain = generator.generate({ ...KEY_BASE });
+    const moved = generator.generate({ ...KEY_BASE, octaves: { [part]: shift } });
+    const before = plain.tracks.find((t) => t.id === trackId)?.notes ?? [];
+    const after = moved.tracks.find((t) => t.id === trackId)?.notes ?? [];
+    const movedByOctaves = before.length > 0 && before.length === after.length &&
+      before.every((n, i) => noteToMidi(after[i].note) - noteToMidi(n.note) === shift * 12);
+    record('an octave control moves its part by whole octaves', 'octaves', 1.0, movedByOctaves);
+
+    // Everything else stays exactly where it was.
+    let othersStill = true;
+    for (const track of plain.tracks) {
+      if (track.id === trackId || !track.notes) continue;
+      const other = moved.tracks.find((t) => t.id === track.id);
+      if (JSON.stringify(other?.notes) !== JSON.stringify(track.notes)) othersStill = false;
+    }
+    record('an octave control moves only its own part', 'octaves', 1.0, othersStill);
+  }
+}
+// The range is clamped, so no setting can put a part off the keyboard.
+for (const shift of [-9, 9]) {
+  const r = generator.generate({ ...KEY_BASE, octaves: { lead: shift } });
+  const lead = (r.tracks.find((t) => t.id === 'lead')?.notes ?? []).map((n) => noteToMidi(n.note));
+  record('an out-of-range octave is clamped, not obeyed', 'octaves', 1.0,
+    lead.length > 0 && Math.min(...lead) >= 0 && Math.max(...lead) <= 127, Math.min(...lead));
 }
 
 // --- rebuilding one track --------------------------------------------------

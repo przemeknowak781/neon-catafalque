@@ -39,6 +39,8 @@ export interface RenderOptions {
   fx?: Record<string, number | boolean | string>;
   /** Tonic, so a key can be measured rather than only heard. */
   key?: string;
+  /** Per-part register in octaves, so a register choice can be measured too. */
+  octaves?: Record<string, number>;
 }
 
 export interface RenderResult {
@@ -72,6 +74,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
     drumMode: 'four-floor',
     seed,
     ...(options.key ? { key: options.key as never } : {}),
+    ...(options.octaves ? { octaves: options.octaves as never } : {}),
     ...options.settings,
   });
 

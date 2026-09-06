@@ -6,7 +6,7 @@ import { Fader } from './components/Fader';
 import { Visualizer } from './components/Visualizer';
 import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
-import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums, KEYS, type GenKey } from './services/earwormGenerator';
+import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums, KEYS, OCTAVE_RANGE, type GenKey, type OctaveShifts } from './services/earwormGenerator';
 import type { SongPlan } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
@@ -42,6 +42,14 @@ import {
  * two Eastern ones. The note on each says what it is for, not what it is made
  * of — the intervals live in MODES, in the generator.
  */
+/** The parts whose register can be shifted, in the order the mixer lists them. */
+const OCTAVE_PARTS: { id: keyof OctaveShifts; label: string }[] = [
+  { id: 'lead', label: 'Lead' },
+  { id: 'pluck', label: 'Plk' },
+  { id: 'pad', label: 'Pad' },
+  { id: 'bass', label: 'Bass' },
+];
+
 const MODE_GROUPS: { label: string; modes: { value: GenMode; label: string; note: string }[] }[] = [
   {
     label: 'Common',
@@ -96,6 +104,8 @@ const App: React.FC = () => {
   // Generator Parameters State
   const [genMode, setGenMode] = useState<GenMode>('aeolian');
   const [genKey, setGenKey] = useState<GenKey>('C');
+  /** Per-part register, in octaves. 0 is the register everything was written in. */
+  const [genOctaves, setGenOctaves] = useState<OctaveShifts>({});
   const [genHarmonicMotion, setGenHarmonicMotion] = useState<GenHarmonicMotion>('conjunct');
   const [genContour, setGenContour] = useState<GenContour>('arch');
   const [genBass, setGenBass] = useState<GenBass>('driving');
@@ -284,6 +294,7 @@ const App: React.FC = () => {
       harmony: genHarmony,
       voiceLeading: genVoiceLeading,
       key: genKey,
+      octaves: genOctaves,
       // A locked hook keeps its melody, its chords and its tempo; everything
       // else is built around it afresh.
       plan: hookLocked && songPlan ? songPlan : undefined,
@@ -350,6 +361,7 @@ const App: React.FC = () => {
       harmony: genHarmony,
       voiceLeading: genVoiceLeading,
       key: genKey,
+      octaves: genOctaves,
       plan: songPlan,
       only: [trackId],
       rehook,
@@ -538,7 +550,8 @@ const App: React.FC = () => {
       instrumentParams: allInstrumentParams,
       globalFX,
       generator: {
-        mode: genMode, key: genKey, harmonicMotion: genHarmonicMotion, contour: genContour,
+        mode: genMode, key: genKey, octaves: genOctaves,
+        harmonicMotion: genHarmonicMotion, contour: genContour,
         bassMode: genBass, drumMode: genDrums, rhythmDensity: genDensity,
         entropy: genEntropy, arrangement: genArrangement,
         harmony: genHarmony, voiceLeading: genVoiceLeading,
@@ -570,6 +583,9 @@ const App: React.FC = () => {
       if (gen.mode) setGenMode(gen.mode as GenMode);
       // Files written before keys existed have no key; they were all in C.
       if (gen.key && KEYS.includes(gen.key as GenKey)) setGenKey(gen.key as GenKey);
+      if (gen.octaves && typeof gen.octaves === 'object') {
+        setGenOctaves(gen.octaves as OctaveShifts);
+      }
       if (gen.harmonicMotion) setGenHarmonicMotion(gen.harmonicMotion as GenHarmonicMotion);
       if (gen.contour) setGenContour(gen.contour as GenContour);
       if (gen.bassMode) setGenBass(gen.bassMode as GenBass);
@@ -804,6 +820,38 @@ const App: React.FC = () => {
              <div className="flex justify-around pt-0.5">
                  <Knob size="sm" label="Density" value={genDensity} min={0.1} max={1.0} onChange={setGenDensity} color="text-neon-cyan" />
                  <Knob size="sm" label="Twist" value={genEntropy} min={0.0} max={1.0} onChange={setGenEntropy} color="text-neon-pink" />
+             </div>
+
+             {/* Register. Each part moves by whole octaves, on its own. */}
+             <div className="space-y-0.5 pt-0.5">
+                <label className="text-[8px] uppercase text-zinc-600">Octave</label>
+                <div className="grid grid-cols-4 gap-1">
+                   {OCTAVE_PARTS.map(part => {
+                     const value = genOctaves[part.id] ?? 0;
+                     return (
+                       <div key={part.id} className="flex flex-col items-center gap-0.5">
+                          <span className="text-[7px] uppercase tracking-wider text-zinc-500">{part.label}</span>
+                          <div className="flex items-center gap-0.5">
+                             <button
+                                onClick={() => setGenOctaves(o => ({ ...o, [part.id]: Math.max(OCTAVE_RANGE.min, value - 1) }))}
+                                disabled={value <= OCTAVE_RANGE.min}
+                                title={`${part.label} down an octave`}
+                                className="rounded border border-zinc-800 px-1 font-mono text-[8px] leading-none text-zinc-500 hover:text-neon-cyan disabled:opacity-30"
+                             >&minus;</button>
+                             <span className={`w-3 text-center font-mono text-[8px] ${value === 0 ? 'text-zinc-600' : 'text-neon-cyan'}`}>
+                                {value > 0 ? `+${value}` : value}
+                             </span>
+                             <button
+                                onClick={() => setGenOctaves(o => ({ ...o, [part.id]: Math.min(OCTAVE_RANGE.max, value + 1) }))}
+                                disabled={value >= OCTAVE_RANGE.max}
+                                title={`${part.label} up an octave`}
+                                className="rounded border border-zinc-800 px-1 font-mono text-[8px] leading-none text-zinc-500 hover:text-neon-cyan disabled:opacity-30"
+                             >+</button>
+                          </div>
+                       </div>
+                     );
+                   })}
+                </div>
              </div>
           </div>
           {/* ACTIONS */}
