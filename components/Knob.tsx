@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 
 interface KnobProps {
   label: string;
@@ -56,50 +56,68 @@ export const Knob: React.FC<KnobProps> = ({
     ].join(" ");
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  /**
+   * Pointer capture rather than window listeners.
+   *
+   * The drag used to set a state flag on pointerdown and register the move
+   * listener from an effect keyed on it. Effects run after the commit, so
+   * between the finger landing and the listener existing there is a frame in
+   * which moves are dropped — a quick flick could set the value late or not at
+   * all. Capturing the pointer routes every subsequent event for it to this
+   * element, so React's own handlers are enough, the drag survives the finger
+   * leaving the knob, and there is no gap to lose events in.
+   *
+   * The flag is a ref, not state, for the same reason: it has to be true on
+   * the very next event, not after the next render. `isDragging` state is kept
+   * only for the visual.
+   */
+  const dragging = useRef(false);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragging.current = true;
     setIsDragging(true);
     startY.current = e.clientY;
     startValue.current = value;
   };
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-      const dy = startY.current - e.clientY;
-      const range = max - min;
-      const delta = (dy / 200) * range; // Sensitivity
-      let newValue = startValue.current + delta;
-      
-      // Clamp
-      if (newValue < min) newValue = min;
-      if (newValue > max) newValue = max;
-      
-      // Step
-      newValue = Math.round(newValue / step) * step;
-      
-      onChange(newValue);
-    };
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return;
+    const dy = startY.current - e.clientY;
+    const range = max - min;
+    // A finger has less room and less precision than a mouse, so the same
+    // travel covers the range more slowly on touch.
+    const travel = e.pointerType === 'touch' ? 260 : 200;
+    let newValue = startValue.current + (dy / travel) * range;
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
+    if (newValue < min) newValue = min;
+    if (newValue > max) newValue = max;
+    newValue = Math.round(newValue / step) * step;
 
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+    // Never let a non-finite value out: these feed AudioParam methods, which
+    // throw on NaN and stop the audio graph.
+    if (!Number.isFinite(newValue)) return;
+    onChange(newValue);
+  };
+
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = false;
+    setIsDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
     }
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, max, min, step, onChange]);
+  };
 
   return (
     <div className="flex select-none flex-col items-center" style={{ width: px }}>
       <div
         className="group relative cursor-ns-resize"
-        style={{ width: px, height: px }}
-        onMouseDown={handleMouseDown}
+        // touch-action: none stops the page scrolling under the drag.
+        style={{ width: px, height: px, touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         <svg width={px} height={px} className="overflow-visible">
           {/* Background Track */}

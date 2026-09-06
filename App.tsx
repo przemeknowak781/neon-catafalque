@@ -106,6 +106,13 @@ const App: React.FC = () => {
   const [genKey, setGenKey] = useState<GenKey>('C');
   /** Per-part register, in octaves. 0 is the register everything was written in. */
   const [genOctaves, setGenOctaves] = useState<OctaveShifts>({});
+  /**
+   * Which panel is open on a phone. The desktop layout shows all three columns
+   * at once; a 390 px screen cannot, so the two side panels become drawers over
+   * the sequencer and this says which one is up. Ignored above the md
+   * breakpoint, where the columns are laid out as they always were.
+   */
+  const [mobilePanel, setMobilePanel] = useState<'none' | 'song' | 'engine'>('none');
   const [genHarmonicMotion, setGenHarmonicMotion] = useState<GenHarmonicMotion>('conjunct');
   const [genContour, setGenContour] = useState<GenContour>('arch');
   const [genBass, setGenBass] = useState<GenBass>('driving');
@@ -681,28 +688,30 @@ const App: React.FC = () => {
   const selectClass = "w-full bg-zinc-900 border border-zinc-800 text-neon-cyan text-[9px] font-mono py-1 px-1 rounded focus:outline-none focus:border-neon-cyan uppercase appearance-none cursor-pointer hover:bg-zinc-800 transition-colors";
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950 font-sans text-gray-200">
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-neutral-950 font-sans text-gray-200">
 
       {/* TOP BAR — identity and transport, always visible */}
-      <header className="flex h-12 shrink-0 items-center gap-4 border-b border-zinc-800 bg-black px-3">
-        <div className="flex min-w-0 shrink-0 items-baseline gap-2">
-          <h1 className="bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text font-mono text-sm font-bold tracking-tighter text-transparent">
-            NEON CATAFALQUE
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-zinc-800 bg-black px-2 lg:h-12 lg:gap-4 lg:px-3">
+        <div className="flex min-w-0 shrink items-baseline gap-2">
+          <h1 className="truncate bg-gradient-to-r from-neon-purple to-neon-cyan bg-clip-text font-mono text-sm font-bold tracking-tighter text-transparent">
+            <span className="lg:hidden">NEON&nbsp;CAT.</span>
+            <span className="hidden lg:inline">NEON CATAFALQUE</span>
           </h1>
           {currentTheme && (
-            <span className="truncate font-mono text-[7px] uppercase tracking-[0.25em] text-neon-cyan/60">
+            <span className="hidden truncate font-mono text-[7px] uppercase tracking-[0.25em] text-neon-cyan/60 lg:inline">
               {currentTheme}
             </span>
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <span className="font-mono text-[8px] uppercase tracking-widest text-zinc-600">BPM</span>
-          <input type="number" value={bpm} onChange={(e) => setBpm(Number(e.target.value))}
-                 className="w-14 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-xs text-neon-cyan focus:outline-none" />
+          <span className="hidden font-mono text-[8px] uppercase tracking-widest text-zinc-600 lg:inline">BPM</span>
+          <input type="number" inputMode="numeric" value={bpm} onChange={(e) => setBpm(Number(e.target.value))}
+                 aria-label="Tempo in beats per minute"
+                 className="h-9 w-14 rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-center font-mono text-xs text-neon-cyan focus:outline-none lg:h-auto lg:text-left" />
         </div>
 
-        <div className="relative shrink-0">
+        <div className="relative hidden shrink-0 lg:block">
           <button onClick={() => setMidiEnabled(!midiEnabled)}
                   className={`h-6 rounded border px-2 font-mono text-[8px] transition-all ${midiEnabled ? 'border-neon-purple bg-neon-purple/5 text-neon-purple' : 'border-zinc-800 text-zinc-600'}`}>
             MIDI {midiEnabled ? 'ON' : 'OFF'}
@@ -714,19 +723,25 @@ const App: React.FC = () => {
 
         <div className="min-w-0 flex-1" />
 
-        <div className="w-40 shrink-0">
+        <div className="hidden w-40 shrink-0 lg:block">
           <Fader label="MASTER" value={masterVolume} onChange={setMasterVolume} colorClass="bg-white" />
         </div>
 
-          <button onClick={() => setIsPlaying(!isPlaying)} className={`h-8 w-28 shrink-0 rounded border-2 transition-all font-mono text-[10px] tracking-[0.2em] font-bold ${isPlaying ? 'border-neon-pink bg-neon-pink/10 text-neon-pink shadow-[0_0_20px_#ff00ff40]' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
+          {/* Generate, on the top bar on a phone: it is the first thing anyone
+              wants and it should never be behind a tab. */}
+          <button onClick={handleGenerateRitual}
+                  className="h-10 shrink-0 rounded border-2 border-neon-purple bg-neon-purple/10 px-3 font-mono text-[10px] font-bold tracking-[0.15em] text-neon-purple lg:hidden">
+            RITUAL
+          </button>
+          <button onClick={() => setIsPlaying(!isPlaying)} className={`h-10 w-20 shrink-0 rounded border-2 transition-all font-mono text-[10px] tracking-[0.2em] font-bold lg:h-8 lg:w-28 ${isPlaying ? 'border-neon-pink bg-neon-pink/10 text-neon-pink shadow-[0_0_20px_#ff00ff40]' : 'border-zinc-700 text-zinc-500 hover:text-zinc-300'}`}>
             {isPlaying ? 'STOP' : 'START'}
           </button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
 
-        {/* LEFT — the generator */}
-        <aside className="flex w-[236px] shrink-0 flex-col gap-2 overflow-hidden border-r border-zinc-800 bg-black p-2">
+        {/* LEFT — the generator. A column on a desktop, a drawer on a phone. */}
+        <aside className={`${mobilePanel === 'song' ? 'flex' : 'hidden'} absolute inset-0 z-30 flex-col gap-2 overflow-y-auto overscroll-contain border-r border-zinc-800 bg-black p-2 lg:static lg:z-auto lg:flex lg:w-[236px] lg:shrink-0 lg:overflow-hidden`}>
           {/* GENERATOR CONTROLS */}
           <div className="shrink-0 space-y-1.5 rounded border border-zinc-800 bg-zinc-900/20 p-1.5">
              <h3 className="border-b border-zinc-800 pb-0.5 font-mono text-[9px] uppercase tracking-widest text-zinc-500">Generator Engine</h3>
@@ -836,16 +851,16 @@ const App: React.FC = () => {
                                 onClick={() => setGenOctaves(o => ({ ...o, [part.id]: Math.max(OCTAVE_RANGE.min, value - 1) }))}
                                 disabled={value <= OCTAVE_RANGE.min}
                                 title={`${part.label} down an octave`}
-                                className="rounded border border-zinc-800 px-1 font-mono text-[8px] leading-none text-zinc-500 hover:text-neon-cyan disabled:opacity-30"
+                                className="h-8 w-8 rounded border border-zinc-800 font-mono text-sm leading-none text-zinc-400 hover:text-neon-cyan disabled:opacity-30 lg:h-auto lg:w-auto lg:px-1 lg:text-[8px] lg:text-zinc-500"
                              >&minus;</button>
-                             <span className={`w-3 text-center font-mono text-[8px] ${value === 0 ? 'text-zinc-600' : 'text-neon-cyan'}`}>
+                             <span className={`w-5 text-center font-mono text-[11px] lg:w-3 lg:text-[8px] ${value === 0 ? 'text-zinc-600' : 'text-neon-cyan'}`}>
                                 {value > 0 ? `+${value}` : value}
                              </span>
                              <button
                                 onClick={() => setGenOctaves(o => ({ ...o, [part.id]: Math.min(OCTAVE_RANGE.max, value + 1) }))}
                                 disabled={value >= OCTAVE_RANGE.max}
                                 title={`${part.label} up an octave`}
-                                className="rounded border border-zinc-800 px-1 font-mono text-[8px] leading-none text-zinc-500 hover:text-neon-cyan disabled:opacity-30"
+                                className="h-8 w-8 rounded border border-zinc-800 font-mono text-sm leading-none text-zinc-400 hover:text-neon-cyan disabled:opacity-30 lg:h-auto lg:w-auto lg:px-1 lg:text-[8px] lg:text-zinc-500"
                              >+</button>
                           </div>
                        </div>
@@ -1090,8 +1105,8 @@ const App: React.FC = () => {
           </div>
         </main>
 
-        {/* RIGHT — the selected engine */}
-        <aside className="flex w-[252px] shrink-0 flex-col overflow-hidden border-l border-zinc-800 bg-black">
+        {/* RIGHT — the selected engine. Same: a column, or a drawer. */}
+        <aside className={`${mobilePanel === 'engine' ? 'flex' : 'hidden'} absolute inset-0 z-30 flex-col overflow-hidden border-l border-zinc-800 bg-black lg:static lg:z-auto lg:flex lg:w-[252px] lg:shrink-0`}>
         <div className="flex border-b border-zinc-800">
           <button 
             onClick={() => setActiveTab('params')}
@@ -1310,6 +1325,34 @@ const App: React.FC = () => {
         
         </aside>
       </div>
+
+      {/*
+        Bottom bar, phones only. The two side panels are drawers here, so
+        something has to open them, and a thumb reaches the bottom of a screen
+        far more easily than the top. Every target is 56 px tall, above the
+        44 px minimum a fingertip needs.
+      */}
+      <nav className="flex h-14 shrink-0 items-stretch border-t border-zinc-800 bg-black lg:hidden">
+        {([
+          { id: 'none', label: 'Grid', hint: 'The sequencer' },
+          { id: 'song', label: 'Song', hint: 'Scale, key, structure, harmony' },
+          { id: 'engine', label: 'Sound', hint: 'Synth parameters, mixer and effects' },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setMobilePanel(tab.id)}
+            aria-pressed={mobilePanel === tab.id}
+            title={tab.hint}
+            className={`flex-1 font-mono text-[10px] uppercase tracking-widest transition-colors ${
+              mobilePanel === tab.id
+                ? 'border-t-2 border-neon-cyan bg-zinc-900/60 text-neon-cyan'
+                : 'text-zinc-600'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 };

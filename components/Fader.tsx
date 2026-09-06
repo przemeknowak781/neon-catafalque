@@ -17,26 +17,39 @@ export const Fader: React.FC<FaderProps> = ({ value, onChange, colorClass = 'bg-
   const position = Math.sqrt(Math.min(Math.max(value, 0), 1));
   const percentage = position * 100;
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  /**
+   * Pointer events, not mouse events, so a finger can move the fader. The
+   * element sets touch-action: none, which is what makes preventDefault work
+   * and stops the page scrolling out from under the drag.
+   */
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const update = (moveE: MouseEvent | React.MouseEvent) => {
-      const offsetX = moveE.clientX - rect.left;
+    const update = (at: { clientX: number }) => {
+      // A zero-width rect is reachable: the fader sits inside a panel that is
+      // a drawer on a phone, and a pointer can land on it mid-transition. The
+      // division then gives 0/0, and NaN travelled all the way into
+      // AudioParam.setTargetAtTime, which throws and takes the audio with it.
+      if (!(rect.width > 0)) return;
+      const offsetX = at.clientX - rect.left;
       const rawPosition = Math.max(0, Math.min(1, offsetX / rect.width));
       // Map linear slider position to exponential gain
       const newValue = rawPosition * rawPosition;
+      if (!Number.isFinite(newValue)) return;
       onChange(newValue);
     };
 
     update(e);
 
-    const onMouseMove = (moveE: MouseEvent) => update(moveE);
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    const onMove = (moveE: PointerEvent) => { moveE.preventDefault(); update(moveE); };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   };
 
   return (
@@ -47,9 +60,12 @@ export const Fader: React.FC<FaderProps> = ({ value, onChange, colorClass = 'bg-
           <span className="text-[9px] font-mono text-zinc-400">{(value * 100).toFixed(0)}</span>
         </div>
       )}
-      <div 
-        className="h-6 w-full bg-zinc-900 border border-zinc-800 rounded relative cursor-pointer group flex items-center px-1"
-        onMouseDown={handleMouseDown}
+      <div
+        // h-8 on touch: a 24px strip is under the 44px minimum a fingertip
+        // needs, and this is the master volume.
+        className="h-8 lg:h-6 w-full bg-zinc-900 border border-zinc-800 rounded relative cursor-pointer group flex items-center px-1"
+        style={{ touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
       >
         {/* Track Background */}
         <div className="absolute left-1 right-1 h-0.5 bg-zinc-800 rounded-full" />

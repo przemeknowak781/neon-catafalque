@@ -116,34 +116,47 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
                  className={`flex min-h-0 basis-0 cursor-pointer items-stretch border-b border-zinc-900 transition-colors ${
                    isSelected ? 'bg-white/[0.03]' : 'hover:bg-white/[0.015]'}`}>
 
-              {/* Label */}
-              <div className={`flex w-[112px] shrink-0 items-center gap-1.5 border-r px-2 ${
+              {/*
+                Label. One row on a desktop, two on a phone: at 14 px the mute,
+                solo and rebuild buttons are hard to hit with a mouse and
+                impossible with a thumb, and three of them plus a track name
+                will not fit across a phone in one row at a usable size. They
+                are 28 px here — short of the 44 px a primary control wants,
+                which is a deliberate trade for eight lanes on one screen;
+                play and generate, the controls that matter most, are 40 px on
+                the top bar.
+              */}
+              <div className={`flex w-[96px] shrink-0 flex-col justify-center gap-1 border-r px-1 lg:w-[112px] lg:flex-row lg:items-center lg:gap-1.5 lg:px-2 ${
                 isSelected ? 'border-zinc-700' : 'border-zinc-800'}`}>
-                <span className="h-3 w-[3px] shrink-0 rounded-full"
-                      style={{ backgroundColor: colour, opacity: dimmed ? 0.25 : 1 }} />
-                <span className={`min-w-0 flex-1 truncate text-[9px] font-bold uppercase tracking-wider ${
-                  dimmed ? 'text-zinc-600' : 'text-zinc-300'}`}>
-                  {track.name}
-                </span>
-                <button onClick={(e) => { e.stopPropagation(); onToggleMute(track.id); }}
-                        title="Mute"
-                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
-                          track.isMuted ? 'border-neon-pink/60 bg-neon-pink/20 text-neon-pink'
-                                        : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>M</button>
-                <button onClick={(e) => { e.stopPropagation(); onToggleSolo(track.id); }}
-                        title="Solo"
-                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
-                          track.isSoloed ? 'border-neon-cyan/60 bg-neon-cyan/20 text-neon-cyan'
-                                         : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>S</button>
-                <button onClick={(e) => { e.stopPropagation(); onRegenerate(track.id); }}
-                        disabled={!canRegenerate}
-                        title={canRegenerate
-                          ? 'Rebuild this part against the same chords and hook'
-                          : 'Generate a song first'}
-                        className={`h-3.5 w-3.5 shrink-0 rounded-sm border text-[7px] leading-none ${
-                          canRegenerate
-                            ? 'border-zinc-700 text-zinc-600 hover:border-neon-purple/60 hover:text-neon-purple'
-                            : 'border-zinc-800 text-zinc-800'}`}>↻</button>
+                <div className="flex min-w-0 items-center gap-1 lg:contents">
+                  <span className="h-3 w-[3px] shrink-0 rounded-full"
+                        style={{ backgroundColor: colour, opacity: dimmed ? 0.25 : 1 }} />
+                  <span className={`min-w-0 flex-1 truncate text-[9px] font-bold uppercase tracking-wider ${
+                    dimmed ? 'text-zinc-600' : 'text-zinc-300'}`}>
+                    {track.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 lg:contents">
+                  <button onClick={(e) => { e.stopPropagation(); onToggleMute(track.id); }}
+                          title="Mute"
+                          className={`h-7 w-7 shrink-0 rounded-sm border text-[10px] leading-none lg:h-3.5 lg:w-3.5 lg:text-[7px] ${
+                            track.isMuted ? 'border-neon-pink/60 bg-neon-pink/20 text-neon-pink'
+                                          : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>M</button>
+                  <button onClick={(e) => { e.stopPropagation(); onToggleSolo(track.id); }}
+                          title="Solo"
+                          className={`h-7 w-7 shrink-0 rounded-sm border text-[10px] leading-none lg:h-3.5 lg:w-3.5 lg:text-[7px] ${
+                            track.isSoloed ? 'border-neon-cyan/60 bg-neon-cyan/20 text-neon-cyan'
+                                           : 'border-zinc-700 text-zinc-600 hover:text-zinc-300'}`}>S</button>
+                  <button onClick={(e) => { e.stopPropagation(); onRegenerate(track.id); }}
+                          disabled={!canRegenerate}
+                          title={canRegenerate
+                            ? 'Rebuild this part against the same chords and hook'
+                            : 'Generate a song first'}
+                          className={`h-7 w-7 shrink-0 rounded-sm border text-[10px] leading-none lg:h-3.5 lg:w-3.5 lg:text-[7px] ${
+                            canRegenerate
+                              ? 'border-zinc-700 text-zinc-600 hover:border-neon-purple/60 hover:text-neon-purple'
+                              : 'border-zinc-800 text-zinc-800'}`}>↻</button>
+                </div>
               </div>
 
               {/* Content */}
