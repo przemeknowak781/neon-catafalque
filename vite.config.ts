@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
+      // GitHub Pages serves a project repo under /<repo>/, so the built asset
+      // URLs need that prefix. Left as '/' for dev and for any root-hosted
+      // deploy; the Pages workflow sets BASE_PATH.
+      base: process.env.BASE_PATH || '/',
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
