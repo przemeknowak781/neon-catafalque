@@ -259,6 +259,70 @@ for (const mode of MODES) {
   }
 }
 
+// --- vertical harmony ------------------------------------------------------
+//
+// The conformance checks above judge the hook in isolation. They cannot see
+// whether it agrees with the chord underneath it, which is the failure a
+// listener notices first: a melody can satisfy every contour and information
+// target and still sound wrong against its own accompaniment.
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const noteToMidi = (n: string): number => {
+  const m = n.match(/^([A-G]#?)(-?\d+)$/);
+  return m ? (parseInt(m[2], 10) + 1) * 12 + NOTE_NAMES.indexOf(m[1]) : -1;
+};
+
+for (const mode of MODES) {
+  for (let seed = 400; seed < 412; seed++) {
+    const song = generator.generate({
+      totalSteps: 256, mode, harmonicMotion: 'conjunct', contour: 'arch',
+      rhythmDensity: 0.5, entropy: 0.4, bassMode: 'driving', drumMode: 'four-floor', seed,
+    });
+
+    const sounding: { track: string; midi: number }[][] =
+      Array.from({ length: 256 }, () => []);
+    for (const t of song.tracks) {
+      if (!t.notes) continue;
+      for (const n of t.notes) {
+        const midi = noteToMidi(n.note);
+        const from = Math.floor(n.startStep);
+        const to = Math.min(256, from + Math.max(1, Math.round(n.duration)));
+        for (let s = from; s < to; s++) sounding[s]?.push({ track: t.id, midi });
+      }
+    }
+
+    let minorSeconds = 0;
+    let strongBeats = 0;
+    let onChordTone = 0;
+    for (let step = 0; step < 256; step++) {
+      const now = sounding[step];
+      for (let i = 0; i < now.length; i++) {
+        for (let j = i + 1; j < now.length; j++) {
+          if (now[i].track === now[j].track) continue;
+          // Absolute interval: a minor 2nd is harsh, the same pair an octave
+          // apart is a minor 9th and is not.
+          if (Math.abs(now[i].midi - now[j].midi) === 1) minorSeconds++;
+        }
+      }
+      if (step % 8 !== 0) continue;
+      const lead = now.find((n) => n.track === 'lead');
+      const bass = now.find((n) => n.track === 'bass');
+      if (!lead || !bass) continue;
+      strongBeats++;
+      if ([0, 3, 4, 7].includes(mod(lead.midi - bass.midi, 12))) onChordTone++;
+    }
+
+    // §6 wants chord tones on beats 1 and 3 the clear majority of the time.
+    record('lead agrees with the chord on beats 1 and 3', '§6', 0.85,
+      strongBeats === 0 || onChordTone / strongBeats >= 0.6,
+      Math.round((onChordTone / Math.max(1, strongBeats)) * 100));
+
+    // Sustained minor seconds between parts are the audible failure.
+    record('few true minor 2nds between tracks', 'harmony', 0.85,
+      minorSeconds <= 8, minorSeconds);
+  }
+}
+
 // --- calibration: the IC band must admit known earworms ---------------------
 //
 // The mean-information-content window is the one target with no number in the

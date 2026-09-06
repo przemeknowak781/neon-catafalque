@@ -56,8 +56,35 @@ const DARKWAVE_LOOPS: readonly (readonly number[])[] = [
   [0, 6, 3, 0], // i - bVII - iv - i
 ];
 
+/**
+ * Chord palettes per mode.
+ *
+ * §3.2's loop templates are written for Aeolian, where bVI and bVII are major.
+ * Applying them unchanged to the other modes produced chords that do not exist
+ * there: in Dorian the triad on the natural 6th is diminished, which is why a
+ * measurement across twelve songs found 716 tritones sounding between tracks
+ * against Aeolian's 133. In harmonic minor the triad on the raised 7th is
+ * diminished and the one on b3 is augmented.
+ *
+ * Each mode therefore gets the chords it actually has. Harmonic minor keeps
+ * the palette it exists for: i - iv - V - bVI, where V is major because its
+ * third is the leading tone.
+ */
+const CHORD_PALETTES: Record<string, number[]> = {
+  aeolian: [0, 2, 3, 4, 5, 6],
+  dorian: [0, 2, 3, 4, 6],          // IV is major here and is the mode's colour
+  harmonic_minor: [0, 3, 4, 5],
+};
+
 /** Chords that can host the twist (§7: align surprise with bVI or bVII). */
-const COLOUR_CHORDS = [5, 6];
+const COLOUR_CHORDS_BY_MODE: Record<string, number[]> = {
+  aeolian: [5, 6],
+  dorian: [6],
+  harmonic_minor: [5],
+};
+
+/** Pad voicing register: degree 14 is C3, so the triad lands between C3 and A#3. */
+const PAD_REGISTER_BASE = 14;
 
 /** §3.3 phrase-ending targets: scale degrees 1, b3, 5 (0-indexed). */
 const CADENCE_DEGREES = [0, 2, 4];
@@ -173,7 +200,7 @@ export class EarwormGenerator {
     // and density in the hook".
     const hookDensity = clamp01(config.rhythmDensity + (1 - tempoPosition) * 0.15);
 
-    const chordLoop = this.generateProgression(rng, config.harmonicMotion);
+    const chordLoop = this.generateProgression(rng, config.harmonicMotion, config.mode);
     const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps);
     const chords = this.expandChords(chordLoop, totalSteps);
 
@@ -192,7 +219,7 @@ export class EarwormGenerator {
 
     const { drumTracks, kickSteps } = this.generateDrums(rng, totalSteps, config.drumMode, best);
     const bassTrack = this.generateBass(rng, totalSteps, chords, kickSteps, config.bassMode, scaleIntervals);
-    const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals, config.mode);
+    const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals);
     const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, hookDensity);
     const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals);
 
@@ -218,29 +245,39 @@ export class EarwormGenerator {
 
   // --- §3.2 HARMONY --------------------------------------------------------
 
-  private generateProgression(rng: SeededRng, motion: GenHarmonicMotion): number[] {
+  private generateProgression(
+    rng: SeededRng,
+    motion: GenHarmonicMotion,
+    mode: GenMode,
+  ): number[] {
+    const palette = CHORD_PALETTES[mode] ?? CHORD_PALETTES.aeolian;
+    const colours = COLOUR_CHORDS_BY_MODE[mode] ?? COLOUR_CHORDS_BY_MODE.aeolian;
     let loop: number[];
 
     if (motion === 'static') {
       // Drone: hold the tonic, move only to a colour chord.
-      loop = [0, 0, rng.pick(COLOUR_CHORDS), 0];
-    } else if (rng.chance(0.6)) {
-      // Corpus-idiomatic templates the spec lists explicitly.
-      loop = [...rng.pick(DARKWAVE_LOOPS)];
+      loop = [0, 0, rng.pick(colours), 0];
     } else {
-      loop = this.walkProgression(rng, motion);
+      // Only use a spec template if this mode actually has all of its chords.
+      const usable = DARKWAVE_LOOPS.filter((l) => l.every((d) => palette.includes(d)));
+      loop = usable.length && rng.chance(0.6)
+        ? [...rng.pick(usable)]
+        : this.walkProgression(rng, motion, palette);
     }
 
-    // §7 needs a bVI or bVII to hang the twist on. Guarantee one exists.
-    if (!loop.some((d) => COLOUR_CHORDS.includes(d))) {
-      loop[2] = rng.pick(COLOUR_CHORDS);
+    // §7 needs a colour chord to hang the twist on. Guarantee one exists.
+    if (!loop.some((d) => colours.includes(d))) {
+      loop[2] = rng.pick(colours);
     }
     return loop;
   }
 
   /** Weighted walk restricted to the darkwave palette (no ii dim). */
-  private walkProgression(rng: SeededRng, motion: GenHarmonicMotion): number[] {
-    const palette = [0, 2, 3, 4, 5, 6];
+  private walkProgression(
+    rng: SeededRng,
+    motion: GenHarmonicMotion,
+    palette: number[],
+  ): number[] {
     const loop = [0];
     let current = 0;
 
@@ -382,168 +419,216 @@ export class EarwormGenerator {
 
   // --- §3.3/§4/§7 MELODY ---------------------------------------------------
 
+  /**
+   * Build the hook against the harmony, not merely alongside it.
+   *
+   * The previous order of operations generated a contour, smoothed it into a
+   * stepwise line, and only then tried to nudge strong beats onto chord tones
+   * by at most one scale step — a nudge it declined whenever that would break
+   * the stepwise rule. Measured across twelve songs, the lead landed on a
+   * chord tone on beats 1 and 3 barely half the time, so the melody drifted
+   * against its own accompaniment.
+   *
+   * Now the strong beats are chosen first, from the chord (§6), at whatever
+   * register the contour skeleton asks for. The notes in between are filled by
+   * stepwise motion from one anchor to the next, which is how the constraint
+   * in §3.3 and the one in §6 stop fighting each other: the harmony owns the
+   * skeleton, the voice-leading owns the spaces.
+   */
   private buildMelody(rng: SeededRng, rhythm: PhraseRhythm, ctx: BuildContext): MotifNote[] {
     const positions: number[] = [];
     rhythm.onsets.forEach((on, step) => { if (on) positions.push(step); });
     if (positions.length < 4) return [];
 
     const contour = this.pickContour(rng, ctx.contour);
-    // 3-5 scale steps lands the range near the 7-12 semitone target; the
-    // scorer rejects the draws that miss.
     const amplitude = rng.range(3, 5);
     const skeleton = this.contourSkeleton(contour, positions.length, amplitude);
 
-    // §9 bar 1 starts on 5 or b3; picking the base from the cadence degrees
-    // also makes the phrase land on 1, b3 or 5 by construction, instead of
-    // teleporting there with a corrective leap at the end.
-    //
-    // Degree 21 is C4. The hook used to sit at degree 14 (C3, 131 Hz), inside
-    // the same octave as the pad and just above the bass, which is why it
-    // never cut through. Range and contour are transposition-invariant, so
-    // this does not disturb any of the conformance measurements.
+    // Degree 21 is C4. Picking the base from the cadence degrees also makes
+    // the phrase land on 1, b3 or 5 by construction. Range and contour are
+    // transposition-invariant, so this does not disturb the measurements.
     const base = 21 + rng.pick(CADENCE_DEGREES);
     const degrees = skeleton.map((offset) => base + offset);
 
-    // §2.1B / §7 the one uncommon gradient, then the deliberate leap accents
-    // that keep the phrase off the "all steps" extreme (§4.1).
-    const twistIndex = this.twistIndex(rng, positions, rhythm.twistBar, degrees.length);
-    const leapIndices = this.planLeaps(rng, positions, twistIndex, degrees.length);
+    // --- 1. anchor beats 1 and 3 on the bar's chord (§6) -------------------
+    //
+    // Anchor whatever is *sounding* on the beat, not only a note that starts
+    // exactly on it. The rhythm cells are syncopated — "X . X X . X . X" has
+    // no onset on beat 3 at all — so insisting on an exact hit left the strong
+    // beats covered by unanchored filler, and the melody drifted off the chord
+    // exactly where the ear checks it.
+    const anchors: number[] = [];
+    for (let bar = 0; bar < BARS_PER_PHRASE; bar++) {
+      const chord = ctx.chordLoop[bar % ctx.chordLoop.length];
+      for (const beatStep of [0, 8]) {
+        const target = bar * STEPS_PER_BAR + beatStep;
+        const index = this.soundingAt(positions, target, bar);
+        if (index < 0 || anchors.includes(index)) continue;
+        degrees[index] = this.chooseAnchorDegree(rng, degrees[index], chord, ctx);
+        anchors.push(index);
+      }
+    }
+    anchors.sort((a, b) => a - b);
 
-    this.enforceMotionBudget(degrees, leapIndices, twistIndex, ctx);
-    this.alignStrongBeats(rng, degrees, positions, leapIndices, twistIndex, ctx);
+    // Treat the phrase ends as anchors so no span is left dangling.
+    if (anchors[0] !== 0) anchors.unshift(0);
+    const last = degrees.length - 1;
+    if (anchors[anchors.length - 1] !== last) anchors.push(last);
+
+    // --- 2. fill the spaces with stepwise voice leading --------------------
+    for (let a = 0; a < anchors.length - 1; a++) {
+      this.fillSpan(rng, degrees, skeleton, anchors[a], anchors[a + 1]);
+    }
+
+    // --- 3. the one uncommon gradient (§2.1B / §7) -------------------------
+    this.applyTwist(rng, degrees, positions, rhythm.twistBar, new Set(anchors), ctx);
+
+    // --- 4. cadence (§3.3) -------------------------------------------------
     this.applyCadence(degrees);
 
     return degrees.map((degree, i) => ({ step: positions[i], degree, alteration: 0 }));
   }
 
-  /** Where the uncommon turning-point gradient goes: inside the twist bar. */
-  private twistIndex(
+  /** Index of the note sounding at `target`: the last onset at or before it. */
+  private soundingAt(positions: readonly number[], target: number, bar: number): number {
+    const barStart = bar * STEPS_PER_BAR;
+    let best = -1;
+    for (let i = 0; i < positions.length; i++) {
+      if (positions[i] < barStart) continue;
+      if (positions[i] > target) break;
+      best = i;
+    }
+    // Nothing before the beat in this bar: take the first note after it.
+    if (best < 0) {
+      for (let i = 0; i < positions.length; i++) {
+        if (positions[i] >= target && positions[i] < barStart + STEPS_PER_BAR) return i;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * §6 weighted choice on a strong beat: chord tone, modal colour, or skeleton.
+   *
+   * The modal colour option is filtered against the chord actually sounding.
+   * §6 offers it as "a scale tone that defines the mode", but the pad holds a
+   * full triad for the whole bar, so an unfiltered b6 over a chord containing
+   * the fifth is a held minor second, not colour. That single case accounted
+   * for most of the clashes a render turned up: lead G# against pad G,
+   * sustained.
+   */
+  private chooseAnchorDegree(
     rng: SeededRng,
+    target: number,
+    chord: number,
+    ctx: BuildContext,
+  ): number {
+    const tones = [chord, chord + 2, chord + 4].map((d) => mod(d, 7));
+    const roll = rng.next();
+
+    if (roll >= 0.82 && roll < 0.95) {
+      const wanted = ctx.modeName === 'dorian' ? [5] : [5, 6];
+      const safe = wanted.filter((d) => !this.clashesWithChord(d, tones, ctx.scaleIntervals));
+      if (safe.length) return this.nearestDegree(target, safe);
+      // No safe colour tone against this chord: take a chord tone instead.
+    } else if (roll >= 0.95) {
+      return target;
+    }
+    return this.nearestDegree(target, tones);
+  }
+
+  /** True when `degree` sits a semitone from any tone of the sounding chord. */
+  private clashesWithChord(
+    degree: number,
+    chordTones: number[],
+    scaleIntervals: readonly number[],
+  ): boolean {
+    const pitch = scaleIntervals[mod(degree, 7)];
+    return chordTones.some((tone) => {
+      const diff = mod(pitch - scaleIntervals[mod(tone, 7)], 12);
+      return Math.min(diff, 12 - diff) === 1;
+    });
+  }
+
+  /**
+   * Walk from one anchor to the next in steps, borrowing the skeleton's local
+   * shape so a span that starts and ends on the same pitch still moves.
+   */
+  private fillSpan(
+    rng: SeededRng,
+    degrees: number[],
+    skeleton: readonly number[],
+    a: number,
+    b: number,
+  ): void {
+    const gap = b - a;
+    if (gap < 2) return;
+
+    const startDegree = degrees[a];
+    const delta = degrees[b] - startDegree;
+    // One neighbour direction per span, so the filler reads as a gesture
+    // rather than as noise.
+    const arcDirection = delta === 0 ? (rng.chance(0.5) ? 1 : -1) : Math.sign(delta);
+    const skeletonSpan = skeleton[b] - skeleton[a];
+
+    for (let k = 1; k < gap; k++) {
+      const fraction = k / gap;
+      let value = startDegree + delta * fraction;
+
+      // Local deviation of the contour skeleton from a straight line.
+      const shape = skeleton[a + k] - (skeleton[a] + skeletonSpan * fraction);
+      value += shape;
+
+      if (Math.abs(delta) < gap - 1) {
+        value += Math.sin(fraction * Math.PI) * arcDirection * 0.8;
+      }
+      degrees[a + k] = Math.round(value);
+    }
+
+    // Keep every move inside the span a step or a small leap; the anchors
+    // themselves supply the wider intervals.
+    for (let k = 1; k < gap; k++) {
+      const i = a + k;
+      const move = degrees[i] - degrees[i - 1];
+      if (Math.abs(move) > 2) degrees[i] = degrees[i - 1] + Math.sign(move) * 2;
+    }
+  }
+
+  /**
+   * §2.1B / §7 — exactly one uncommon turning-point gradient, on the colour
+   * chord, immediately forgiven by stepwise motion the other way. It is placed
+   * between anchors so it colours the line without contradicting the harmony.
+   */
+  private applyTwist(
+    rng: SeededRng,
+    degrees: number[],
     positions: number[],
     twistBar: number,
-    count: number,
-  ): number {
+    anchors: Set<number>,
+    ctx: BuildContext,
+  ): void {
     const candidates: number[] = [];
-    for (let i = 1; i < count - 1; i++) {
+    for (let i = 1; i < degrees.length - 2; i++) {
+      if (anchors.has(i) || anchors.has(i + 1)) continue;
       if (Math.floor(positions[i] / STEPS_PER_BAR) === twistBar) candidates.push(i);
     }
-    if (candidates.length === 0) return Math.max(1, Math.floor(count / 2));
-    return candidates[Math.floor(candidates.length / 2)] ?? candidates[0];
-  }
+    if (candidates.length === 0) return;
 
-  /** §4.1 one headline leap per 2 bars, the twist included. */
-  private planLeaps(
-    rng: SeededRng,
-    positions: number[],
-    twistIndex: number,
-    count: number,
-  ): Set<number> {
-    const leaps = new Set<number>([twistIndex]);
-    const wanted = rng.range(LEAPS_PER_PHRASE.min, LEAPS_PER_PHRASE.max);
+    const index = candidates[Math.floor(candidates.length / 2)];
+    const previous = degrees[index - 1];
+    const direction = degrees[index] >= previous ? 1 : -1;
 
-    // Spread the accents: prefer positions well away from the twist and from
-    // each other, and never on the final note (that one has to cadence).
-    let guard = 0;
-    while (leaps.size < wanted && guard++ < 40) {
-      const index = 1 + rng.int(Math.max(1, count - 2));
-      const clashes = [...leaps].some((existing) => Math.abs(existing - index) < 3);
-      if (!clashes) leaps.add(index);
+    let size = 2 + Math.round(ctx.twist);
+    let target = previous + direction * Math.min(size, MAX_LEAP_MOVE);
+    const semitones =
+      degreeToMidi(target, ctx.scaleIntervals) - degreeToMidi(previous, ctx.scaleIntervals);
+    if (intervalSurprisal(semitones) <= ATYPICAL_GRADIENT_BITS) {
+      target = previous + direction * Math.min(size + 1, MAX_LEAP_MOVE);
     }
-    void positions;
-    return leaps;
-  }
 
-  /**
-   * §4.1 motion budget: every move is a step unless it was planned as a leap.
-   *
-   * This runs after the contour skeleton, so it preserves the direction of
-   * travel while removing the accidental leaps that the old code produced
-   * whenever a chord snap, the twist, or the cadence pulled a note off-line.
-   * It is also what keeps information content low between the planned spikes.
-   */
-  private enforceMotionBudget(
-    degrees: number[],
-    leapIndices: Set<number>,
-    twistIndex: number,
-    ctx: BuildContext,
-  ): void {
-    for (let i = 1; i < degrees.length; i++) {
-      const delta = degrees[i] - degrees[i - 1];
-
-      if (!leapIndices.has(i)) {
-        const limited = Math.sign(delta) * Math.min(Math.abs(delta), MAX_STEP_MOVE);
-        degrees[i] = degrees[i - 1] + limited;
-        continue;
-      }
-
-      // A planned leap: force a real one, in the skeleton's direction where it
-      // has one, and make the twist wide enough to read as uncommon.
-      const direction = delta !== 0 ? Math.sign(delta) : (i <= degrees.length / 2 ? 1 : -1);
-      let size = i === twistIndex ? 2 + Math.round(ctx.twist) : 2;
-      size = Math.min(Math.max(size, 2), MAX_LEAP_MOVE);
-      let target = degrees[i - 1] + direction * size;
-
-      if (i === twistIndex) {
-        // Verify against the calibrated threshold rather than assuming a
-        // 2-step move is uncommon — that depends on where in the mode it sits.
-        const semitones =
-          degreeToMidi(target, ctx.scaleIntervals) - degreeToMidi(degrees[i - 1], ctx.scaleIntervals);
-        if (intervalSurprisal(semitones) <= ATYPICAL_GRADIENT_BITS) {
-          target = degrees[i - 1] + direction * Math.min(size + 1, MAX_LEAP_MOVE);
-        }
-      }
-      degrees[i] = target;
-
-      // §4.1 resolve every leap by step in the opposite direction — but *when*
-      // matters. Reversing immediately turns the leap note into a turning
-      // point with an uncommon gradient, and §8B allows exactly one of those
-      // per 4 bars. So only the twist reverses on the very next note; the
-      // accent leaps carry on one more step first, which leaves their turning
-      // point stepwise and keeps the phrase's single twist singular.
-      const resolveAt = i === twistIndex ? i + 1 : i + 2;
-      if (i + 1 < degrees.length && !leapIndices.has(i + 1)) {
-        degrees[i + 1] = i === twistIndex ? target - direction : target + direction * MAX_STEP_MOVE;
-      }
-      if (resolveAt === i + 2 && i + 2 < degrees.length && !leapIndices.has(i + 2)) {
-        degrees[i + 2] = degrees[i + 1] - direction * MAX_STEP_MOVE;
-      }
-    }
-  }
-
-  /**
-   * §6 chord tones on beats 1 and 3 — but only where it costs at most one
-   * scale step, so the line stays stepwise and the contour survives.
-   */
-  private alignStrongBeats(
-    rng: SeededRng,
-    degrees: number[],
-    positions: number[],
-    leapIndices: Set<number>,
-    twistIndex: number,
-    ctx: BuildContext,
-  ): void {
-    for (let i = 1; i < degrees.length - 1; i++) {
-      const inBar = positions[i] % STEPS_PER_BAR;
-      if (inBar !== 0 && inBar !== 8) continue;
-      if (i === twistIndex || leapIndices.has(i) || leapIndices.has(i + 1)) continue;
-
-      const bar = Math.floor(positions[i] / STEPS_PER_BAR);
-      const chord = ctx.chordLoop[bar % ctx.chordLoop.length];
-
-      const roll = rng.next();
-      const wanted = roll < 0.65
-        ? [chord, chord + 2, chord + 4].map((d) => mod(d, 7))          // chord tone
-        : roll < 0.9
-          ? (ctx.modeName === 'dorian' ? [5] : [5, 6])                  // modal colour
-          : null;                                                       // leave it
-      if (!wanted) continue;
-
-      const candidate = this.nearestDegree(degrees[i], wanted);
-      // Only accept the nudge if it keeps both neighbouring moves stepwise.
-      const okBefore = Math.abs(candidate - degrees[i - 1]) <= MAX_STEP_MOVE;
-      const okAfter = Math.abs(degrees[i + 1] - candidate) <= MAX_STEP_MOVE;
-      if (okBefore && okAfter) degrees[i] = candidate;
-    }
+    degrees[index] = target;
+    // §4.1 resolve the leap by step in the opposite direction.
+    if (!anchors.has(index + 1)) degrees[index + 1] = target - direction;
   }
 
   private pickContour(rng: SeededRng, setting: GenContour): ContourClass {
@@ -675,7 +760,6 @@ export class EarwormGenerator {
     hook: Candidate,
     variation: Candidate,
     scaleIntervals: readonly number[],
-    modeName: GenMode,
   ): Track {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
@@ -693,16 +777,16 @@ export class EarwormGenerator {
         // pitches are identical, which is the repetition §2.1D relies on.
         if (section === 'verse' && i % 3 === 2) return;
 
-        const isLast = i === source.notes.length - 1;
-        // §1 "harmonic minor moment ... only for cadences".
-        const intervals = modeName === 'harmonic_minor' && !isLast
-          ? MODES.aeolian
-          : scaleIntervals;
-
+        // Every track sounds the same scale. This used to render the lead in
+        // Aeolian while the pad and bass played harmonic minor, so the melody
+        // sang the b7 against a held natural 7 underneath — a sustained
+        // semitone. It measured 758 clashes across twelve songs, double any
+        // other mode. The raised 7th now reaches the melody through the V
+        // chord it belongs to, not by contradicting the accompaniment.
         const nextStep = source.notes[i + 1]?.step ?? PHRASE_STEPS;
         notes.push({
           id: `lead-${bar}-${i}`,
-          note: midiToNoteName(degreeToMidi(note.degree, intervals, note.alteration)),
+          note: midiToNoteName(degreeToMidi(note.degree, scaleIntervals, note.alteration)),
           startStep: offset + note.step,
           duration: Math.max(1, Math.min(4, nextStep - note.step)),
           velocity,
@@ -785,10 +869,13 @@ export class EarwormGenerator {
       if (section === 'intro' && bar % 4 !== 0) continue;
 
       const chord = chords[step];
-      // Root, third and fifth, voiced from C3 up: below the hook at C4 and
-      // clear of the bass at C1-C2. Voiced at C2 it doubled the bass and the
-      // render measured 62% of total energy below 200 Hz.
-      const voicing = [chord + 14, chord + 16, chord + 18];
+      // Root, third and fifth inverted into a fixed register (C3 to A#3),
+      // rather than transposed with the chord root. Transposing meant the
+      // bVII chord climbed to F4 while the hook's lowest note is C4, putting
+      // the pad above the melody and producing sustained minor seconds
+      // against it. Keeping the voicing in one octave is also what a pad is
+      // for: a steady bed the melody sits on top of.
+      const voicing = [chord, chord + 2, chord + 4].map((d) => PAD_REGISTER_BASE + mod(d, 7));
       const velocity = section === 'chorus' || section === 'variation' ? 0.5 : 0.34;
 
       voicing.forEach((degree, v) => {
