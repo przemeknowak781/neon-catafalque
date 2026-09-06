@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify:earworm": "esbuild scripts/verifyEarworm.ts --bundle --platform=node --format=esm --outfile=.verify/verifyEarworm.mjs --log-level=warning && node .verify/verifyEarworm.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "react": "^19.2.3",

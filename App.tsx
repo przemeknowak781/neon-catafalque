@@ -7,6 +7,7 @@ import { Visualizer } from './components/Visualizer';
 import { audioEngine } from './services/audioEngine';
 import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
+import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { generateAIPresetSet, generateSingleAIPreset, AIPresetSet, AISinglePreset } from './services/aiPresetService';
 import { composeAISong, AISongResult, AISectionData } from './services/aiComposer';
 import { composerAgent } from './services/composerAgent';
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [genDrums, setGenDrums] = useState<GenDrums>('four-floor');
   const [genDensity, setGenDensity] = useState<number>(0.7);
   const [genEntropy, setGenEntropy] = useState<number>(0.4);
+  const [genAnalysis, setGenAnalysis] = useState<ScoreBreakdown | null>(null);
 
   const [tracks, setTracks] = useState<Track[]>(() => {
       return INITIAL_TRACKS.map(t => {
@@ -190,7 +192,11 @@ const App: React.FC = () => {
       entropy: genEntropy
     });
     setTracks(result.tracks.map(t => ({ ...t, isMuted: false, isSoloed: false })));
-    setTotalSteps(GEN_STEPS); 
+    setTotalSteps(GEN_STEPS);
+    // The generator picks tempo now (earworm.md §2.1C biases BPM upward within
+    // the substyle band), so the transport has to follow it.
+    setBpm(result.bpm);
+    setGenAnalysis(result.analysis);
     if (isPlaying) {
         setIsPlaying(false);
         setTimeout(() => setIsPlaying(true), 50);
@@ -511,6 +517,34 @@ const App: React.FC = () => {
                 </span>
                 </button>
             </div>
+
+            {genAnalysis && (
+              <div className="mt-3 border border-zinc-800 rounded bg-black/40 p-2 font-mono text-[8px] leading-relaxed">
+                <div className="text-zinc-600 uppercase tracking-widest mb-1">Hook analysis</div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>contour</span><span className="text-neon-purple">{genAnalysis.detail.contourClass}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>twist turns</span><span className="text-neon-pink">{genAnalysis.detail.atypicalTurns}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>range (st)</span><span className="text-neon-cyan">{genAnalysis.detail.range}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>stepwise</span><span className="text-neon-cyan">{Math.round(genAnalysis.detail.stepwiseRatio * 100)}%</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>mean IC</span><span className="text-neon-cyan">{genAnalysis.detail.meanIC.toFixed(2)} bits</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>IC spikes</span><span className="text-neon-cyan">{genAnalysis.detail.spikes}</span>
+                </div>
+                <div className="flex justify-between text-zinc-500 border-t border-zinc-800 mt-1 pt-1">
+                  <span>earworm score</span>
+                  <span className="text-white">{genAnalysis.total.toFixed(3)}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <button 
