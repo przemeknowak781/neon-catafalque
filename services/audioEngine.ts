@@ -423,72 +423,91 @@ export class AudioEngine {
     const t = time || this.ctx.currentTime;
     const freq = this.noteToFreq(note);
 
-    const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
-    const sub = this.ctx.createOscillator();
+    const mixer = this.ctx.createGain();
+    const stopTime = t + Math.max(duration, 0.02) + Math.max(0.01, params.release) + 0.15;
+
     const noise = this.ctx.createBufferSource();
     const noiseGain = this.ctx.createGain();
-
     noise.buffer = this.noiseBuffer;
     noise.loop = true;
     noiseGain.gain.value = params.noiseLevel * 0.35;
+    noise.connect(noiseGain);
+    noiseGain.connect(mixer);
 
     const lfo = this.ctx.createOscillator();
     const lfoGain = this.ctx.createGain();
     lfo.frequency.value = params.vibratoRate;
     lfoGain.gain.value = params.vibratoDepth;
     lfo.connect(lfoGain);
-    lfoGain.connect(osc1.frequency);
-    lfoGain.connect(osc2.frequency);
 
     // Portamento. A zero-length exponential ramp is degenerate, so only glide
     // when the patch actually asks for it.
     const glideTime = Math.max(0, params.glide) / 1000;
-    if (glideTime > 0.001) {
-      const lastFreq = this.lastFrequencies[type] || freq;
-      osc1.frequency.setValueAtTime(lastFreq, t);
-      osc2.frequency.setValueAtTime(lastFreq, t);
-      sub.frequency.setValueAtTime(lastFreq / 2, t);
-      osc1.frequency.exponentialRampToValueAtTime(freq, t + glideTime);
-      osc2.frequency.exponentialRampToValueAtTime(freq, t + glideTime);
-      sub.frequency.exponentialRampToValueAtTime(freq / 2, t + glideTime);
-    } else {
-      osc1.frequency.setValueAtTime(freq, t);
-      osc2.frequency.setValueAtTime(freq, t);
-      sub.frequency.setValueAtTime(freq / 2, t);
-    }
+    const glideFrom = glideTime > 0.001 ? (this.lastFrequencies[type] || freq) : null;
     this.lastFrequencies[type] = freq;
 
-    osc1.type = params.osc1Wave;
-    osc2.type = params.osc2Wave;
-    sub.type = 'sine';
-    osc2.detune.value = params.detune;
+    const oscillators: OscillatorNode[] = [];
 
-    // Analogue character: oscillators that never sit exactly on pitch, and
-    // drift slowly while a note is held. A few cents is inaudible as tuning
-    // and audible as warmth — it is most of what separates a hardware synth
-    // from the same waveform generated exactly.
-    const driftCents = 4.5;
-    osc1.detune.value = (Math.random() * 2 - 1) * driftCents;
-    osc2.detune.value += (Math.random() * 2 - 1) * driftCents;
-    sub.detune.value = (Math.random() * 2 - 1) * (driftCents * 0.4);
+    /**
+     * One oscillator of the stack.
+     *
+     * Every voice gets its own detune offset and a slow drift across the note.
+     * Two oscillators tuned to exactly the same pitch are mathematically one
+     * waveform, which is why a patch with detune set to 0.08 cents sounded
+     * like a chip rather than a synth: nothing was beating against anything.
+     */
+    const addOscillator = (
+      wave: OscillatorType, frequency: number, level: number,
+      detuneCents: number, pan: number,
+    ) => {
+      const osc = this.ctx.createOscillator();
+      osc.type = wave;
 
-    const driftEnd = t + duration + params.release + 0.1;
-    osc1.detune.linearRampToValueAtTime(
-      osc1.detune.value + (Math.random() * 2 - 1) * driftCents, driftEnd);
-    osc2.detune.linearRampToValueAtTime(
-      osc2.detune.value + (Math.random() * 2 - 1) * driftCents, driftEnd);
+      if (glideFrom !== null) {
+        osc.frequency.setValueAtTime(glideFrom * (frequency / freq), t);
+        osc.frequency.exponentialRampToValueAtTime(frequency, t + glideTime);
+      } else {
+        osc.frequency.setValueAtTime(frequency, t);
+      }
 
-    const mixer = this.ctx.createGain();
-    const subGain = this.ctx.createGain();
-    subGain.gain.value = params.subLevel * 0.6;
+      const drift = (Math.random() * 2 - 1) * 4.5;
+      osc.detune.setValueAtTime(detuneCents + drift, t);
+      osc.detune.linearRampToValueAtTime(
+        detuneCents + drift + (Math.random() * 2 - 1) * 4.5, stopTime);
+      lfoGain.connect(osc.frequency);
 
-    osc1.connect(mixer);
-    osc2.connect(mixer);
-    sub.connect(subGain);
-    subGain.connect(mixer);
-    noise.connect(noiseGain);
-    noiseGain.connect(mixer);
+      const gain = this.ctx.createGain();
+      gain.gain.value = level;
+      osc.connect(gain);
+
+      if (pan !== 0) {
+        const panner = this.ctx.createStereoPanner();
+        panner.pan.value = pan;
+        gain.connect(panner);
+        panner.connect(mixer);
+      } else {
+        gain.connect(mixer);
+      }
+      oscillators.push(osc);
+    };
+
+    // Unison stack: detuned copies spread across the stereo field. This is the
+    // difference between a single waveform and something that sounds played.
+    const unison = Math.max(1, Math.min(7, Math.round(params.unison ?? 1)));
+    const spread = params.unisonDetune ?? 14;
+    const perVoice = 1 / Math.sqrt(unison);
+
+    for (let i = 0; i < unison; i++) {
+      const position = unison === 1 ? 0 : i / (unison - 1) - 0.5;
+      const offset = position * 2 * spread;
+      const pan = position * 1.3;
+      addOscillator(params.osc1Wave, freq, perVoice, offset, pan);
+      addOscillator(params.osc2Wave, freq, perVoice * 0.85, params.detune + offset * 0.7, -pan);
+    }
+
+    if (params.subLevel > 0) {
+      addOscillator('sine', freq / 2, params.subLevel * 0.6, 0, 0);
+    }
 
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -534,12 +553,13 @@ export class AudioEngine {
 
     if (params.chorusMix > 0) this.send(vca, this.chorusBus, params.chorusMix);
 
-    const stopTime = envelopeEnd + 0.05;
+    const finalStop = Math.max(envelopeEnd + 0.05, stopTime);
     const stop = (at: number) => {
-      const when = Math.min(at, stopTime);
+      const when = Math.min(at, finalStop);
       try {
-        osc1.stop(when); osc2.stop(when); sub.stop(when);
-        noise.stop(when); lfo.stop(when);
+        oscillators.forEach((osc) => osc.stop(when));
+        noise.stop(when);
+        lfo.stop(when);
       } catch {
         // Already stopped; harmless.
       }
@@ -547,9 +567,9 @@ export class AudioEngine {
 
     this.allocateVoice(type, t, { gain: vca, endsAt: envelopeEnd, stop });
 
-    osc1.start(t); osc2.start(t); sub.start(t); noise.start(t); lfo.start(t);
-    osc1.stop(stopTime); osc2.stop(stopTime); sub.stop(stopTime);
-    noise.stop(stopTime); lfo.stop(stopTime);
+    oscillators.forEach((osc) => { osc.start(t); osc.stop(finalStop); });
+    noise.start(t); noise.stop(finalStop);
+    lfo.start(t); lfo.stop(finalStop);
   }
 
   /**

@@ -48,13 +48,13 @@ export const SCALE_NOTES = [
  */
 export const DEFAULT_LEAD_PARAMS: InstrumentParams = {
   osc1Wave: 'sawtooth',
-  osc2Wave: 'square',
-  detune: 14.5,
-  subLevel: 0.22,
-  noiseLevel: 0.04,
-  cutoff: 3200,
-  resonance: 3.5,
-  filterEnvAmount: 0.45,
+  osc2Wave: 'sawtooth',
+  detune: 9,
+  subLevel: 0.2,
+  noiseLevel: 0.03,
+  cutoff: 2100,
+  resonance: 7.5,
+  filterEnvAmount: 0.72,
   attack: 0.008,
   decay: 0.22,
   sustain: 0.32,
@@ -73,6 +73,10 @@ export const DEFAULT_LEAD_PARAMS: InstrumentParams = {
   pan: 0.12,
   reverbSend: 0.34,
   delaySend: 0.22,
+  // Five detuned saws. A square against a saw at a fixed interval reads as a
+  // chip; a stack that beats against itself reads as an analogue lead.
+  unison: 5,
+  unisonDetune: 17,
 };
 
 export const DEFAULT_BASS_PARAMS: InstrumentParams = {
@@ -102,12 +106,14 @@ export const DEFAULT_BASS_PARAMS: InstrumentParams = {
   pan: 0,
   reverbSend: 0,
   delaySend: 0,
+  unison: 2,
+  unisonDetune: 7,
 };
 
 export const DEFAULT_PAD_PARAMS: InstrumentParams = {
-  osc1Wave: 'triangle',
-  osc2Wave: 'sine',
-  detune: 0.25,
+  osc1Wave: 'sawtooth',
+  osc2Wave: 'triangle',
+  detune: 11,
   subLevel: 0.12,
   noiseLevel: 0.02,
   cutoff: 900,
@@ -131,34 +137,41 @@ export const DEFAULT_PAD_PARAMS: InstrumentParams = {
   pan: -0.1,
   reverbSend: 0.62,
   delaySend: 0.1,
+  unison: 4,
+  unisonDetune: 22,
 };
 
 export const DEFAULT_PLUCK_PARAMS: InstrumentParams = {
-  osc1Wave: 'square',
+  osc1Wave: 'sawtooth',
   osc2Wave: 'square',
-  detune: 0.08,
-  subLevel: 0.1,
-  noiseLevel: 0.02,
-  cutoff: 2400,
-  resonance: 4.5,
-  filterEnvAmount: 0.11,
+  // 0.08 cents is not a detune. Two square waves that far apart beat once
+  // every twenty seconds, so the patch was a single square wave — which is
+  // exactly what a chiptune is.
+  detune: 13,
+  subLevel: 0.08,
+  noiseLevel: 0.015,
+  cutoff: 900,
+  resonance: 11,
+  filterEnvAmount: 0.75,
   attack: 0.002,
-  decay: 0.15,
-  sustain: 0.1,
-  release: 0.2,
-  filterAttack: 0.001,
-  filterDecay: 0.12,
-  filterSustain: 0,
-  filterRelease: 0.1,
+  decay: 0.22,
+  sustain: 0.06,
+  release: 0.28,
+  filterAttack: 0.004,
+  filterDecay: 0.16,
+  filterSustain: 0.08,
+  filterRelease: 0.14,
   glide: 0,
   vibratoRate: 0,
   vibratoDepth: 0,
   // Answers the hook from the opposite side, wet enough to sit behind it.
   chorusMix: 0.35,
-  drive: 0.15,
+  drive: 0.22,
   pan: -0.42,
   reverbSend: 0.5,
   delaySend: 0.34,
+  unison: 3,
+  unisonDetune: 15,
 };
 
 export const DEFAULT_GLOBAL_FX: GlobalFXParams = {

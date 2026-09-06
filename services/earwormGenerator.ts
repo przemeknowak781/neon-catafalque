@@ -635,7 +635,11 @@ export class EarwormGenerator {
     const previous = degrees[index - 1];
     const direction = degrees[index] >= previous ? 1 : -1;
 
-    let size = 2 + Math.round(ctx.twist);
+    // The twist widens only near the top of the knob. Reaching three scale
+    // steps at the halfway point made the default setting feel unsettled: the
+    // one deliberate leap in the phrase was landing as a jump rather than as
+    // a lift.
+    let size = 2 + Math.round(clamp01(ctx.twist) * 0.55);
     let target = previous + direction * Math.min(size, MAX_LEAP_MOVE);
     const semitones =
       degreeToMidi(target, ctx.scaleIntervals) - degreeToMidi(previous, ctx.scaleIntervals);
@@ -768,7 +772,10 @@ export class EarwormGenerator {
    * repetition §2.1D depends on would be gone.
    */
   private mutate(rng: SeededRng, source: Candidate, ctx: BuildContext): Candidate {
-    const edits = 1 + Math.round(clamp01(ctx.twist) * 0.9);
+    // Likewise the second edit: it is the top of the knob's travel, not its
+    // middle. A' is meant to answer A, and two changes at half entropy made it
+    // read as a different phrase.
+    const edits = 1 + Math.round(clamp01(ctx.twist) * 0.55);
     const touched = new Set<number>();
     let best = source;
 

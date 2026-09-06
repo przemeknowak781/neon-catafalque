@@ -34,6 +34,11 @@ export interface InstrumentParams {
   delaySend?: number;
   /** How far apart the chorus voices are placed, 0-1. */
   stereoWidth?: number;
+  /** Detuned copies per oscillator, 1-7. Two perfectly tuned oscillators are
+   *  one waveform; a stack of slightly detuned ones is an analogue synth. */
+  unison?: number;
+  /** Total detune spread across the unison stack, in cents. */
+  unisonDetune?: number;
 }
 
 export interface GlobalFXParams {
