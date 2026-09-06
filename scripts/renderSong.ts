@@ -27,6 +27,8 @@ export interface RenderOptions {
   sampleRate?: number;
   /** Use the app's calibrated mixer levels instead of whatever the generator set. */
   useAppMixerLevels?: boolean;
+  /** Render only these tracks, for isolating one part of the mix. */
+  only?: string[];
 }
 
 export interface RenderResult {
@@ -63,6 +65,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
   });
 
   let tracks = song.tracks;
+  if (options.only) tracks = tracks.filter((t) => options.only!.includes(t.id));
   if (useAppMixerLevels) {
     const levels = new Map(INITIAL_TRACKS.map((t) => [t.id, t.volume]));
     tracks = tracks.map((t) => ({ ...t, volume: levels.get(t.id) ?? t.volume }));

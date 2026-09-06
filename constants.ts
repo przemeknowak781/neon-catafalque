@@ -11,16 +11,22 @@ export const DEFAULT_BPM = 109;
  * away the calibrated mix and drove the master chain into clipping — a render
  * measured +3.2 dBFS with 3.3% of samples pinned at full scale. Both the
  * initial tracks and the generator now read these.
+ *
+ * Rebalanced against a render: the drum voices bypass the 0.5 instrument
+ * multiplier that every synth note passes through, so a kick at 0.85 sat some
+ * 19 dB above a lead at 0.2. Half the mix's energy was below 120 Hz and the
+ * chorused, stereo parts — the ones that make the genre sound like itself —
+ * were inaudible under it.
  */
 export const MIX_LEVELS: Record<TrackType, number> = {
-  lead: 0.2,
-  pluck: 0.15,
-  pad: 0.12,
-  bass: 0.35,
-  fx: 0.15,
-  hihat: 0.5,
-  snare: 0.65,
-  kick: 0.85,
+  lead: 0.42,
+  pluck: 0.45,
+  pad: 0.3,
+  bass: 0.32,
+  fx: 0.2,
+  hihat: 0.62,
+  snare: 0.78,
+  kick: 0.5,
 };
 
 export const SCALE_NOTES = [
@@ -60,7 +66,13 @@ export const DEFAULT_LEAD_PARAMS: InstrumentParams = {
   glide: 0,
   vibratoRate: 1.9,
   vibratoDepth: 0.12,
-  chorusMix: 0.07,
+  // Chorus is the genre's signature: detuned saws smeared wide. The lead sits
+  // slightly right of centre so it is not fighting the pad for the middle.
+  chorusMix: 0.42,
+  drive: 0.28,
+  pan: 0.12,
+  reverbSend: 0.34,
+  delaySend: 0.22,
 };
 
 export const DEFAULT_BASS_PARAMS: InstrumentParams = {
@@ -83,7 +95,13 @@ export const DEFAULT_BASS_PARAMS: InstrumentParams = {
   glide: 0,
   vibratoRate: 0,
   vibratoDepth: 0,
-  chorusMix: 0.08,
+  // §4: "prominent, steady ostinato; mild chorus/saturation". Dry and centred
+  // — the bass is the anchor, and anchors do not wander.
+  chorusMix: 0.06,
+  drive: 0.34,
+  pan: 0,
+  reverbSend: 0,
+  delaySend: 0,
 };
 
 export const DEFAULT_PAD_PARAMS: InstrumentParams = {
@@ -106,7 +124,13 @@ export const DEFAULT_PAD_PARAMS: InstrumentParams = {
   glide: 0,
   vibratoRate: 1.2,
   vibratoDepth: 0.05,
-  chorusMix: 0.4,
+  // §4 "space: long reverb tails + modulation as mood glue". The pad is the
+  // widest thing in the mix and carries most of the plate.
+  chorusMix: 0.85,
+  drive: 0.12,
+  pan: -0.1,
+  reverbSend: 0.62,
+  delaySend: 0.1,
 };
 
 export const DEFAULT_PLUCK_PARAMS: InstrumentParams = {
@@ -129,13 +153,18 @@ export const DEFAULT_PLUCK_PARAMS: InstrumentParams = {
   glide: 0,
   vibratoRate: 0,
   vibratoDepth: 0,
-  chorusMix: 0.18,
+  // Answers the hook from the opposite side, wet enough to sit behind it.
+  chorusMix: 0.35,
+  drive: 0.15,
+  pan: -0.42,
+  reverbSend: 0.5,
+  delaySend: 0.34,
 };
 
 export const DEFAULT_GLOBAL_FX: GlobalFXParams = {
-  delayTime: 0,
-  delayFeedback: 0,
-  reverbMix: 0.18,
+  delayTime: 0.34,
+  delayFeedback: 0.38,
+  reverbMix: 0.42,
 };
 
 export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, InstrumentParams>>> = {

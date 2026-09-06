@@ -33,6 +33,14 @@ export class AudioEngine {
   limiter: DynamicsCompressorNode;
   /** Final safety saturator. A compressor is not a brickwall and cannot be one. */
   safetyClip: WaveShaperNode;
+  /** Send buses, so voices carry sends instead of building their own effects. */
+  chorusBus: GainNode;
+  reverbBus: GainNode;
+  delayBus: GainNode;
+  reverbPreDelay: DelayNode;
+  delayDamp: BiquadFilterNode;
+  private chorusLfos: OscillatorNode[] = [];
+  private driveCurves = new Map<number, Float32Array>();
 
   lastFrequencies: Record<string, number> = {};
   private voices = new Map<string, ActiveVoice[]>();
@@ -50,42 +58,104 @@ export class AudioEngine {
     this.limiter.release.setValueAtTime(0.15, this.ctx.currentTime);
 
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.6;
+    this.masterGain.gain.value = 0.56;
 
     // A DynamicsCompressor lets transients through — the previous chain
     // measured +3.2 dBFS with 3.3% of samples pinned at full scale. This
     // saturates instead of hard-clipping them.
     this.safetyClip = this.ctx.createWaveShaper();
-    this.safetyClip.curve = this.makeSaturationCurve();
+    this.safetyClip.curve = this.makeSaturationCurve(1.6);
     this.safetyClip.oversample = '4x';
 
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 2048;
 
-    this.delayNode = this.ctx.createDelay();
-    this.feedbackNode = this.ctx.createGain();
-    this.reverbNode = this.ctx.createConvolver();
-    this.reverbGain = this.ctx.createGain();
     this.dryGain = this.ctx.createGain();
-
-    // dryGain -> limiter -> analyser -> masterGain -> saturator -> out
     this.dryGain.connect(this.limiter);
     this.limiter.connect(this.analyser);
     this.analyser.connect(this.masterGain);
     this.masterGain.connect(this.safetyClip);
     this.safetyClip.connect(this.ctx.destination);
 
-    this.delayNode.connect(this.feedbackNode);
-    this.feedbackNode.connect(this.delayNode);
-    this.delayNode.connect(this.dryGain);
+    // --- send buses --------------------------------------------------------
+    // Voices carry sends rather than each building its own effects. The old
+    // engine created a chorus — two delays, an oscillator and three gains —
+    // per note, and tapped it upstream of the amplitude envelope.
+    this.chorusBus = this.ctx.createGain();
+    this.reverbBus = this.ctx.createGain();
+    this.delayBus = this.ctx.createGain();
 
+    // §4 "reverb pre-delay": the dry transient has to be heard before the
+    // tail arrives, or the source sits inside the reverb instead of in front
+    // of it. Feeding a convolver directly, as before, gives no pre-delay.
+    this.reverbPreDelay = this.ctx.createDelay(0.5);
+    this.reverbPreDelay.delayTime.value = 0.028;
+    this.reverbNode = this.ctx.createConvolver();
+    this.reverbGain = this.ctx.createGain();
+    this.reverbBus.connect(this.reverbPreDelay);
+    this.reverbPreDelay.connect(this.reverbNode);
     this.reverbNode.connect(this.reverbGain);
     this.reverbGain.connect(this.limiter);
 
-    // One noise buffer for the whole session. This used to be regenerated for
-    // every single note — half a second of random floats per note played.
-    this.noiseBuffer = this.createNoiseBuffer(1.0);
+    this.delayNode = this.ctx.createDelay(2.0);
+    this.feedbackNode = this.ctx.createGain();
+    // Damp the repeats so an echo decays into the dark instead of hissing.
+    this.delayDamp = this.ctx.createBiquadFilter();
+    this.delayDamp.type = 'lowpass';
+    this.delayDamp.frequency.value = 2600;
+    this.delayBus.connect(this.delayNode);
+    this.delayNode.connect(this.delayDamp);
+    this.delayDamp.connect(this.feedbackNode);
+    this.feedbackNode.connect(this.delayNode);
+    this.delayNode.connect(this.dryGain);
+    this.delayNode.connect(this.reverbBus);
+
+    this.buildStereoChorus();
+    this.noiseBuffer = this.createNoiseBuffer(2.0);
     this.generateImpulseResponse();
+  }
+
+  /**
+   * §4 "chorus/flanger as mood glue" — and the reason darkwave records sound
+   * wide. Two modulated taps in quadrature, panned apart. The previous chorus
+   * summed both taps to the same mono bus, so it thickened the sound without
+   * placing any of it: a render measured a stereo correlation of 0.997, which
+   * is a mono mix by any other name.
+   */
+  private buildStereoChorus() {
+    const spread = 0.85;
+    const rates = [0.33, 0.47];
+    const bases = [0.017, 0.023];
+
+    for (let side = 0; side < 2; side++) {
+      const delay = this.ctx.createDelay(0.2);
+      delay.delayTime.value = bases[side];
+
+      const lfo = this.ctx.createOscillator();
+      lfo.frequency.value = rates[side];
+      const depth = this.ctx.createGain();
+      depth.gain.value = 0.0035;
+      lfo.connect(depth);
+
+      if (side === 1) {
+        // Quadrature-ish: invert one side so the two taps move apart.
+        const invert = this.ctx.createGain();
+        invert.gain.value = -1;
+        depth.connect(invert);
+        invert.connect(delay.delayTime);
+      } else {
+        depth.connect(delay.delayTime);
+      }
+
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = side === 0 ? -spread : spread;
+
+      this.chorusBus.connect(delay);
+      delay.connect(panner);
+      panner.connect(this.dryGain);
+      lfo.start(0);
+      this.chorusLfos.push(lfo);
+    }
   }
 
   async resume() {
@@ -101,16 +171,26 @@ export class AudioEngine {
 
   updateGlobalFX(params: GlobalFXParams) {
     const now = this.ctx.currentTime;
-    this.delayNode.delayTime.setTargetAtTime(params.delayTime, now, 0.1);
+    this.delayNode.delayTime.setTargetAtTime(Math.max(0.001, params.delayTime), now, 0.1);
     // Feedback at or above 1.0 is a runaway loop; keep it strictly below.
     this.feedbackNode.gain.setTargetAtTime(Math.min(params.delayFeedback, 0.85), now, 0.1);
     this.reverbGain.gain.setTargetAtTime(params.reverbMix, now, 0.1);
   }
 
-  private makeSaturationCurve(): Float32Array {
+  /** Cached saturation curves — one shaper curve per drive amount, not per note. */
+  private driveCurve(amount: number): Float32Array {
+    const key = Math.round(amount * 20) / 20;
+    let curve = this.driveCurves.get(key);
+    if (!curve) {
+      curve = this.makeSaturationCurve(1 + key * 6);
+      this.driveCurves.set(key, curve);
+    }
+    return curve;
+  }
+
+  private makeSaturationCurve(drive: number): Float32Array {
     const n = 2048;
     const curve = new Float32Array(n);
-    const drive = 1.6;
     for (let i = 0; i < n; i++) {
       const x = (i / (n - 1)) * 2 - 1;
       curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
@@ -278,6 +358,21 @@ export class AudioEngine {
     sub.type = 'sine';
     osc2.detune.value = params.detune;
 
+    // Analogue character: oscillators that never sit exactly on pitch, and
+    // drift slowly while a note is held. A few cents is inaudible as tuning
+    // and audible as warmth — it is most of what separates a hardware synth
+    // from the same waveform generated exactly.
+    const driftCents = 4.5;
+    osc1.detune.value = (Math.random() * 2 - 1) * driftCents;
+    osc2.detune.value += (Math.random() * 2 - 1) * driftCents;
+    sub.detune.value = (Math.random() * 2 - 1) * (driftCents * 0.4);
+
+    const driftEnd = t + duration + params.release + 0.1;
+    osc1.detune.linearRampToValueAtTime(
+      osc1.detune.value + (Math.random() * 2 - 1) * driftCents, driftEnd);
+    osc2.detune.linearRampToValueAtTime(
+      osc2.detune.value + (Math.random() * 2 - 1) * driftCents, driftEnd);
+
     const mixer = this.ctx.createGain();
     const subGain = this.ctx.createGain();
     subGain.gain.value = params.subLevel * 0.6;
@@ -301,20 +396,37 @@ export class AudioEngine {
     );
 
     mixer.connect(filter);
-    filter.connect(vca);
-    vca.connect(this.dryGain);
 
-    if (type !== 'bass') {
-      vca.connect(this.delayNode);
-      vca.connect(this.reverbNode);
+    // §4 "mild chorus/saturation". Drive before the VCA so the envelope shapes
+    // the saturated tone rather than the saturation reacting to the envelope.
+    const drive = params.drive ?? 0;
+    let voiceTail: AudioNode = filter;
+    if (drive > 0) {
+      const shaper = this.ctx.createWaveShaper();
+      shaper.curve = this.driveCurve(drive);
+      shaper.oversample = '2x';
+      // Saturation adds level; pull it back so drive is a tone control.
+      const compensate = this.ctx.createGain();
+      compensate.gain.value = 1 / (1 + drive * 0.8);
+      filter.connect(shaper);
+      shaper.connect(compensate);
+      voiceTail = compensate;
     }
+    voiceTail.connect(vca);
 
-    // The chorus used to tap the filter, upstream of the VCA, so it received a
-    // signal that had never passed through the amplitude envelope — an
-    // un-enveloped raw tone leaking straight into the mix.
-    if (params.chorusMix > 0) {
-      this.triggerChorusEffect(vca, t, envelopeEnd, params.chorusMix);
-    }
+    const panner = this.ctx.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, params.pan ?? 0));
+    vca.connect(panner);
+    panner.connect(this.dryGain);
+
+    // Sends. The bass stays dry and centred: it is the anchor.
+    const reverbSend = params.reverbSend ?? (type === 'bass' ? 0 : 0.35);
+    if (reverbSend > 0) this.send(vca, this.reverbBus, reverbSend);
+
+    const delaySend = params.delaySend ?? 0;
+    if (delaySend > 0) this.send(vca, this.delayBus, delaySend);
+
+    if (params.chorusMix > 0) this.send(vca, this.chorusBus, params.chorusMix);
 
     const stopTime = envelopeEnd + 0.05;
     const stop = (at: number) => {
@@ -334,80 +446,147 @@ export class AudioEngine {
     noise.stop(stopTime); lfo.stop(stopTime);
   }
 
+  /**
+   * Drum machine voices, §4: "tight kick, snare/clap with gated verb".
+   *
+   * These were three noise bursts and a sine sweep. A darkwave kit is a drum
+   * machine, and drum machines have character: a click on the kick, a tuned
+   * shell under the snare's noise, and a metallic hat built from inharmonic
+   * squares rather than filtered white noise.
+   */
   playDrum(type: TrackType, time: number, volume: number = 1.0) {
     const t = time || this.ctx.currentTime;
+    const level = Math.max(0, Math.min(1.2, volume));
+
     if (type === 'kick') {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.connect(gain);
-      gain.connect(this.dryGain);
-      osc.frequency.setValueAtTime(150, t);
-      osc.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-      gain.gain.setValueAtTime(Math.min(volume, 1.0), t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-      osc.start(t);
-      osc.stop(t + 0.45);
+      const body = this.ctx.createOscillator();
+      const bodyGain = this.ctx.createGain();
+      body.frequency.setValueAtTime(165, t);
+      body.frequency.exponentialRampToValueAtTime(48, t + 0.09);
+      bodyGain.gain.setValueAtTime(level * 0.8, t);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+
+      // The click is what makes a kick audible on small speakers.
+      const click = this.ctx.createBufferSource();
+      click.buffer = this.noiseBuffer;
+      const clickFilter = this.ctx.createBiquadFilter();
+      clickFilter.type = 'highpass';
+      clickFilter.frequency.value = 2600;
+      const clickGain = this.ctx.createGain();
+      clickGain.gain.setValueAtTime(level * 0.3, t);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+
+      const shaper = this.ctx.createWaveShaper();
+      shaper.curve = this.driveCurve(0.3);
+      body.connect(bodyGain); bodyGain.connect(shaper);
+      click.connect(clickFilter); clickFilter.connect(clickGain); clickGain.connect(shaper);
+      shaper.connect(this.dryGain);
+
+      body.start(t); body.stop(t + 0.4);
+      click.start(t); click.stop(t + 0.04);
+
     } else if (type === 'snare') {
+      const out = this.ctx.createGain();
+      out.gain.value = level * 2.6;
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = 0.06;
+      out.connect(panner);
+      panner.connect(this.dryGain);
+
+      // Noise layer.
       const noise = this.ctx.createBufferSource();
       noise.buffer = this.noiseBuffer;
+      const band = this.ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.frequency.value = 1900;
+      band.Q.value = 0.7;
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.62, t);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.19);
+      noise.connect(band); band.connect(noiseGain); noiseGain.connect(out);
+      noise.start(t); noise.stop(t + 0.2);
+
+      // Tuned shell underneath, which is what stops it sounding like static.
+      for (const [freq, gainValue, decay] of [[185, 0.4, 0.09], [331, 0.24, 0.06]] as const) {
+        const shell = this.ctx.createOscillator();
+        shell.type = 'triangle';
+        shell.frequency.setValueAtTime(freq, t);
+        shell.frequency.exponentialRampToValueAtTime(freq * 0.78, t + decay);
+        const shellGain = this.ctx.createGain();
+        shellGain.gain.setValueAtTime(gainValue, t);
+        shellGain.gain.exponentialRampToValueAtTime(0.001, t + decay);
+        shell.connect(shellGain); shellGain.connect(out);
+        shell.start(t); shell.stop(t + decay + 0.02);
+      }
+
+      // §4 gated verb: a healthy send that is cut off short, rather than a
+      // tail left to ring. The gate is what makes it read as eighties.
+      const gate = this.ctx.createGain();
+      gate.gain.setValueAtTime(0.9, t);
+      gate.gain.setValueAtTime(0.9, t + 0.11);
+      gate.gain.linearRampToValueAtTime(0.0001, t + 0.14);
+      out.connect(gate);
+      gate.connect(this.reverbBus);
+
+    } else if (type === 'hihat') {
+      // Six inharmonic squares through a highpass: the classic metallic hat.
+      const out = this.ctx.createGain();
+      out.gain.setValueAtTime(level * 1.5, t);
+      out.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      const highpass = this.ctx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 7800;
       const bandpass = this.ctx.createBiquadFilter();
       bandpass.type = 'bandpass';
-      bandpass.frequency.value = 1800;
-      bandpass.Q.value = 0.8;
-      const gain = this.ctx.createGain();
-      noise.connect(bandpass); bandpass.connect(gain); gain.connect(this.dryGain);
-      gain.gain.setValueAtTime(volume * 0.8, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      noise.start(t);
-      noise.stop(t + 0.25);
-    } else if (type === 'hihat') {
+      bandpass.frequency.value = 10200;
+      bandpass.Q.value = 0.9;
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = -0.18;
+
+      const oscillators: OscillatorNode[] = [];
+      for (const ratio of [1, 1.342, 1.2312, 1.6532, 1.9523, 2.1523]) {
+        const osc = this.ctx.createOscillator();
+        osc.type = 'square';
+        // Fundamentals in the kilohertz, so their square harmonics land in
+        // the band the filters pass. At 260 Hz, as first written, the highpass
+        // at 7.8 kHz removed essentially the whole hat.
+        osc.frequency.value = 812 * ratio;
+        osc.connect(bandpass);
+        oscillators.push(osc);
+      }
+      bandpass.connect(highpass); highpass.connect(out);
+      out.connect(panner); panner.connect(this.dryGain);
+      oscillators.forEach((osc) => { osc.start(t); osc.stop(t + 0.07); });
+
+    } else if (type === 'fx') {
+      // A filtered noise sweep into the plate reads as space; a bare sine
+      // sweep reads as a test tone.
       const noise = this.ctx.createBufferSource();
       noise.buffer = this.noiseBuffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'highpass';
-      filter.frequency.value = 8000;
+      const sweep = this.ctx.createBiquadFilter();
+      sweep.type = 'bandpass';
+      sweep.Q.value = 3.5;
+      sweep.frequency.setValueAtTime(5200, t);
+      sweep.frequency.exponentialRampToValueAtTime(320, t + 1.1);
       const gain = this.ctx.createGain();
-      noise.connect(filter); filter.connect(gain); gain.connect(this.dryGain);
-      gain.gain.setValueAtTime(volume * 0.5, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-      noise.start(t);
-      noise.stop(t + 0.1);
-    } else if (type === 'fx') {
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.frequency.setValueAtTime(2000, t);
-      osc.frequency.exponentialRampToValueAtTime(120, t + 0.8);
-      gain.gain.setValueAtTime(volume * 0.12, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-      osc.connect(gain); gain.connect(this.reverbNode);
-      osc.start(t); osc.stop(t + 0.85);
+      gain.gain.setValueAtTime(level * 0.5, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = 0.3;
+
+      noise.connect(sweep); sweep.connect(gain);
+      gain.connect(panner); panner.connect(this.dryGain);
+      this.send(gain, this.reverbBus, 0.8);
+      noise.start(t); noise.stop(t + 1.2);
     }
   }
 
-  triggerChorusEffect(inputNode: AudioNode, startTime: number, endTime: number, mix: number) {
-    const chorusGain = this.ctx.createGain();
-    chorusGain.gain.value = mix * 0.25;
-    const delayL = this.ctx.createDelay();
-    const delayR = this.ctx.createDelay();
-    const osc = this.ctx.createOscillator();
-    const oscGain = this.ctx.createGain();
-    delayL.delayTime.value = 0.02;
-    delayR.delayTime.value = 0.025;
-    osc.frequency.value = 0.5;
-    oscGain.gain.value = 0.002;
-    osc.connect(oscGain);
-    oscGain.connect(delayL.delayTime);
-    const inverter = this.ctx.createGain();
-    inverter.gain.value = -1;
-    oscGain.connect(inverter);
-    inverter.connect(delayR.delayTime);
-    inputNode.connect(delayL);
-    inputNode.connect(delayR);
-    delayL.connect(chorusGain);
-    delayR.connect(chorusGain);
-    chorusGain.connect(this.dryGain);
-    osc.start(startTime);
-    osc.stop(endTime + 0.1);
+  /** One gain node feeding a shared bus, rather than a whole effect per note. */
+  private send(from: AudioNode, to: AudioNode, amount: number) {
+    const gain = this.ctx.createGain();
+    gain.gain.value = amount;
+    from.connect(gain);
+    gain.connect(to);
   }
 
   noteToFreq(note: string) {
@@ -427,8 +606,8 @@ export class AudioEngine {
    * This one is shorter, low-passed as it decays, and normalised to unit peak.
    */
   generateImpulseResponse() {
-    const duration = 1.6;
-    const decay = 3.0;
+    const duration = 2.4;
+    const decay = 2.6;
     const sampleRate = this.ctx.sampleRate;
     const length = Math.floor(sampleRate * duration);
     const impulse = this.ctx.createBuffer(2, length, sampleRate);
@@ -441,7 +620,7 @@ export class AudioEngine {
         const n = i / length;
         const noise = (Math.random() * 2 - 1) * Math.pow(1 - n, decay);
         // Darken the tail: a bright reverb on every voice reads as noise.
-        lp += 0.28 * (noise - lp);
+        lp += (c === 0 ? 0.24 : 0.27) * (noise - lp);
         data[i] = lp;
         peak = Math.max(peak, Math.abs(lp));
       }

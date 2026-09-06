@@ -22,6 +22,18 @@ export interface InstrumentParams {
   vibratoRate: number;
   vibratoDepth: number;
   chorusMix: number;
+
+  // --- Sound design. Optional so existing presets keep working. ---
+  /** Pre-VCA saturation, 0-1. earworm.md §4 asks for "mild chorus/saturation". */
+  drive?: number;
+  /** Static placement, -1 (left) to 1 (right). */
+  pan?: number;
+  /** Send to the plate, 0-1. §4: "reverb pre-delay", "long reverb tails". */
+  reverbSend?: number;
+  /** Send to the tempo-free echo, 0-1. */
+  delaySend?: number;
+  /** How far apart the chorus voices are placed, 0-1. */
+  stereoWidth?: number;
 }
 
 export interface GlobalFXParams {

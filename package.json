@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "verify:earworm": "esbuild scripts/verifyEarworm.ts --bundle --platform=node --format=esm --outfile=.verify/verifyEarworm.mjs --log-level=warning && node .verify/verifyEarworm.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mix": "esbuild scripts/renderSong.ts --bundle --format=iife --outfile=.verify/renderSong.js --log-level=warning && node scripts/measureMix.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
