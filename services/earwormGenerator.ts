@@ -1,6 +1,15 @@
 import type { NoteEvent, Track, SequencerStep } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
+  BARS_PER_PHRASE,
+  SONG_STEPS,
+  STEPS_PER_BAR,
+  isSectionTail,
+  layersFor,
+  sectionAtBar,
+  type PlacedSection,
+} from "./arrangement";
+import {
   SeededRng,
   type ContourClass,
   type MotifNote,
@@ -34,8 +43,6 @@ const MODES = {
   harmonic_minor: [0, 2, 3, 5, 7, 8, 11], // Raised 7 (spec: cadences only)
 } as const;
 
-const STEPS_PER_BAR = 16;
-const BARS_PER_PHRASE = 4;
 const PHRASE_STEPS = STEPS_PER_BAR * BARS_PER_PHRASE;
 /** One-bar cell, repeated 4x across the phrase (§3.3 "hook glue"). */
 const CELL_LENGTH = STEPS_PER_BAR;
@@ -170,8 +177,6 @@ export interface GenerationResult {
   hookOnsets: boolean[];
 }
 
-type Section = 'intro' | 'verse' | 'chorus' | 'variation';
-
 interface PhraseRhythm {
   onsets: boolean[];      // PHRASE_STEPS long
   twistBar: number;
@@ -198,10 +203,12 @@ export class EarwormGenerator {
     const tempoPosition = (bpm - band.lo) / (band.hi - band.lo);
     // §5: "if your darkwave is very slow, compensate with rhythmic repetition
     // and density in the hook".
-    const hookDensity = clamp01(config.rhythmDensity + (1 - tempoPosition) * 0.15);
+    const ornament = clamp01(config.rhythmDensity + (1 - tempoPosition) * 0.15);
+    // The motif's own density is deliberately a narrower reading of the knob.
+    const hookDensity = clamp01(config.rhythmDensity);
 
     const chordLoop = this.generateProgression(rng, config.harmonicMotion, config.mode);
-    const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps);
+    const totalSteps = Math.max(PHRASE_STEPS, config.totalSteps || SONG_STEPS);
     const chords = this.expandChords(chordLoop, totalSteps);
 
     // §1 / §8 — generate N, score, keep top K, mutate, take the best.
@@ -217,10 +224,10 @@ export class EarwormGenerator {
     const best = this.searchHook(rng, ctx);
     const variation = this.mutate(rng, best, ctx);
 
-    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best);
+    const { drumTracks, kickPattern } = this.generateDrums(rng, totalSteps, config.drumMode, best, ornament);
     const bassTrack = this.generateBass(rng, totalSteps, chords, kickPattern, config.bassMode, scaleIntervals);
     const leadTrack = this.renderLead(totalSteps, best, variation, scaleIntervals);
-    const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, hookDensity);
+    const pluckTrack = this.generateCounterMelody(rng, totalSteps, chords, best, scaleIntervals, ornament);
     const padTrack = this.generateAtmosphere(totalSteps, chords, scaleIntervals);
 
     return {
@@ -307,11 +314,18 @@ export class EarwormGenerator {
     return loop;
   }
 
+  /**
+   * Chords are indexed by the bar's position *within its section*, not by the
+   * absolute bar. Sections are two or four bars long, so an absolute index
+   * would slide the loop out of phase: VERSE 1 starts on bar 2, and the hook
+   * written for chord 1 of the loop would have landed on chord 3. Restarting
+   * the progression with each section is also what a section is.
+   */
   private expandChords(loop: number[], totalSteps: number): number[] {
     const chords: number[] = [];
     for (let step = 0; step < totalSteps; step++) {
-      const bar = Math.floor(step / STEPS_PER_BAR);
-      chords.push(loop[bar % loop.length]);
+      const section = sectionAtBar(Math.floor(step / STEPS_PER_BAR));
+      chords.push(loop[section.barInSection % loop.length]);
     }
     return chords;
   }
@@ -371,10 +385,13 @@ export class EarwormGenerator {
   // --- §3.3/§5 RHYTHM ------------------------------------------------------
 
   private buildRhythm(rng: SeededRng, ctx: BuildContext): PhraseRhythm {
-    // Density picks how big the motif is (3-5 onsets a bar) rather than
-    // sprinkling extra notes on top of it, so the phrase stays a motif at
-    // every setting and the note count stays inside §4.1's window.
-    const wantedOnsets = 3 + Math.round(clamp01(ctx.density) * 2);
+    // Density moves the motif between four and five onsets a bar, and no
+    // further. Letting it swing from three to five rewrote the hook wholesale
+    // every time the knob moved, which is what made the control feel like it
+    // was destabilising the song rather than varying it. The rest of the knob
+    // goes to ornament — fills, answers, hats — which decorate the structure
+    // instead of replacing it.
+    const wantedOnsets = 4 + Math.round(clamp01(ctx.density));
     const sized = CELL_TEMPLATES.filter(
       (t) => t.reduce((a: number, b) => a + b, 0) === wantedOnsets,
     );
@@ -707,7 +724,12 @@ export class EarwormGenerator {
 
   // --- MUTATION (§2.1D / §9 "one-note change") -----------------------------
 
-  private mutateCandidate(rng: SeededRng, source: Candidate, ctx: BuildContext): Candidate {
+  private mutateCandidate(
+    rng: SeededRng,
+    source: Candidate,
+    ctx: BuildContext,
+    avoid?: Set<number>,
+  ): Candidate {
     const notes = source.notes.map((n) => ({ ...n }));
     if (notes.length < 3) return source;
 
@@ -723,20 +745,53 @@ export class EarwormGenerator {
       index = rng.chance(0.5) ? highest : lowest;
       notes[index].degree += midi[index] === Math.max(...midi) ? -1 : 1;
     } else {
-      // Keep the rhythm identical and change exactly one interior pitch (§9).
+      // Keep the rhythm identical and change one interior pitch (§9). Skip
+      // notes an earlier edit already touched: two edits landing on the same
+      // note can cancel out, leaving A' identical to A.
       index = 1 + rng.int(notes.length - 2);
+      for (let attempt = 0; attempt < 12 && avoid?.has(index); attempt++) {
+        index = 1 + rng.int(notes.length - 2);
+      }
       notes[index].degree += rng.pick([-2, -1, 1, 2]);
     }
+    avoid?.add(index);
 
     return { notes, rhythm: source.rhythm, score: this.score(notes, source.rhythm, ctx) };
   }
 
-  /** The A' half of the hook: identical rhythm, one note different. */
+  /**
+   * The A' half of the hook: identical rhythm, one or two notes different.
+   *
+   * Entropy sets how far the answer departs, and is bounded to two edits.
+   * §9 asks for "one-note change"; a second is still a variation of the same
+   * phrase, while a free hand here would produce a different melody and the
+   * repetition §2.1D depends on would be gone.
+   */
   private mutate(rng: SeededRng, source: Candidate, ctx: BuildContext): Candidate {
-    let best = this.mutateCandidate(rng, source, ctx);
-    for (let i = 0; i < 5; i++) {
-      const attempt = this.mutateCandidate(rng, source, ctx);
-      if (attempt.score.total > best.score.total) best = attempt;
+    const edits = 1 + Math.round(clamp01(ctx.twist) * 0.9);
+    const touched = new Set<number>();
+    let best = source;
+
+    for (let e = 0; e < edits; e++) {
+      const candidateTouched = new Set(touched);
+      let attempt = this.mutateCandidate(rng, best, ctx, candidateTouched);
+      for (let i = 0; i < 4; i++) {
+        const alternativeTouched = new Set(touched);
+        const other = this.mutateCandidate(rng, best, ctx, alternativeTouched);
+        if (other.score.total > attempt.score.total) {
+          attempt = other;
+          candidateTouched.clear();
+          alternativeTouched.forEach((v) => candidateTouched.add(v));
+        }
+      }
+      candidateTouched.forEach((v) => touched.add(v));
+      best = attempt;
+    }
+
+    // A' must actually differ from A, or the answer is just a repeat.
+    const differs = best.notes.some((n, i) => n.degree !== source.notes[i]?.degree);
+    if (!differs && source.notes.length > 2) {
+      return this.mutateCandidate(rng, source, ctx, new Set());
     }
     return best;
   }
@@ -744,17 +799,11 @@ export class EarwormGenerator {
   // --- RENDERING -----------------------------------------------------------
 
   /**
-   * §3.1 mini-song: Intro (4) -> Verse groove (4) -> Hook/Chorus (4) ->
-   * Hook variation (4), repeating for longer requests.
+   * The hook, placed into the arrangement rather than repeated every four
+   * bars. The layer rules come from arrangement.ts: no lead through the intro,
+   * a thinned statement in the verses, the whole thing in the choruses, and
+   * the A' variation from the second statement onward.
    */
-  private sectionForBar(bar: number): Section {
-    const position = bar % 16;
-    if (position < 4) return 'intro';
-    if (position < 8) return 'verse';
-    if (position < 12) return 'chorus';
-    return 'variation';
-  }
-
   private renderLead(
     totalSteps: number,
     hook: Candidate,
@@ -764,33 +813,28 @@ export class EarwormGenerator {
     const notes: NoteEvent[] = [];
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
-    for (let bar = 0; bar < totalBars; bar += BARS_PER_PHRASE) {
-      const section = this.sectionForBar(bar);
-      if (section === 'intro') continue;
+    for (let bar = 0; bar < totalBars; bar++) {
+      const section = sectionAtBar(bar);
+      const layers = layersFor(section);
+      if (!layers.lead) continue;
 
-      const source = section === 'variation' ? variation : hook;
-      const velocity = section === 'verse' ? 0.68 : section === 'chorus' ? 0.92 : 0.86;
+      const source = layers.useVariation ? variation : hook;
+      const phraseBar = section.barInSection % BARS_PER_PHRASE;
       const offset = bar * STEPS_PER_BAR;
 
       source.notes.forEach((note, i) => {
-        // Verse states the hook sparsely so the chorus reads as a lift. Thin
-        // it by bar, not by counting every third note: an index-based drop cuts
-        // across the beat and reads as stumbling rather than as space.
-        if (section === 'verse' && Math.floor(note.step / STEPS_PER_BAR) === 2) return;
+        if (Math.floor(note.step / STEPS_PER_BAR) !== phraseBar) return;
+        // A verse states the hook with its second half of each bar removed,
+        // which leaves the motif recognisable and the chorus somewhere to go.
+        if (layers.sparseLead && note.step % STEPS_PER_BAR >= 8 && i % 2 === 1) return;
 
-        // Every track sounds the same scale. This used to render the lead in
-        // Aeolian while the pad and bass played harmonic minor, so the melody
-        // sang the b7 against a held natural 7 underneath — a sustained
-        // semitone. It measured 758 clashes across twelve songs, double any
-        // other mode. The raised 7th now reaches the melody through the V
-        // chord it belongs to, not by contradicting the accompaniment.
-        const nextStep = source.notes[i + 1]?.step ?? PHRASE_STEPS;
+        const nextStep = source.notes[i + 1]?.step ?? note.step + 4;
         notes.push({
           id: `lead-${bar}-${i}`,
           note: midiToNoteName(degreeToMidi(note.degree, scaleIntervals, note.alteration)),
-          startStep: offset + note.step,
+          startStep: offset + (note.step % STEPS_PER_BAR),
           duration: Math.max(1, Math.min(4, nextStep - note.step)),
-          velocity,
+          velocity: layers.energy,
         });
       });
     }
@@ -801,11 +845,6 @@ export class EarwormGenerator {
     };
   }
 
-  /**
-   * §3.4 compound hook: the pluck doubles the hook's onset grid instead of
-   * ignoring it, so the rhythmic hook is stacked rather than smeared. The old
-   * version took the lead notes as a parameter and never read them.
-   */
   /**
    * §3.4 compound hook. Locking this to the hook's own onsets, as it did,
    * put a second melodic line on exactly the same rhythm in a neighbouring
@@ -831,8 +870,9 @@ export class EarwormGenerator {
     );
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = this.sectionForBar(bar);
-      if (section === 'intro' || section === 'verse') continue;
+      const section = sectionAtBar(bar);
+      const layers = layersFor(section);
+      if (!layers.pluck) continue;
 
       for (let inBar = 0; inBar < STEPS_PER_BAR; inBar += 2) {
         const step = bar * STEPS_PER_BAR + inBar;
@@ -852,7 +892,7 @@ export class EarwormGenerator {
           note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
           startStep: step,
           duration: 1,
-          velocity: section === 'chorus' ? 0.55 : 0.45,
+          velocity: 0.5 * layers.energy,
         });
       }
     }
@@ -870,9 +910,10 @@ export class EarwormGenerator {
     const totalBars = Math.floor(totalSteps / STEPS_PER_BAR);
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = this.sectionForBar(bar);
+      const section = sectionAtBar(bar);
+      const layers = layersFor(section);
       const step = bar * STEPS_PER_BAR;
-      if (section === 'intro' && bar % 4 !== 0) continue;
+      if (!layers.pad) continue;
 
       const chord = chords[step];
       // Root, third and fifth inverted into a fixed register (C3 to A#3),
@@ -882,7 +923,7 @@ export class EarwormGenerator {
       // against it. Keeping the voicing in one octave is also what a pad is
       // for: a steady bed the melody sits on top of.
       const voicing = [chord, chord + 2, chord + 4].map((d) => PAD_REGISTER_BASE + mod(d, 7));
-      const velocity = section === 'chorus' || section === 'variation' ? 0.5 : 0.34;
+      const velocity = 0.42 * layers.energy;
 
       voicing.forEach((degree, v) => {
         notes.push({
@@ -923,8 +964,9 @@ export class EarwormGenerator {
     });
 
     for (let bar = 0; bar < totalBars; bar++) {
-      const section = this.sectionForBar(bar);
-      if (section === 'intro' && bar % 16 < 2) continue;
+      const section = sectionAtBar(bar);
+      const layers = layersFor(section);
+      if (!layers.bass) continue;
 
       rhythm.forEach((active, inBar) => {
         if (!active) return;
@@ -940,7 +982,7 @@ export class EarwormGenerator {
           note: midiToNoteName(degreeToMidi(degree, scaleIntervals)),
           startStep: step,
           duration: mode === 'sustained' ? STEPS_PER_BAR : 1,
-          velocity: section === 'chorus' ? 1.0 : 0.85,
+          velocity: 0.9 * layers.energy,
         });
       });
     }
@@ -952,6 +994,7 @@ export class EarwormGenerator {
     totalSteps: number,
     mode: GenDrums,
     hook: Candidate,
+    ornament: number,
   ): { drumTracks: Track[]; kickSteps: SequencerStep[]; kickPattern: number[] } {
     // Build with a factory, not Array.fill: fill() shares one object across
     // every index, which is a live aliasing hazard the moment anything mutates.
@@ -970,26 +1013,39 @@ export class EarwormGenerator {
     // and a groove that never repeats is not a groove.
     const sixteenthFills = Array.from(
       { length: STEPS_PER_BAR },
-      (_, i) => i % 2 === 1 && rng.chance(0.4),
+      (_, i) => i % 2 === 1 && rng.chance(0.15 + ornament * 0.45),
     );
 
     for (let step = 0; step < totalSteps; step++) {
       const bar = Math.floor(step / STEPS_PER_BAR);
-      const section = this.sectionForBar(bar);
+      const section = sectionAtBar(bar);
+      const layers = layersFor(section);
       const inBar = step % STEPS_PER_BAR;
+      if (!layers.drums) continue;
 
-      if (section !== 'intro' || bar % 16 >= 2) {
-        if (kickPattern.includes(inBar)) kickSteps[step] = { active: true, velocity: 1.0 };
+      if (kickPattern.includes(inBar)) {
+        kickSteps[step] = { active: true, velocity: layers.energy };
       }
 
-      if (section !== 'intro') {
-        if (inBar === 4 || inBar === 12) snareSteps[step] = { active: true, velocity: 0.9 };
+      if (section.kind !== 'intro') {
+        if (inBar === 4 || inBar === 12) {
+          snareSteps[step] = { active: true, velocity: 0.9 * layers.energy };
+        }
         if (inBar % 2 === 0) {
-          hihatSteps[step] = { active: true, velocity: inBar % 4 === 0 ? 0.7 : 0.5 };
+          hihatSteps[step] = {
+            active: true,
+            velocity: (inBar % 4 === 0 ? 0.7 : 0.5) * layers.energy,
+          };
         }
-        if ((mode === 'breakbeat' || section === 'chorus') && sixteenthFills[inBar]) {
-          hihatSteps[step] = { active: true, velocity: 0.4 };
+        if ((mode === 'breakbeat' || section.kind === 'chorus') && sixteenthFills[inBar]) {
+          hihatSteps[step] = { active: true, velocity: 0.4 * layers.energy };
         }
+      }
+
+      // A snare roll across the last bar of a section is the transition that
+      // makes the next one land — composerAgent's "craving and release".
+      if (isSectionTail(section) && inBar >= 8 && inBar % 2 === 0) {
+        snareSteps[step] = { active: true, velocity: (0.4 + (inBar - 8) * 0.07) * layers.energy };
       }
     }
 
@@ -999,7 +1055,7 @@ export class EarwormGenerator {
       (n) => Math.floor(n.step / STEPS_PER_BAR) === hook.rhythm.twistBar,
     )?.step ?? 0;
     for (let bar = 0; bar < Math.floor(totalSteps / STEPS_PER_BAR); bar += BARS_PER_PHRASE) {
-      if (this.sectionForBar(bar) === 'intro') continue;
+      if (sectionAtBar(bar).kind === 'intro') continue;
       const step = bar * STEPS_PER_BAR + twistStep;
       if (step < totalSteps) fxSteps[step] = { active: true, velocity: 0.8 };
     }
@@ -1030,7 +1086,9 @@ interface BuildContext {
   scaleIntervals: readonly number[];
   chordLoop: number[];
   contour: GenContour;
+  /** Motif size only, deliberately a narrow band. */
   density: number;
+  /** How far the A' variation departs, and how wide the twist leaps. */
   twist: number;
   modeName: GenMode;
 }

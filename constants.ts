@@ -165,6 +165,15 @@ export const DEFAULT_GLOBAL_FX: GlobalFXParams = {
   delayTime: 0.34,
   delayFeedback: 0.38,
   reverbMix: 0.42,
+  // Mastering. Width above 1 pushes the chorus and the plate out past the
+  // speakers while leaving the kick and bass where they are; the shelves take
+  // a little weight off the bottom and put some air back on top, which is
+  // where a render measured this mix as thin.
+  width: 1.35,
+  lowShelf: -1.5,
+  airShelf: 3.0,
+  glue: 0.4,
+  masterDrive: 0.22,
 };
 
 export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, InstrumentParams>>> = {

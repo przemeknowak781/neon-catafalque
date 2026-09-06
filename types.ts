@@ -40,6 +40,18 @@ export interface GlobalFXParams {
   delayTime: number;
   delayFeedback: number;
   reverbMix: number;
+
+  // --- Mastering. Optional so older saved patches still load. ---
+  /** Mid/side width. 1 = untouched, 0 = mono, >1 widens. */
+  width?: number;
+  /** Low shelf at 110 Hz, in dB. */
+  lowShelf?: number;
+  /** High shelf at 7 kHz, in dB — "air". */
+  airShelf?: number;
+  /** Bus compression amount, 0-1. */
+  glue?: number;
+  /** Master saturation, 0-1. */
+  masterDrive?: number;
 }
 
 export interface NoteEvent {

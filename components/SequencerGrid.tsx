@@ -1,5 +1,6 @@
 import React from 'react';
 import { Track } from '../types';
+import { STEPS_PER_BAR, sectionAtBar } from '../services/arrangement';
 
 interface SequencerGridProps {
   tracks: Track[];
@@ -24,15 +25,22 @@ const TRACK_COLOURS: Record<string, string> = {
   kick: '#ef4444',
 };
 
-const STEPS_PER_BAR = 16;
+const SECTION_TINTS: Record<string, string> = {
+  intro: 'transparent',
+  verse: 'rgba(255,255,255,0.022)',
+  chorus: 'rgba(176,38,255,0.08)',
+  bridge: 'rgba(0,243,255,0.055)',
+  outro: 'rgba(255,255,255,0.015)',
+};
 
-/** Matches the generator's 16-bar mini-song: intro, verse, chorus, variation. */
-function sectionOf(bar: number): { name: string; tint: string } {
-  const position = bar % 16;
-  if (position < 4) return { name: 'INTRO', tint: 'transparent' };
-  if (position < 8) return { name: 'VERSE', tint: 'rgba(255,255,255,0.022)' };
-  if (position < 12) return { name: 'CHORUS', tint: 'rgba(176,38,255,0.075)' };
-  return { name: 'HOOK VAR', tint: 'rgba(0,243,255,0.05)' };
+/** The grid reads the same arrangement the generator builds from. */
+function sectionOf(bar: number): { name: string; tint: string; isStart: boolean } {
+  const section = sectionAtBar(bar);
+  return {
+    name: section.label,
+    tint: SECTION_TINTS[section.kind] ?? 'transparent',
+    isStart: section.barInSection === 0,
+  };
 }
 
 const noteToMidi = (note: string): number => {
@@ -75,12 +83,12 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
           </svg>
           <div className="pointer-events-none absolute inset-0 flex">
             {Array.from({ length: bars }, (_, bar) => {
-              const { name } = sectionOf(bar);
-              const isSectionStart = bar % 4 === 0;
+              const { name, isStart } = sectionOf(bar);
               return (
                 <div key={bar}
-                     className="min-w-0 flex-1 truncate border-l border-zinc-800/60 pl-1 text-[7px] uppercase tracking-widest text-zinc-600">
-                  {isSectionStart ? name : ''}
+                     className={`min-w-0 flex-1 overflow-visible whitespace-nowrap pl-1 text-[7px] uppercase tracking-widest ${
+                       isStart ? 'border-l border-zinc-600 text-zinc-400' : 'border-l border-zinc-800/40 text-zinc-600'}`}>
+                  {isStart ? name : ''}
                 </div>
               );
             })}
@@ -176,7 +184,8 @@ const Lane: React.FC<{
       ))}
       {Array.from({ length: bars }, (_, bar) => (
         <line key={`b${bar}`} x1={bar * STEPS_PER_BAR} x2={bar * STEPS_PER_BAR} y1={0} y2={LANE_UNITS}
-              stroke={bar % 4 === 0 ? '#3f3f46' : '#27272a'} strokeWidth={0.4} vectorEffect="non-scaling-stroke" />
+              stroke={sectionOf(bar).isStart ? '#52525b' : '#27272a'}
+              strokeWidth={sectionOf(bar).isStart ? 0.9 : 0.4} vectorEffect="non-scaling-stroke" />
       ))}
 
       {track.notes?.map((note) => (

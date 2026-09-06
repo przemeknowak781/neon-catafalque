@@ -39,6 +39,13 @@ export class AudioEngine {
   delayBus: GainNode;
   reverbPreDelay: DelayNode;
   delayDamp: BiquadFilterNode;
+  /** Mastering chain. */
+  subsonic: BiquadFilterNode;
+  glue: DynamicsCompressorNode;
+  lowShelf: BiquadFilterNode;
+  airShelf: BiquadFilterNode;
+  widthSide: GainNode;
+  masterDrive: WaveShaperNode;
   private chorusLfos: OscillatorNode[] = [];
   private driveCurves = new Map<number, Float32Array>();
 
@@ -71,7 +78,54 @@ export class AudioEngine {
     this.analyser.fftSize = 2048;
 
     this.dryGain = this.ctx.createGain();
-    this.dryGain.connect(this.limiter);
+
+    // --- mastering chain ---------------------------------------------------
+    // Everything above this point is the mix; this is what happens to the sum.
+    // Previously the sum met a compressor, a gain and a saturator, in that
+    // order, and nothing else.
+
+    // Subsonic filter. Nothing musical lives below 28 Hz, but the kick's pitch
+    // envelope and the reverb tail both put energy there, and it eats headroom
+    // the limiter then has to work around.
+    this.subsonic = this.ctx.createBiquadFilter();
+    this.subsonic.type = 'highpass';
+    this.subsonic.frequency.value = 28;
+    this.subsonic.Q.value = 0.7;
+
+    // Bus compression, kept separate from the final limiter: one is glue, the
+    // other is a ceiling, and asking a single stage to be both is why the
+    // earlier chain pumped.
+    this.glue = this.ctx.createDynamicsCompressor();
+    this.glue.threshold.setValueAtTime(-18, this.ctx.currentTime);
+    this.glue.knee.setValueAtTime(12, this.ctx.currentTime);
+    this.glue.ratio.setValueAtTime(2, this.ctx.currentTime);
+    this.glue.attack.setValueAtTime(0.02, this.ctx.currentTime);
+    this.glue.release.setValueAtTime(0.25, this.ctx.currentTime);
+
+    this.lowShelf = this.ctx.createBiquadFilter();
+    this.lowShelf.type = 'lowshelf';
+    this.lowShelf.frequency.value = 110;
+
+    this.airShelf = this.ctx.createBiquadFilter();
+    this.airShelf.type = 'highshelf';
+    this.airShelf.frequency.value = 7000;
+
+    this.masterDrive = this.ctx.createWaveShaper();
+    this.masterDrive.curve = this.makeSaturationCurve(1.2);
+    this.masterDrive.oversample = '2x';
+
+    this.dryGain.connect(this.subsonic);
+    this.subsonic.connect(this.glue);
+    this.glue.connect(this.lowShelf);
+    this.lowShelf.connect(this.airShelf);
+    this.airShelf.connect(this.masterDrive);
+
+    // Mid/side width. The side signal is scaled and recombined, so the control
+    // can collapse the mix to mono or push the chorus and reverb wider without
+    // touching anything centred.
+    const widthOut = this.buildWidthStage(this.masterDrive);
+
+    widthOut.connect(this.limiter);
     this.limiter.connect(this.analyser);
     this.analyser.connect(this.masterGain);
     this.masterGain.connect(this.safetyClip);
@@ -113,6 +167,48 @@ export class AudioEngine {
     this.buildStereoChorus();
     this.noiseBuffer = this.createNoiseBuffer(2.0);
     this.generateImpulseResponse();
+  }
+
+  /**
+   * Mid/side width, built from splitters and gains: mid = (L+R)/2,
+   * side = (L-R)/2, then L = mid + side*w and R = mid - side*w.
+   */
+  private buildWidthStage(input: AudioNode): AudioNode {
+    const splitter = this.ctx.createChannelSplitter(2);
+    input.connect(splitter);
+
+    const mid = this.ctx.createGain();
+    const side = this.ctx.createGain();
+    mid.gain.value = 1;
+    side.gain.value = 1;
+
+    const half = (value: number) => {
+      const g = this.ctx.createGain();
+      g.gain.value = value;
+      return g;
+    };
+    const lToMid = half(0.5), rToMid = half(0.5);
+    const lToSide = half(0.5), rToSide = half(-0.5);
+
+    splitter.connect(lToMid, 0); splitter.connect(rToMid, 1);
+    splitter.connect(lToSide, 0); splitter.connect(rToSide, 1);
+    lToMid.connect(mid); rToMid.connect(mid);
+    lToSide.connect(side); rToSide.connect(side);
+
+    this.widthSide = side;
+
+    const outL = this.ctx.createGain();
+    const outR = this.ctx.createGain();
+    const sideInverted = half(-1);
+    side.connect(sideInverted);
+
+    mid.connect(outL); side.connect(outL);
+    mid.connect(outR); sideInverted.connect(outR);
+
+    const merger = this.ctx.createChannelMerger(2);
+    outL.connect(merger, 0, 0);
+    outR.connect(merger, 0, 1);
+    return merger;
   }
 
   /**
@@ -175,6 +271,16 @@ export class AudioEngine {
     // Feedback at or above 1.0 is a runaway loop; keep it strictly below.
     this.feedbackNode.gain.setTargetAtTime(Math.min(params.delayFeedback, 0.85), now, 0.1);
     this.reverbGain.gain.setTargetAtTime(params.reverbMix, now, 0.1);
+
+    // Mastering.
+    this.widthSide.gain.setTargetAtTime(params.width ?? 1, now, 0.1);
+    this.lowShelf.gain.setTargetAtTime(params.lowShelf ?? 0, now, 0.1);
+    this.airShelf.gain.setTargetAtTime(params.airShelf ?? 0, now, 0.1);
+    const glueAmount = params.glue ?? 0.35;
+    this.glue.threshold.setTargetAtTime(-6 - glueAmount * 24, now, 0.1);
+    this.glue.ratio.setTargetAtTime(1 + glueAmount * 3, now, 0.1);
+    const drive = params.masterDrive ?? 0.2;
+    this.masterDrive.curve = this.makeSaturationCurve(1 + drive * 2.5);
   }
 
   /** Cached saturation curves — one shaper curve per drive amount, not per note. */

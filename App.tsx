@@ -9,6 +9,7 @@ import { midiService } from './services/midiService';
 import { generatorService, GenMode, GenHarmonicMotion, GenContour, GenBass, GenDrums } from './services/earwormGenerator';
 import type { ScoreBreakdown } from './services/earwormAnalysis';
 import { scheduleStep, secondsPerStepAt } from './services/songScheduler';
+import { SONG_STEPS } from './services/arrangement';
 import {
   MissingApiKeyError,
   clearApiKey,
@@ -173,7 +174,8 @@ const App: React.FC = () => {
   };
 
   const handleGenerateRitual = () => {
-    const GEN_STEPS = 256;
+    // The full arrangement, shared with composerAgent and the sequencer grid.
+    const GEN_STEPS = SONG_STEPS;
     const result = generatorService.generate({ 
       totalSteps: GEN_STEPS, 
       mode: genMode,
@@ -758,11 +760,20 @@ const App: React.FC = () => {
           ) : (
             <div className="space-y-3 pb-4">
                <section className="space-y-2 border-b border-zinc-800 pb-3">
-                <h2 className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">Global Master FX</h2>
+                <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400">Send FX</h2>
                 <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
-                  <Knob label="Dly T" value={globalFX.delayTime} min={0} max={1} onChange={(v) => updateGlobalFX('delayTime', v)} color="text-white" />
-                  <Knob label="Dly F" value={globalFX.delayFeedback} min={0} max={0.9} onChange={(v) => updateGlobalFX('delayFeedback', v)} color="text-white" />
-                  <Knob label="Reverb" value={globalFX.reverbMix} min={0} max={1} onChange={(v) => updateGlobalFX('reverbMix', v)} color="text-white" />
+                  <Knob label="Dly T" value={globalFX.delayTime} min={0} max={1} onChange={(v) => updateGlobalFX('delayTime', v)} color="text-white" size="sm" />
+                  <Knob label="Dly F" value={globalFX.delayFeedback} min={0} max={0.85} onChange={(v) => updateGlobalFX('delayFeedback', v)} color="text-white" size="sm" />
+                  <Knob label="Reverb" value={globalFX.reverbMix} min={0} max={1} onChange={(v) => updateGlobalFX('reverbMix', v)} color="text-white" size="sm" />
+                </div>
+
+                <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Mastering</h2>
+                <div className="grid grid-cols-3 justify-items-center gap-x-1 gap-y-1">
+                  <Knob label="Width" value={globalFX.width ?? 1} min={0} max={2} onChange={(v) => updateGlobalFX('width', v)} color="text-neon-cyan" size="sm" />
+                  <Knob label="Low" value={globalFX.lowShelf ?? 0} min={-8} max={8} onChange={(v) => updateGlobalFX('lowShelf', v)} step={0.5} color="text-neon-purple" size="sm" />
+                  <Knob label="Air" value={globalFX.airShelf ?? 0} min={-8} max={8} onChange={(v) => updateGlobalFX('airShelf', v)} step={0.5} color="text-neon-purple" size="sm" />
+                  <Knob label="Glue" value={globalFX.glue ?? 0.35} min={0} max={1} onChange={(v) => updateGlobalFX('glue', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Drive" value={globalFX.masterDrive ?? 0.2} min={0} max={1} onChange={(v) => updateGlobalFX('masterDrive', v)} color="text-neon-pink" size="sm" />
                 </div>
               </section>
                <div className="pb-4 border-b border-zinc-800">

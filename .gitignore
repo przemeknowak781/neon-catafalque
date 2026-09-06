@@ -25,3 +25,9 @@ dist-ssr
 
 # earworm conformance harness build output
 .verify
+
+# Local secrets. vite.config.ts reads GEMINI_API_KEY through loadEnv, so a
+# .env here holds a live credential — and this repository is public.
+.env
+.env.*
+!.env.example

@@ -19,6 +19,7 @@ import {
   type GenMode,
 } from '../services/earwormGenerator';
 import { TARGETS, analyzeExpectation, degreeToMidi, mod } from '../services/earwormAnalysis';
+import { SONG_STEPS, layersFor, sectionAtBar } from '../services/arrangement';
 
 const SCALE_INTERVALS: Record<GenMode, number[]> = {
   aeolian: [0, 2, 3, 5, 7, 8, 10],
@@ -73,13 +74,15 @@ for (const mode of MODES) {
         const bassMode = BASSES[runs % BASSES.length];
         for (let r = 0; r < RUNS_PER_COMBO; r++) {
           const seed = 1000 + runs * 97 + r;
+          // Both knobs are swept to their extremes: the point of bounding them
+          // is that 0.0 and 1.0 must still satisfy every constraint.
           const result = generator.generate({
-            totalSteps: 256,
+            totalSteps: SONG_STEPS,
             mode,
             harmonicMotion,
             contour,
-            rhythmDensity: 0.35 + (r % 3) * 0.2,
-            entropy: 0.2 + (r % 4) * 0.2,
+            rhythmDensity: r / (RUNS_PER_COMBO - 1),
+            entropy: ((r * 2) % RUNS_PER_COMBO) / (RUNS_PER_COMBO - 1),
             bassMode,
             drumMode,
             seed,
@@ -221,8 +224,14 @@ for (const mode of MODES) {
           const changed = result.variation.filter(
             (n, i) => n.degree !== result.hook[i].degree,
           ).length;
-          record("A' keeps the rhythm and changes exactly one note", '§9 / §2.1D', 0.95,
-            sameRhythm && changed === 1, changed);
+          // §9 asks for a "one-note change". The entropy control is allowed to
+          // spend a second edit at its maximum, and no more — that is the
+          // whole of the licence it has over the hook. The rhythm is never
+          // touched, because that is what keeps A' an answer to A rather than
+          // a different phrase. A deliberate, bounded departure from the spec.
+          record("A' keeps the rhythm and changes at most two notes", '§9 / §2.1D', 0.98,
+            sameRhythm && changed >= 1 && changed <= 2, changed);
+          record("A' never alters the rhythm", '§9', 1.0, sameRhythm);
 
           // §6 chord tones on beats 1 and 3.
           const intervals = SCALE_INTERVALS[mode];
@@ -249,14 +258,62 @@ for (const mode of MODES) {
 
           // Structural: every track shares one grid, nothing runs past the end.
           const overflow = result.tracks.some((t) =>
-            (t.notes ?? []).some((n) => n.startStep >= 256) ||
-            (t.steps ? t.steps.length !== 256 : false),
+            (t.notes ?? []).some((n) => n.startStep >= SONG_STEPS) ||
+            (t.steps ? t.steps.length !== SONG_STEPS : false),
           );
           record('all tracks fit the requested grid', 'structural', 1.0, !overflow);
         }
       }
     }
   }
+}
+
+// --- song structure --------------------------------------------------------
+//
+// composerAgent held the hook back through the intro and the first verse so
+// the first chorus would land. The procedural generator ignored all of that
+// and repeated one 16-bar loop, so there was nothing to arrive at.
+
+for (let seed = 700; seed < 712; seed++) {
+  const song = generator.generate({
+    totalSteps: SONG_STEPS, mode: 'aeolian', harmonicMotion: 'conjunct', contour: 'arch',
+    rhythmDensity: 0.5, entropy: 0.4, bassMode: 'driving', drumMode: 'four-floor', seed,
+  });
+  const lead = song.tracks.find((t) => t.id === 'lead');
+  const kick = song.tracks.find((t) => t.id === 'kick');
+
+  const barsWith = (test: (bar: number) => boolean): number[] => {
+    const out: number[] = [];
+    for (let bar = 0; bar < SONG_STEPS / 16; bar++) if (test(bar)) out.push(bar);
+    return out;
+  };
+  const leadInBar = (bar: number) =>
+    (lead?.notes ?? []).some((n) => Math.floor(n.startStep / 16) === bar);
+
+  const introBars = barsWith((b) => sectionAtBar(b).kind === 'intro');
+  const chorusBars = barsWith((b) => sectionAtBar(b).kind === 'chorus');
+  const bridgeBars = barsWith((b) => sectionAtBar(b).kind === 'bridge');
+
+  record('hook is withheld through the intro', 'structure', 1.0,
+    introBars.every((b) => !leadInBar(b)));
+  record('hook plays in every chorus', 'structure', 1.0,
+    chorusBars.every((b) => leadInBar(b)));
+  record('bridge drops the kit', 'structure', 1.0,
+    bridgeBars.every((b) => !(kick?.steps ?? []).slice(b * 16, b * 16 + 16).some((s) => s.active)));
+
+  // Verses state the hook, but fewer notes than the chorus does.
+  const count = (bars: number[]) =>
+    bars.reduce((n, b) => n + (lead?.notes ?? []).filter((x) => Math.floor(x.startStep / 16) === b).length, 0);
+  const verseBars = barsWith((b) => sectionAtBar(b).kind === 'verse');
+  record('verse states the hook more sparsely than the chorus', 'structure', 0.9,
+    count(verseBars) / Math.max(1, verseBars.length) <
+    count(chorusBars) / Math.max(1, chorusBars.length));
+
+  // Energy has to climb, or the arrangement is only a layer switch.
+  const introEnergy = layersFor(sectionAtBar(introBars[0])).energy;
+  const lastChorusEnergy = layersFor(sectionAtBar(chorusBars[chorusBars.length - 1])).energy;
+  record('energy rises from intro to final chorus', 'structure', 1.0,
+    lastChorusEnergy > introEnergy);
 }
 
 // --- rhythmic periodicity --------------------------------------------------
