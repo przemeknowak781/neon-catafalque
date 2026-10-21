@@ -76,7 +76,10 @@ export const SequencerGrid: React.FC<SequencerGridProps> = ({
     <div className="flex h-full min-h-0 w-full select-none flex-col font-mono">
       {/* Ruler */}
       <div className="flex h-5 shrink-0 items-stretch border-b border-zinc-800">
-        <div className="w-[112px] shrink-0 border-r border-zinc-800" />
+        {/* The same width as the lane labels below, which are narrower on a
+            phone. At a fixed 112 px the ruler sat 16 px right of the grid it
+            labels, and the last section's name ran off the screen. */}
+        <div className="w-[96px] shrink-0 border-r border-zinc-800 lg:w-[112px]" />
         <div className="relative flex-1">
           <svg className="h-full w-full" viewBox={`0 0 ${totalSteps} 10`} preserveAspectRatio="none">
             {Array.from({ length: bars }, (_, bar) => {
