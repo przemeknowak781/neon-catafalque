@@ -3,6 +3,7 @@
  * objective mix measurements, then writes a WAV so a human can judge it.
  *
  *   node scripts/measureMix.mjs <out.wav> [--app-levels] [--seed N]
+ *        [--builtin NAME] [--bars N]   (--bars 0 renders a built-in song whole)
  */
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -18,6 +19,10 @@ const songArg = process.argv.indexOf('--song');
 const songPreset = songArg > -1 ? process.argv[songArg + 1] : undefined;
 const onlyArg = process.argv.indexOf('--only');
 const only = onlyArg > -1 ? process.argv[onlyArg + 1].split(',') : undefined;
+const builtInArg = process.argv.indexOf('--builtin');
+const builtIn = builtInArg > -1 ? process.argv[builtInArg + 1] : undefined;
+const barsArg = process.argv.indexOf('--bars');
+const bars = barsArg > -1 ? Number(process.argv[barsArg + 1]) : 16;
 
 const bundle = readFileSync(new URL('../.verify/renderSong.js', import.meta.url), 'utf8');
 
@@ -27,17 +32,34 @@ page.on('pageerror', e => { console.error('PAGEERROR:', e.message); process.exit
 await page.goto('about:blank');
 await page.addScriptTag({ content: bundle });
 
-const result = await page.evaluate(async ({ seed, useAppMixerLevels, only, presets, songPreset }) => {
-  const r = await window.renderSong({ seed, bars: 16, useAppMixerLevels, only, presets, songPreset });
-  return {
-    sampleRate: r.sampleRate, bpm: r.bpm, peakVoices: r.peakVoices, noteCount: r.noteCount,
-    left: Array.from(r.channels[0]), right: Array.from(r.channels[1] ?? r.channels[0]),
-  };
-}, { seed, useAppMixerLevels, only, presets, songPreset });
-await browser.close();
+// Samples come back as base64 in slices. Array.from of a whole song's samples
+// is fourteen million numbers serialised one by one, which a full-length
+// built-in song does not survive.
+const result = await page.evaluate(async ({ seed, useAppMixerLevels, only, presets, songPreset, builtIn, bars }) => {
+  const r = await window.renderSong({ seed, bars, useAppMixerLevels, only, presets, songPreset, builtIn });
+  window.__rendered = [r.channels[0], r.channels[1] ?? r.channels[0]];
+  return { sampleRate: r.sampleRate, bpm: r.bpm, peakVoices: r.peakVoices, noteCount: r.noteCount, length: r.channels[0].length };
+}, { seed, useAppMixerLevels, only, presets, songPreset, builtIn, bars });
 
-const L = Float32Array.from(result.left);
-const R = Float32Array.from(result.right);
+async function fetchChannel(index) {
+  const out = new Float32Array(result.length);
+  const slice = 1 << 20;
+  for (let start = 0; start < result.length; start += slice) {
+    const b64 = await page.evaluate(({ index, start, slice }) => {
+      const data = window.__rendered[index].subarray(start, start + slice);
+      const bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+      let text = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      return btoa(text);
+    }, { index, start, slice });
+    const buf = Buffer.from(b64, 'base64');
+    out.set(new Float32Array(buf.buffer, buf.byteOffset, buf.length / 4), start);
+  }
+  return out;
+}
+const L = await fetchChannel(0);
+const R = await fetchChannel(1);
+await browser.close();
 const n = L.length;
 
 // --- measurements ----------------------------------------------------------
@@ -127,7 +149,7 @@ for (let b = 0; b < EDGES.length - 1; b++) {
 }
 const bandTotal = bandRms.reduce((a, b) => a + b, 0) || 1;
 
-console.log(`\nmix measurements  (seed ${seed}${useAppMixerLevels ? ', app mixer levels' : ', generator levels'})`);
+console.log(`\nmix measurements  (${builtIn ? `built-in "${builtIn}"` : `seed ${seed}`}${useAppMixerLevels ? ', app mixer levels' : ', generator levels'})`);
 console.log('-'.repeat(62));
 console.log(`bpm                    ${result.bpm}`);
 console.log(`notes scheduled        ${result.noteCount}`);

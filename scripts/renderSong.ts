@@ -19,7 +19,8 @@ import {
   DEFAULT_GLOBAL_FX,
   INITIAL_TRACKS,
 } from '../constants';
-import type { InstrumentParams } from '../types';
+import type { InstrumentParams, TapeAutomation, Track } from '../types';
+import { builtInSongByName } from '../songs';
 
 export interface RenderOptions {
   seed: number;
@@ -41,6 +42,11 @@ export interface RenderOptions {
   key?: string;
   /** Per-part register in octaves, so a register choice can be measured too. */
   octaves?: Record<string, number>;
+  /**
+   * Render a built-in song instead of a generated one: its own notes, tempo,
+   * sound preset and tape moves. `bars` still truncates; 0 renders it whole.
+   */
+  builtIn?: string;
 }
 
 export interface RenderResult {
@@ -61,9 +67,14 @@ const PARAMS: Record<string, InstrumentParams> = {
 };
 
 export async function renderSong(options: RenderOptions): Promise<RenderResult> {
-  const { seed, bars = 16, sampleRate = 44100, useAppMixerLevels = false } = options;
+  const { seed, sampleRate = 44100, useAppMixerLevels = false } = options;
+  const written = options.builtIn ? builtInSongByName(options.builtIn) : undefined;
+  if (options.builtIn && !written) throw new Error(`No built-in song called ${options.builtIn}`);
+  const bars = options.bars === 0 && written ? written.totalSteps / 16 : (options.bars ?? 16);
 
-  const song = generatorService.generate({
+  const song = written
+    ? { tracks: written.build() as Track[], bpm: written.bpm }
+    : generatorService.generate({
     totalSteps: 256,
     mode: 'aeolian',
     harmonicMotion: 'conjunct',
@@ -77,6 +88,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
     ...(options.octaves ? { octaves: options.octaves as never } : {}),
     ...options.settings,
   });
+  const automation: readonly TapeAutomation[] | null = written ? written.automation : null;
 
   let tracks = song.tracks;
   if (options.only) tracks = tracks.filter((t) => options.only!.includes(t.id));
@@ -88,7 +100,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
   const params: Record<string, InstrumentParams> = { ...PARAMS };
   let fx = { ...DEFAULT_GLOBAL_FX };
 
-  const song_preset = SONG_PRESETS.find((p) => p.name === options.songPreset);
+  const song_preset = SONG_PRESETS.find((p) => p.name === (options.songPreset ?? written?.soundPreset));
   if (song_preset) {
     for (const track of ['lead', 'bass', 'pad', 'pluck'] as const) {
       const patch = INSTRUMENT_PRESETS[track]?.[song_preset[track]];
@@ -126,7 +138,7 @@ export async function renderSong(options: RenderOptions): Promise<RenderResult> 
   }
 
   const { channels, sampleRate: rate, durationSeconds } = await renderOffline({
-    tracks, params, globalFX: fx, bpm: song.bpm, totalSteps: steps, sampleRate,
+    tracks, params, globalFX: fx, bpm: song.bpm, totalSteps: steps, sampleRate, automation,
   });
 
   return {

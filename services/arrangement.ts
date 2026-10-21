@@ -93,6 +93,21 @@ export const ARRANGEMENT_PRESETS: readonly Arrangement[] = [
       { kind: 'outro',  label: 'OUTRO',    bars: 8, repeat: 0 },
     ],
   },
+  {
+    name: 'Anemoia',
+    note: 'The form of the built-in song: a long sign-on, a four-bar breath after the first chorus, and a twelve-bar last chorus with a tag.',
+    sections: [
+      { kind: 'intro',  label: 'SIGN-ON',   bars: 8,  repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 1',   bars: 8,  repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 1',  bars: 8,  repeat: 0 },
+      { kind: 'verse',  label: 'AFTERGLOW', bars: 4,  repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 2',   bars: 8,  repeat: 1 },
+      { kind: 'chorus', label: 'CHORUS 2',  bars: 8,  repeat: 1 },
+      { kind: 'bridge', label: 'BRIDGE',    bars: 8,  repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 3',  bars: 12, repeat: 2 },
+      { kind: 'outro',  label: 'SIGN-OFF',  bars: 8,  repeat: 0 },
+    ],
+  },
 ];
 
 export const DEFAULT_ARRANGEMENT = ARRANGEMENT_PRESETS[0];

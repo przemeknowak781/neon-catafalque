@@ -5,8 +5,8 @@
 **A darkwave sequencer that generates hooks against a written specification — and proves it did.**
 
 <sub>
-Twelve scales · twelve keys · five song forms · seven progressions · twenty synth patches<br>
-Web Audio synthesis · MIDI and WAV export · 49 conformance checks · runs entirely in the browser, no server and no account
+Twelve scales · twelve keys · six song forms · eight progressions · twenty-four synth patches · one written song<br>
+Web Audio synthesis · a tape stage · MIDI and WAV export · 62 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   49 checks, 1944 generated songs
+...                                   62 checks, 1944 generated songs
 ```
 
 ---
@@ -70,7 +70,7 @@ something. The generator's own median is 3.31 bits.
 
 ## Sound
 
-Twenty synth patches. Three reconstruct documented instruments and say so:
+Twenty-four synth patches. Three reconstruct documented instruments and say so:
 
 - **Vox Humana** — the Polymoog 280A factory preset Gary Numan bought the
   instrument for, and the string part on *Cars* (1979). Chorused, near-still
@@ -83,10 +83,26 @@ Twenty synth patches. Three reconstruct documented instruments and say so:
 
 The rest are built from the same vocabulary. Where a preset name refers to a
 genre rather than a machine, it describes a convention and says so — nothing
-here claims to be a band's actual patch without a source.
+here claims to be a band's actual patch without a source. Four — Afterimage,
+Tail Lights, Faded Slide and Music Box Mobile — are original, written for the
+song below, and say that too. The music box is the closest thing here to a
+physical model: a tine is a bar clamped at one end, whose second mode sits at
+about 6.27 times its first, so the patch is two sines that far apart with a
+filter envelope that kills the upper one within a tenth of a second.
 
 These are reconstructions from documented character, not samples and not A/B'd
 against the originals.
+
+**Tape.** The whole mix can be printed to a worn cassette: wow, a slower drift
+under it, flutter, hiss and a bandwidth lowpass. It is the one effect that
+moves every voice at once, which per-note vibrato cannot do and which is most
+of why a worn recording sounds old rather than detuned. Measured on a test
+sine, 10 cents of wow set is 9.6 cents at the wow rate and 3 cents of flutter
+is 2.7. Off by default, and off means bypassed: renders of the existing presets
+null against the engine from before it at the renderer's own noise floor.
+
+Two smaller additions, both from the Juno-106 and both optional: an LFO delay
+(the vibrato fades in, 0-3 s, Roland's own range) and a per-patch voice count.
 
 ## Scales and keys
 
@@ -115,15 +131,46 @@ octaves.
 
 | bank | count | examples |
 |---|---|---|
-| Instrument patches | 20 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary |
-| Song presets | 6 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession |
-| Song forms | 5 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40) |
-| Progressions | 7 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Auto |
+| Instrument patches | 24 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage |
+| Song presets | 7 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia |
+| Song forms | 6 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72) |
+| Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
 | Voice leading | 5 | Cantabile, Chorale, Angular, Drone, Soaring |
 
-All 175 combinations of form, progression and voice-leading style are swept by
+All 240 combinations of form, progression and voice-leading style are swept by
 the test suite and each one still has to keep a common contour, a singable
 range, one twist and its mode. Presets propose; the specification disposes.
+
+## A song that ships with it
+
+**Anemoia** is written by hand rather than generated, and gets no exemption:
+its hook and the answer to it are scored by the same function as every
+generated candidate, against the same targets, and the song around them is
+checked for what a generated song is checked for — thirteen checks in
+`verify:earworm`. Load it from **Song** in the left panel; the generator is
+pointed at its key and progression at the same time.
+
+The brief was nostalgia for something the listener never lived through —
+*anemoia*, John Koenig's 2012 coinage, a word rather than a measurable state.
+The parts of it research can speak to, and what the song does with each:
+
+| finding | in the song |
+|---|---|
+| Nostalgia is bittersweet: songs evoking mixed emotions were rated more nostalgic (Barrett et al., *Emotion* 10(3), 2010) | a driving 112 BPM under harmony that keeps turning minor |
+| Conflicting tempo and mode cues evoke mixed happy-sad feelings (Hunter, Schellenberg & Schimmack, *Cognition and Emotion* 22(2), 2008) | the borrowed minor iv under a held melody note, every chorus |
+| Young listeners' memory and emotion also peak for their parents' music, from before they were born (Krumhansl & Zupnick, *Psychological Science* 24(10), 2013) | an eighties vocabulary: chorused pads, gated snare, octave bass, a last-chorus key change |
+| Expectations of a style are separate from memory of a piece — schematic and veridical (Bharucha; Huron, *Sweet Anticipation*, 2006) | everything is familiar except the melody |
+| Hauntology hears the medium itself as the sign of a lost past (Fisher, *Dancecult* 5(2), 2013) | a tape clearest in the choruses, dissolving at both ends |
+
+The chorus is IVmaj7 – V7sus4 – iii7 – vi7, the royal-road progression of
+Japanese pop (Ramage, *Music Theory Spectrum* 45(2), 2023), which never touches
+the tonic. Its answer reaches the tonic for one bar and turns it minor in the
+next, under a melody note that does not move. The peak is an appoggiatura on
+the iii chord — the device Sloboda (*Psychology of Music* 19, 1991) found
+associated with tears. The sign-on plays the whole hook at half speed on a
+music box, through the most worn tape in the song, so the chorus arrives
+already half-known; the bridge sets the hook's opening on borrowed chords at
+half speed; the sign-off plays it once more and stops a note short.
 
 ## Holding a hook
 
@@ -165,6 +212,17 @@ npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```
 
+`npm run mix -- out.wav --builtin Anemoia --bars 0` renders the built-in song
+whole. Offline rendering schedules two bars at a time and detaches each voice
+when it finishes, so its cost grows with the length of a song rather than with
+the square of it — sixteen bars of Anemoia went from 34 s to 13.6 s.
+
+One caveat on reproducibility: in the Chromium this was measured with, two
+renders of the same song are not always identical. Some runs diverge from
+about 0.75 s, mostly between 500 Hz and 6 kHz — the original engine does it
+too — so null tests here compare against the spread of repeated renders, not
+against a single one.
+
 `npm run mix` renders through Chromium and reports peak, RMS, crest factor,
 clipping, loudness spread, stereo correlation, side energy and band balance,
 then writes a WAV. It is how every mix claim in the commit history was arrived
@@ -188,6 +246,8 @@ services/
   songScheduler.ts      one step-scheduling path, shared by transport and render
   offlineRender.ts      OfflineAudioContext rendering for export and measurement
   songExport.ts         MIDI and WAV writing, MIDI and preset reading
+songs/
+  anemoia.ts            the written song: its score, harmony and tape moves
   arrangement.ts        song forms
   harmonyPresets.ts     progressions and voice-leading styles
 scripts/

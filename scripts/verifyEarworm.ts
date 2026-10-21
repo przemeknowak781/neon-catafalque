@@ -20,7 +20,9 @@ import {
   KEYS,
   keyOffset,
 } from '../services/earwormGenerator';
-import { TARGETS, analyzeExpectation, degreeToMidi, mod } from '../services/earwormAnalysis';
+import { TARGETS, analyzeExpectation, degreeToMidi, mod, scoreMotif } from '../services/earwormAnalysis';
+import { BUILT_IN_SONGS } from '../songs';
+import { ANEMOIA_HOOK, anemoiaHarmony, midiOf } from '../songs/anemoia';
 import {
   ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
 } from '../services/arrangement';
@@ -733,6 +735,118 @@ const b = generator.generate({
 const deterministic =
   JSON.stringify(a.tracks) === JSON.stringify(b.tracks) && a.bpm === b.bpm;
 record('same seed reproduces the same song', 'reproducibility', 1.0, deterministic);
+
+// --- built-in songs ----------------------------------------------------------
+//
+// A song written by hand gets no exemption. Its hook is scored by the same
+// function the generator's candidates are, against the same targets, and the
+// song around it is checked for the things the generator is checked for:
+// a withheld hook, a bridge without the kit, harmony that agrees with itself.
+
+{
+  const IONIAN = SCALE_INTERVALS.ionian;
+  const tonic = midiOf(`${ANEMOIA_HOOK.tonic}4`) - 60; // semitones above C
+  const toMotif = (bars: typeof ANEMOIA_HOOK.a) => {
+    const notes: { step: number; degree: number; alteration: number }[] = [];
+    bars.forEach((cells, b) => cells.forEach(([step, pitch]) => {
+      const rel = midiOf(pitch) - tonic - 24;
+      const octave = Math.floor(rel / 12);
+      const pc = mod(rel, 12);
+      const d = IONIAN.indexOf(pc);
+      notes.push({
+        step: b * 16 + step,
+        degree: octave * 7 + (d >= 0 ? d : IONIAN.indexOf(pc - 1)),
+        alteration: d >= 0 ? 0 : 1,
+      });
+    }));
+    return notes;
+  };
+  const phrases = [toMotif(ANEMOIA_HOOK.a), toMotif(ANEMOIA_HOOK.answer)];
+  for (const notes of phrases) {
+    const onsets = Array.from({ length: 64 }, (_, i) => notes.some((n) => n.step === i));
+    const d = scoreMotif({
+      notes, scaleIntervals: IONIAN, modeName: ANEMOIA_HOOK.mode, onsets,
+      cellLength: 16, barsInPhrase: 4, targetContours: ['arch', 'descent'],
+    }).detail;
+    record('built-in hook: common contour', '§2.1A', 1.0,
+      d.contourClass === 'arch' || d.contourClass === 'descent');
+    record('built-in hook: exactly 1 atypical turning point', '§2.1B', 1.0,
+      d.atypicalTurns === TARGETS.atypicalTurnsPer4Bars, d.atypicalTurns);
+    record('built-in hook: range, stepwise ratio and length in band', '§3.3 / §4.1', 1.0,
+      d.range >= TARGETS.rangeMin && d.range <= TARGETS.rangeMax &&
+      d.stepwiseRatio >= TARGETS.stepwiseMin && d.stepwiseRatio <= TARGETS.stepwiseMax &&
+      notes.length >= 12 && notes.length <= 22, d.range);
+    record('built-in hook: information content, spikes and runs in band', '§2.2', 1.0,
+      d.meanIC >= TARGETS.meanICMin && d.meanIC <= TARGETS.meanICMax &&
+      d.spikes >= TARGETS.spikesMin && d.spikes <= TARGETS.spikesMax &&
+      d.longestHighICRun <= TARGETS.maxHighICRun, Math.round(d.meanIC * 100) / 100);
+    record('built-in hook: one rhythmic cell, in mode, with modal colour', '§8A / §8D', 1.0,
+      d.rhythmSimilarity >= TARGETS.rhythmSimilarityMin &&
+      d.inModeRatio >= TARGETS.inModeMin && d.modalEmphasis >= TARGETS.modalEmphasisMin);
+    record('built-in hook: cadences on degree 1, 3 or 5', '§3.3', 1.0,
+      CADENCE_DEGREES.includes(mod(notes[notes.length - 1].degree, 7)));
+  }
+  const [a, answer] = phrases;
+  const sameRhythm = a.length === answer.length && a.every((n, i) => n.step === answer[i].step);
+  const changed = a.filter((n, i) => n.degree !== answer[i]?.degree).length;
+  record("built-in hook: A' keeps the rhythm and changes 1-2 notes", '§9', 1.0,
+    sameRhythm && changed >= 1 && changed <= 2, changed);
+
+  for (const song of BUILT_IN_SONGS) {
+    const tracks = song.build();
+    const steps = song.totalSteps;
+    const lane = (id: string) => tracks.find((t) => t.id === id)!;
+    const barsOf = ([from, to]: [number, number]) => ({ from: from * 16, to: to * 16 });
+
+    record('built-in song: every track fits its grid', 'structural', 1.0,
+      tracks.every((t) => (t.notes ?? []).every((n) => n.startStep >= 0 && n.startStep < steps) &&
+        (!t.steps || t.steps.length === steps)));
+
+    const signOn = barsOf(ANEMOIA_HOOK.sections.signOn);
+    record('built-in song: the lead is withheld through the sign-on', 'structure', 1.0,
+      (lane('lead').notes ?? []).every((n) => n.startStep < signOn.from || n.startStep >= signOn.to));
+
+    const bridge = barsOf(ANEMOIA_HOOK.sections.bridge);
+    record('built-in song: the bridge drops the kick', 'structure', 1.0,
+      lane('kick').steps!.slice(bridge.from, bridge.to).every((s) => !s.active));
+
+    // "A final chorus that lands higher than the first": here, literally.
+    const meanLead = ([from, to]: [number, number]) => {
+      const ns = (lane('lead').notes ?? []).filter((n) => n.startStep >= from * 16 && n.startStep < to * 16);
+      return ns.reduce((sum, n) => sum + noteToMidi(n.note), 0) / Math.max(1, ns.length);
+    };
+    record('built-in song: the last chorus sits higher than the first', 'structure', 1.0,
+      meanLead(ANEMOIA_HOOK.sections.chorus3) > meanLead(ANEMOIA_HOOK.sections.chorus1));
+
+    // Exact semitones sounding between two different parts, anywhere.
+    const sounding: { track: string; midi: number }[][] = Array.from({ length: steps }, () => []);
+    for (const t of tracks) for (const n of t.notes ?? []) {
+      const from = Math.floor(n.startStep);
+      const to = Math.min(steps, from + Math.max(1, Math.round(n.duration)));
+      for (let s = from; s < to; s++) sounding[s].push({ track: t.id, midi: noteToMidi(n.note) });
+    }
+    let seconds = 0;
+    for (const now of sounding) for (let i = 0; i < now.length; i++) for (let j = i + 1; j < now.length; j++) {
+      if (now[i].track !== now[j].track && Math.abs(now[i].midi - now[j].midi) === 1) seconds++;
+    }
+    record('built-in song: no minor 2nds between tracks', 'harmony', 1.0, seconds === 0, seconds);
+
+    // Chord tones judged against the chord actually written for that beat —
+    // sevenths and added tones included, since the song is voiced in them.
+    const harmonyMap = anemoiaHarmony();
+    let strongBeats = 0, onChord = 0;
+    for (let s = 0; s < steps; s += 8) {
+      const lead = sounding[s].find((x) => x.track === 'lead');
+      if (!lead) continue;
+      const inBar = harmonyMap.filter((h) => h.bar === Math.floor(s / 16));
+      const chordNow = [...inBar].reverse().find((h) => h.at <= s % 16) ?? inBar[0];
+      strongBeats++;
+      if ([chordNow.root, ...chordNow.pad].some((m) => mod(m - lead.midi, 12) === 0)) onChord++;
+    }
+    record('built-in song: lead on a chord tone on beats 1 and 3', '§6', 1.0,
+      onChord / Math.max(1, strongBeats) >= 0.75, Math.round((onChord / Math.max(1, strongBeats)) * 100));
+  }
+}
 
 // --- report ----------------------------------------------------------------
 

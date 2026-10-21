@@ -26,7 +26,8 @@ import {
 import { generateAIPresetSet, generateSingleAIPreset, AIPresetSet, AISinglePreset } from './services/aiPresetService';
 import { composeAISong, AISongResult, AISectionData } from './services/aiComposer';
 import { composerAgent } from './services/composerAgent';
-import { Track, TrackType, InstrumentParams, GlobalFXParams, NoteEvent, SequencerStep } from './types';
+import { Track, TrackType, InstrumentParams, GlobalFXParams, NoteEvent, SequencerStep, TapeAutomation } from './types';
+import { BUILT_IN_SONGS, builtInSongByName } from './songs';
 import type { SongPreset } from './constants';
 import { 
   INITIAL_TRACKS, DEFAULT_BPM, SONG_PRESETS, 
@@ -131,6 +132,13 @@ const App: React.FC = () => {
   const [genHarmony, setGenHarmony] = useState<string>(HARMONY_PRESETS[0].name);
   const [genVoiceLeading, setGenVoiceLeading] = useState<string>(VOICE_LEADING_PRESETS[0].name);
   const [genAnalysis, setGenAnalysis] = useState<ScoreBreakdown | null>(null);
+  /**
+   * A built-in song's tape moves, while that song is the one loaded. Anything
+   * that replaces the tracks with something else clears it, so the tape of
+   * one song never plays over another.
+   */
+  const [songAutomation, setSongAutomation] = useState<readonly TapeAutomation[] | null>(null);
+  const [loadedSong, setLoadedSong] = useState<string>('');
 
   const [tracks, setTracks] = useState<Track[]>(() => {
       return INITIAL_TRACKS.map(t => {
@@ -159,6 +167,7 @@ const App: React.FC = () => {
   const fxRef = useRef(globalFX);
   const bpmRef = useRef(bpm);
   const totalStepsRef = useRef(totalSteps);
+  const automationRef = useRef<readonly TapeAutomation[] | null>(null);
   const nextNoteTime = useRef(0);
   const currentStepRef = useRef(0);
   const timerID = useRef<number | null>(null);
@@ -188,6 +197,7 @@ const App: React.FC = () => {
   }, [bpm]);
   useEffect(() => { bpmRef.current = bpm; }, [bpm]);
   useEffect(() => { totalStepsRef.current = totalSteps; }, [totalSteps]);
+  useEffect(() => { automationRef.current = songAutomation; }, [songAutomation]);
   useEffect(() => { audioEngine.setMasterVolume(masterVolume); }, [masterVolume]);
 
   const scheduleNote = useCallback((stepNumber: number, time: number) => {
@@ -198,6 +208,7 @@ const App: React.FC = () => {
       stepNumber,
       time,
       secondsPerStepAt(bpmRef.current),
+      automationRef.current,
     );
   }, []);
 
@@ -216,6 +227,9 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isPlaying) {
       audioEngine.resume();
+      // Whatever a song did to the tape last time round is undone first; the
+      // song's own first event then sets it again as the transport reaches it.
+      audioEngine.resetTapeAutomation();
       nextNoteTime.current = audioEngine.ctx.currentTime;
       currentStepRef.current = 0;
       setCurrentStep(0);
@@ -285,6 +299,37 @@ const App: React.FC = () => {
     }));
   };
 
+  /**
+   * Load a song that ships with the app: its notes, its tempo and form, the
+   * sound it was voiced for, and its tape moves. The generator is pointed at
+   * the song's key, mode and progression too, so pressing Ritual afterwards
+   * writes something in the same world rather than resetting to C minor.
+   */
+  const handleLoadSong = (name: string) => {
+    const song = builtInSongByName(name);
+    if (!song) return;
+    const preset = SONG_PRESETS.find((p) => p.name === song.soundPreset);
+    if (preset) applySongPreset(preset);
+    setTracks(song.build());
+    setTotalSteps(song.totalSteps);
+    setBpm(song.bpm);
+    setGenArrangement(song.arrangement);
+    setSongPlan(null);
+    setHookLocked(false);
+    setGenAnalysis(null);
+    setSongAutomation(song.automation);
+    setLoadedSong(song.name);
+    setCurrentTheme(song.name);
+    setGenMode('ionian');
+    setGenKey('D#');
+    setGenHarmony('Royal Road');
+    setExportStatus(`Loaded ${song.name} — ${song.bpm} BPM`);
+    if (isPlaying) {
+      setIsPlaying(false);
+      setTimeout(() => setIsPlaying(true), 50);
+    }
+  };
+
   const handleGenerateRitual = () => {
     // Length follows the chosen form template.
     const GEN_STEPS = arrangementByName(genArrangement).steps;
@@ -307,6 +352,8 @@ const App: React.FC = () => {
       plan: hookLocked && songPlan ? songPlan : undefined,
     });
     setTracks(result.tracks.map(t => ({ ...t, isMuted: false, isSoloed: false })));
+    setSongAutomation(null);
+    setLoadedSong('');
     setSongPlan(result.plan);
     setTotalSteps(GEN_STEPS);
     // The generator picks tempo now (earworm.md §2.1C biases BPM upward within
@@ -422,6 +469,8 @@ const App: React.FC = () => {
     }));
     // The notes came back; the decisions behind them did not.
     setSongPlan(null);
+    setSongAutomation(null);
+    setLoadedSong('');
     setHookLocked(false);
     setExportStatus(`Loaded ${file.name} — ${song.bpm} BPM`);
   };
@@ -430,6 +479,8 @@ const App: React.FC = () => {
     setAiError(null);
     setIsComposing(true);
     if (isPlaying) setIsPlaying(false);
+    setSongAutomation(null);
+    setLoadedSong('');
 
     try {
       const songData: AISongResult = await composeAISong();
@@ -633,6 +684,7 @@ const App: React.FC = () => {
         bpm,
         totalSteps,
         masterVolume,
+        automation: songAutomation,
         onProgress: (f) => setExportStatus(`Rendering ${Math.round(f * 100)}%`),
       });
       downloadBlob(encodeWav(channels, sampleRate), `neon-catafalque-${stamp()}.wav`);
@@ -951,6 +1003,22 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          {/* BUILT-IN SONGS — written, not generated */}
+          <div className="shrink-0 space-y-0.5 rounded border border-neon-cyan/30 bg-neon-cyan/5 p-1.5">
+            <label className="text-[8px] uppercase tracking-widest text-neon-cyan/70">Song</label>
+            <select
+              value={loadedSong}
+              onChange={(e) => handleLoadSong(e.target.value)}
+              title={builtInSongByName(loadedSong)?.note ?? 'Songs written by hand for this app'}
+              className={selectClass}
+            >
+              <option value="">— load a song —</option>
+              {BUILT_IN_SONGS.map((song) => (
+                <option key={song.name} value={song.name} title={song.note}>{song.name}</option>
+              ))}
+            </select>
+          </div>
+
           {/* SONG PRESETS — a whole instrument set, not one patch */}
           <div className="shrink-0 space-y-0.5 rounded border border-zinc-800 bg-zinc-900/20 p-1.5">
             <label className="text-[8px] uppercase tracking-widest text-zinc-500">Song Preset</label>
@@ -1209,6 +1277,10 @@ const App: React.FC = () => {
                         <Knob label="Vib D" value={currentParams.vibratoDepth} min={0} max={100} onChange={(v) => updateTrackParam('vibratoDepth', v)} />
                         <Knob label="Vib R" value={currentParams.vibratoRate} min={0} max={20} onChange={(v) => updateTrackParam('vibratoRate', v)} />
                         <Knob label="Glide" value={currentParams.glide} min={0} max={500} onChange={(v) => updateTrackParam('glide', v)} />
+                        <Knob label="Vib Dly" value={currentParams.vibratoDelay ?? 0} min={0} max={3} onChange={(v) => updateTrackParam('vibratoDelay', v)} />
+                        {(selectedTrackId === 'pad' || selectedTrackId === 'pluck') && (
+                          <Knob label="Voices" value={currentParams.polyphony ?? 4} min={1} max={8} step={1} onChange={(v) => updateTrackParam('polyphony', v)} />
+                        )}
                      </div>
                   </div>
                 </section>
@@ -1275,6 +1347,15 @@ const App: React.FC = () => {
                   <Knob label="Fl Fb" value={globalFX.flangerFeedback ?? 0.5} min={0} max={0.9} onChange={(v) => updateGlobalFX('flangerFeedback', v)} color="text-neon-pink" size="sm" />
                   <Knob label="Duck" value={globalFX.sidechain ?? 0.3} min={0} max={0.9} onChange={(v) => updateGlobalFX('sidechain', v)} color="text-neon-cyan" size="sm" />
                   <Knob label="Dk Rel" value={globalFX.sidechainRelease ?? 0.16} min={0.03} max={0.6} step={0.01} onChange={(v) => updateGlobalFX('sidechainRelease', v)} color="text-neon-cyan" size="sm" />
+                </div>
+
+                <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Tape</h2>
+                <div className="grid grid-cols-4 justify-items-center gap-x-0.5 gap-y-1">
+                  <Knob label="Wow ¢" value={globalFX.tapeWow ?? 0} min={0} max={40} step={0.5} onChange={(v) => updateGlobalFX('tapeWow', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Wow Rt" value={globalFX.tapeWowRate ?? 0.5} min={0.05} max={4} step={0.01} onChange={(v) => updateGlobalFX('tapeWowRate', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Flut ¢" value={globalFX.tapeFlutter ?? 0} min={0} max={12} step={0.1} onChange={(v) => updateGlobalFX('tapeFlutter', v)} color="text-neon-pink" size="sm" />
+                  <Knob label="Hiss" value={globalFX.tapeHiss ?? 0} min={0} max={1} onChange={(v) => updateGlobalFX('tapeHiss', v)} color="text-white" size="sm" />
+                  <Knob label="Tone" value={globalFX.tapeTone || 20000} min={2000} max={20000} step={100} onChange={(v) => updateGlobalFX('tapeTone', v)} color="text-white" size="sm" />
                 </div>
 
                 <h2 className="font-mono text-[9px] uppercase tracking-widest text-zinc-400 pt-1">Mastering</h2>

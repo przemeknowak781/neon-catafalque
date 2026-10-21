@@ -321,6 +321,27 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.75, delaySend: 0.34,
       flangerSend: 0.75,
     },
+    // Anemoia. An original patch, not a reconstruction: one saw and one pulse,
+    // a few cents apart and dead centre, so it sings rather than cuts. A
+    // unison stack was tried first and measured as the problem — the engine
+    // pans a stack across the field, and the lead alone came out at a stereo
+    // correlation of 0.16, too wide to hold the middle of the mix or survive
+    // a phone speaker. Notes start straight and the vibrato blooms a third of
+    // a second in — the Juno-106's LFO delay — so only the held notes waver,
+    // the way a voice does. A short glide joins the steps of the hook without
+    // smearing it; 30 ms is about a ninth of its shortest note at 112 BPM.
+    'Afterimage': {
+      ...DEFAULT_LEAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 7,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0.08, noiseLevel: 0.012,
+      cutoff: 1700, resonance: 3, filterEnvAmount: 0.34,
+      attack: 0.016, decay: 0.5, sustain: 0.72, release: 0.4,
+      filterAttack: 0.02, filterDecay: 0.45, filterSustain: 0.38, filterRelease: 0.4,
+      glide: 30, vibratoRate: 5.2, vibratoDepth: 13, vibratoDelay: 0.32, lfoToFilter: 0.02,
+      chorusMix: 0.32, drive: 0.16, pan: 0.03,
+      reverbSend: 0.42, delaySend: 0.3, phaserSend: 0,
+    },
   },
 
   bass: {
@@ -375,6 +396,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       attack: 0.01, decay: 0.22, sustain: 0.75, release: 0.18,
       vibratoRate: 3.1, vibratoDepth: 4, lfoToFilter: 0.1,
       chorusMix: 0.35, drive: 0.25, pan: 0, reverbSend: 0.06, delaySend: 0,
+    },
+    // Anemoia. Original. The octave bass of night-drive synth pop: a short
+    // filter blip on every eighth, so the line plucks rather than drones.
+    // The sub is low because the song's roots already sit in the first
+    // octave, where a sub-octave lands under the 28 Hz subsonic filter and
+    // spends headroom on nothing.
+    'Tail Lights': {
+      ...DEFAULT_BASS_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 4,
+      unison: 2, unisonDetune: 6,
+      subLevel: 0.2, noiseLevel: 0.008,
+      cutoff: 360, resonance: 4.5, filterEnvAmount: 0.17,
+      attack: 0.004, decay: 0.2, sustain: 0.68, release: 0.11,
+      filterAttack: 0.004, filterDecay: 0.16, filterSustain: 0.14, filterRelease: 0.12,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0,
+      chorusMix: 0.1, drive: 0.3, pan: 0, reverbSend: 0, delaySend: 0,
     },
   },
 
@@ -442,6 +479,25 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.85, delaySend: 0.3,
       flangerSend: 0.7,
     },
+    // Anemoia. Original. A warm stack with the filter breathing at a third of
+    // a hertz, and eight voices rather than four: the song voice-leads
+    // four-note chords and holds common tones across the barline, which at
+    // four voices would cut every change dead. The Juno-106 has six; eight
+    // leaves room for a release to overlap the next chord's attack.
+    'Faded Slide': {
+      ...DEFAULT_PAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'triangle', detune: 9,
+      unison: 3, unisonDetune: 12,
+      subLevel: 0.04, noiseLevel: 0.02,
+      cutoff: 1150, resonance: 1.1, filterEnvAmount: 0.08,
+      attack: 0.55, decay: 1.2, sustain: 0.88, release: 1.5,
+      filterAttack: 1.1, filterDecay: 1.4, filterSustain: 0.8, filterRelease: 1.3,
+      vibratoRate: 0.33, vibratoDepth: 5, lfoToFilter: 0.12,
+      chorusMix: 0.6, drive: 0.06, pan: -0.06,
+      reverbSend: 0.62, delaySend: 0.08,
+      flangerSend: 0, phaserSend: 0.25,
+      polyphony: 8,
+    },
   },
 
   pluck: {
@@ -485,6 +541,27 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       attack: 0.001, decay: 0.1, sustain: 0, release: 0.14,
       chorusMix: 0.25, drive: 0.45, pan: -0.3,
       reverbSend: 0.35, delaySend: 0.5,
+    },
+    // Anemoia. Original, and a physical model in the loosest sense. A music
+    // box tine is a bar clamped at one end, and such a cantilever's second
+    // mode sits at about 6.27 times its first (Euler-Bernoulli beam theory;
+    // see Fletcher & Rossing, The Physics of Musical Instruments, ch. 2). So
+    // the second oscillator is a sine 3177 cents up — 6.27x — and the filter
+    // envelope closes over it within a tenth of a second, which is how a
+    // tine's upper mode dies before its fundamental. Inharmonic, briefly, at
+    // the strike: that is the "tink".
+    'Music Box Mobile': {
+      ...DEFAULT_PLUCK_PARAMS,
+      osc1Wave: 'sine', osc2Wave: 'sine', detune: 3177,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0, noiseLevel: 0.004,
+      cutoff: 2600, resonance: 1.5, filterEnvAmount: 0.45,
+      attack: 0.001, decay: 0.7, sustain: 0, release: 1.4,
+      filterAttack: 0.001, filterDecay: 0.12, filterSustain: 0.02, filterRelease: 0.2,
+      vibratoRate: 0, vibratoDepth: 0,
+      chorusMix: 0.22, drive: 0.04, pan: -0.32,
+      reverbSend: 0.6, delaySend: 0.42,
+      polyphony: 6,
     },
   },
 };
@@ -544,6 +621,20 @@ export const SONG_PRESETS: readonly SongPreset[] = [
     note: 'Genre convention: a wide chorused lead over a driven bass, the loudest and most forward of these.',
     lead: 'Blade Chorus', bass: 'Ghost Train', pad: 'Solina Veil', pluck: 'Cold Arp',
     fx: { reverbMix: 0.44, delayTime: 0.33, delayFeedback: 0.38, width: 1.45, airShelf: 3, lowShelf: -1.5, glue: 0.42, masterDrive: 0.26 },
+  },
+  {
+    name: 'Anemoia',
+    note: 'Original patches, not reconstructions, written for the built-in song of the same name and played back through a worn tape: a few cents of wow where a good deck has under one, hiss, and a lowpass where the top of the tape used to be.',
+    lead: 'Afterimage', bass: 'Tail Lights', pad: 'Faded Slide', pluck: 'Music Box Mobile',
+    fx: {
+      reverbMix: 0.55, reverbSize: 3.4, reverbDamp: 0.45, reverbPreDelay: 0.04,
+      delayTime: 0.4, delayDivision: 0.75, delayFeedback: 0.42, delayMix: 0.85,
+      delayDamp: 2200, delayPingPong: true,
+      chorusMix: 0.9, phaserMix: 0.35, phaserRate: 0.16, phaserDepth: 0.4,
+      flangerMix: 0, sidechain: 0.32, sidechainRelease: 0.2,
+      width: 1.15, lowShelf: -1, airShelf: 1, glue: 0.42, masterDrive: 0.24,
+      tapeWow: 5, tapeWowRate: 0.5, tapeFlutter: 1.5, tapeHiss: 0.35, tapeTone: 12000,
+    },
   },
 ];
 

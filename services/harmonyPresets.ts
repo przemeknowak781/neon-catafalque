@@ -66,6 +66,12 @@ export const HARMONY_PRESETS: readonly HarmonyPreset[] = [
     note: '§2 (second listing). Closes on the tonic, which suits a section that has to end rather than loop.',
     loop: [0, 6, 3, 0],
   },
+  {
+    name: 'Royal Road',
+    figures: 'IV – V – iii – vi',
+    note: 'Ōdō shinkō, the royal road of Japanese pop (Ramage 2023, Music Theory Spectrum 45(2)): a major-key loop that never touches the tonic. Written as major-key degrees, so in a minor mode the same degrees fall on iv – v – ♭III – ♭VI.',
+    loop: [3, 4, 2, 5],
+  },
 ];
 
 export interface VoiceLeadingPreset {
