@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · six song forms · eight progressions · twenty-four synth patches · one written song<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 62 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 64 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   62 checks, 1944 generated songs
+...                                   64 checks, 1944 generated songs
 ```
 
 ---
@@ -85,10 +85,13 @@ The rest are built from the same vocabulary. Where a preset name refers to a
 genre rather than a machine, it describes a convention and says so — nothing
 here claims to be a band's actual patch without a source. Four — Afterimage,
 Tail Lights, Faded Slide and Music Box Mobile — are original, written for the
-song below, and say that too. The music box is the closest thing here to a
-physical model: a tine is a bar clamped at one end, whose second mode sits at
-about 6.27 times its first, so the patch is two sines that far apart with a
-filter envelope that kills the upper one within a tenth of a second.
+song below, and say that too. Afterimage is a square and a triangle an octave
+apart with no vibrato and no glide: the two share no partials, so the engine's
+per-note drift cannot make them beat, and its held notes stay still. The music
+box began as a physical model — a tine is a bar clamped at one end, whose
+second mode sits at about 6.27 times its first — and now puts its upper sine
+two octaves up instead, because in the song it doubles a melody over held
+chords. Its comment says which is physics and which is a choice.
 
 These are reconstructions from documented character, not samples and not A/B'd
 against the originals.
@@ -143,12 +146,8 @@ range, one twist and its mode. Presets propose; the specification disposes.
 
 ## A song that ships with it
 
-**Anemoia** is written by hand rather than generated, and gets no exemption:
-its hook and the answer to it are scored by the same function as every
-generated candidate, against the same targets, and the song around them is
-checked for what a generated song is checked for — thirteen checks in
-`verify:earworm`. Load it from **Song** in the left panel; the generator is
-pointed at its key and progression at the same time.
+**Anemoia** is written by hand rather than generated. Load it from **Song** in
+the left panel; the generator is pointed at its key at the same time.
 
 The brief was nostalgia for something the listener never lived through —
 *anemoia*, John Koenig's 2012 coinage, a word rather than a measurable state.
@@ -156,21 +155,40 @@ The parts of it research can speak to, and what the song does with each:
 
 | finding | in the song |
 |---|---|
-| Nostalgia is bittersweet: songs evoking mixed emotions were rated more nostalgic (Barrett et al., *Emotion* 10(3), 2010) | a driving 112 BPM under harmony that keeps turning minor |
-| Conflicting tempo and mode cues evoke mixed happy-sad feelings (Hunter, Schellenberg & Schimmack, *Cognition and Emotion* 22(2), 2008) | the borrowed minor iv under a held melody note, every chorus |
+| Nostalgia is bittersweet: songs evoking mixed emotions were rated more nostalgic (Barrett et al., *Emotion* 10(3), 2010) | a driving 112 BPM under a chorus that turns minor before it comes home |
+| Conflicting tempo and mode cues evoke mixed happy-sad feelings (Hunter, Schellenberg & Schimmack, *Cognition and Emotion* 22(2), 2008) | the borrowed minor iv, then the tonic, closing every chorus |
 | Young listeners' memory and emotion also peak for their parents' music, from before they were born (Krumhansl & Zupnick, *Psychological Science* 24(10), 2013) | an eighties vocabulary: chorused pads, gated snare, octave bass, a last-chorus key change |
 | Expectations of a style are separate from memory of a piece — schematic and veridical (Bharucha; Huron, *Sweet Anticipation*, 2006) | everything is familiar except the melody |
 | Hauntology hears the medium itself as the sign of a lost past (Fisher, *Dancecult* 5(2), 2013) | a tape clearest in the choruses, dissolving at both ends |
 
-The chorus is IVmaj7 – V7sus4 – iii7 – vi7, the royal-road progression of
-Japanese pop (Ramage, *Music Theory Spectrum* 45(2), 2023), which never touches
-the tonic. Its answer reaches the tonic for one bar and turns it minor in the
-next, under a melody note that does not move. The peak is an appoggiatura on
-the iii chord — the device Sloboda (*Psychology of Music* 19, 1991) found
-associated with tears. The sign-on plays the whole hook at half speed on a
-music box, through the most worn tape in the song, so the chorus arrives
-already half-known; the bridge sets the hook's opening on borrowed chords at
-half speed; the sign-off plays it once more and stops a note short.
+The chorus is one motif — fifth, third, fifth, then up to the root and held,
+in a three-three-two rhythm — set on each chord in turn. Over IV, V and vi the
+held notes climb a step at a time; bars five and six repeat one and two
+exactly; bar seven is the same motif on the borrowed minor iv; bar eight
+closes 3-2-1 on the tonic. Every held note is a chord tone, and the pad's top
+voice harmonises each one a sixth below. The sign-on plays the chorus's
+rising half at half speed on a music box, through the most worn tape in the
+song, so the chorus arrives already half-known; the bridge sets the motif at
+half speed on the flat side and pivots on the old tonic into F; the sign-off
+plays it twice more and stops a note short of home both times.
+
+This is the song's second version, and the first one failed usefully. It was
+written to earworm.md's melodic targets — 70-90% stepwise motion, exactly one
+uncommon turning point per four bars — met every one of them, and was heard
+as busy and scalar, with a lead that wailed. The new chorus is 7% and 21%
+stepwise in its two halves, and all six or seven of its turning points per
+four bars count as uncommon by the spec's own measure, so those two targets
+are not applied to it. `verify:earworm` checks it for what it is made
+of instead — one motif in six of eight bars, the exact repeat, chord tones,
+the sixths under the held notes, the minor plagal close, a lead that never
+sinks under the pad — and for the spec's range, length and rhythm bands per
+four bars, which it still meets: fifteen checks. The finding earworm.md quotes
+for its turning-point rule — "less common average gradients between melodic
+turning points" — is from Jakubowski et al. (*Psychology of Aesthetics,
+Creativity, and the Arts* 11(2), 2017), who found it, together with more
+common global contours, in earworm tunes against matched tunes and a pop
+corpus. That is a statistic of a whole tune; the spec turned it into a count
+per four bars.
 
 ## Holding a hook
 
@@ -207,7 +225,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 49 conformance checks
+npm run verify:earworm   # the 64 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

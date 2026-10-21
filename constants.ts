@@ -321,26 +321,28 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.75, delaySend: 0.34,
       flangerSend: 0.75,
     },
-    // Anemoia. An original patch, not a reconstruction: one saw and one pulse,
-    // a few cents apart and dead centre, so it sings rather than cuts. A
-    // unison stack was tried first and measured as the problem — the engine
-    // pans a stack across the field, and the lead alone came out at a stereo
-    // correlation of 0.16, too wide to hold the middle of the mix or survive
-    // a phone speaker. Notes start straight and the vibrato blooms a third of
-    // a second in — the Juno-106's LFO delay — so only the held notes waver,
-    // the way a voice does. A short glide joins the steps of the hook without
-    // smearing it; 30 ms is about a ninth of its shortest note at 112 BPM.
+    // Anemoia. An original patch, not a reconstruction, and the second one by
+    // that name: the first, a saw and a pulse seven cents apart with a
+    // delayed vibrato and a glide, was heard as wailing. Everything that
+    // moved the pitch of a held note is gone. No vibrato, no glide, and the
+    // two oscillators share no partials: a square has only odd harmonics and
+    // a triangle an octave up only twice-odd ones, so the engine's per-note
+    // drift cannot make them beat. Two waves at the same pitch would — a few
+    // cents apart, a square and a triangle beat at a few hertz with a depth
+    // of about half the level, which is a tremolo whether it was meant or
+    // not. The amplitude decays through a held note instead of standing on
+    // it, and the filter opens only at the strike: round, short, struck.
     'Afterimage': {
       ...DEFAULT_LEAD_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 7,
+      osc1Wave: 'square', osc2Wave: 'triangle', detune: 1200,
       unison: 1, unisonDetune: 0,
-      subLevel: 0.08, noiseLevel: 0.012,
-      cutoff: 1700, resonance: 3, filterEnvAmount: 0.34,
-      attack: 0.016, decay: 0.5, sustain: 0.72, release: 0.4,
-      filterAttack: 0.02, filterDecay: 0.45, filterSustain: 0.38, filterRelease: 0.4,
-      glide: 30, vibratoRate: 5.2, vibratoDepth: 13, vibratoDelay: 0.32, lfoToFilter: 0.02,
-      chorusMix: 0.32, drive: 0.16, pan: 0.03,
-      reverbSend: 0.42, delaySend: 0.3, phaserSend: 0,
+      subLevel: 0, noiseLevel: 0.006,
+      cutoff: 1800, resonance: 1.2, filterEnvAmount: 0.28,
+      attack: 0.006, decay: 1.1, sustain: 0.42, release: 0.28,
+      filterAttack: 0.004, filterDecay: 0.3, filterSustain: 0.18, filterRelease: 0.25,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
+      chorusMix: 0.1, drive: 0.1, pan: 0,
+      reverbSend: 0.3, delaySend: 0.22, phaserSend: 0,
     },
   },
 
@@ -483,16 +485,18 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
     // a hertz, and eight voices rather than four: the song voice-leads
     // four-note chords and holds common tones across the barline, which at
     // four voices would cut every change dead. The Juno-106 has six; eight
-    // leaves room for a release to overlap the next chord's attack.
+    // leaves room for a release to overlap the next chord's attack. The LFO
+    // moves the filter only: the pad's top voice harmonises the melody a
+    // sixth below, and a sixth that drifts in pitch is a sixth out of tune.
     'Faded Slide': {
       ...DEFAULT_PAD_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'triangle', detune: 9,
       unison: 3, unisonDetune: 12,
       subLevel: 0.04, noiseLevel: 0.02,
-      cutoff: 1150, resonance: 1.1, filterEnvAmount: 0.08,
+      cutoff: 1250, resonance: 1.1, filterEnvAmount: 0.08,
       attack: 0.55, decay: 1.2, sustain: 0.88, release: 1.5,
       filterAttack: 1.1, filterDecay: 1.4, filterSustain: 0.8, filterRelease: 1.3,
-      vibratoRate: 0.33, vibratoDepth: 5, lfoToFilter: 0.12,
+      vibratoRate: 0.33, vibratoDepth: 0, lfoToFilter: 0.12,
       chorusMix: 0.6, drive: 0.06, pan: -0.06,
       reverbSend: 0.62, delaySend: 0.08,
       flangerSend: 0, phaserSend: 0.25,
@@ -542,17 +546,19 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       chorusMix: 0.25, drive: 0.45, pan: -0.3,
       reverbSend: 0.35, delaySend: 0.5,
     },
-    // Anemoia. Original, and a physical model in the loosest sense. A music
-    // box tine is a bar clamped at one end, and such a cantilever's second
-    // mode sits at about 6.27 times its first (Euler-Bernoulli beam theory;
-    // see Fletcher & Rossing, The Physics of Musical Instruments, ch. 2). So
-    // the second oscillator is a sine 3177 cents up — 6.27x — and the filter
-    // envelope closes over it within a tenth of a second, which is how a
-    // tine's upper mode dies before its fundamental. Inharmonic, briefly, at
-    // the strike: that is the "tink".
+    // Anemoia. Original. A music box tine is a bar clamped at one end, and a
+    // uniform cantilever's second mode sits at about 6.27 times its first
+    // (Euler-Bernoulli beam theory; Fletcher & Rossing, The Physics of Musical
+    // Instruments, ch. 2). The first version of this patch put its second sine
+    // there, 3177 cents up. It now sits two octaves up, at 4x, and that is a
+    // choice, not physics: in the song the music box doubles the chorus
+    // melody over held chords, and a partial on every note that belongs to
+    // no chord tone is the opposite of what the harmony needed. The filter
+    // envelope still closes over it within a tenth of a second, so the upper
+    // partial is only the brightness of the strike.
     'Music Box Mobile': {
       ...DEFAULT_PLUCK_PARAMS,
-      osc1Wave: 'sine', osc2Wave: 'sine', detune: 3177,
+      osc1Wave: 'sine', osc2Wave: 'sine', detune: 2400,
       unison: 1, unisonDetune: 0,
       subLevel: 0, noiseLevel: 0.004,
       cutoff: 2600, resonance: 1.5, filterEnvAmount: 0.45,
@@ -633,7 +639,7 @@ export const SONG_PRESETS: readonly SongPreset[] = [
       chorusMix: 0.9, phaserMix: 0.35, phaserRate: 0.16, phaserDepth: 0.4,
       flangerMix: 0, sidechain: 0.32, sidechainRelease: 0.2,
       width: 1.15, lowShelf: -1, airShelf: 1, glue: 0.42, masterDrive: 0.24,
-      tapeWow: 5, tapeWowRate: 0.5, tapeFlutter: 1.5, tapeHiss: 0.35, tapeTone: 12000,
+      tapeWow: 3, tapeWowRate: 0.5, tapeFlutter: 1, tapeHiss: 0.3, tapeTone: 13000,
     },
   },
 ];

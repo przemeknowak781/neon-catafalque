@@ -302,8 +302,10 @@ const App: React.FC = () => {
   /**
    * Load a song that ships with the app: its notes, its tempo and form, the
    * sound it was voiced for, and its tape moves. The generator is pointed at
-   * the song's key, mode and progression too, so pressing Ritual afterwards
-   * writes something in the same world rather than resetting to C minor.
+   * the song's key and mode too, and at the Royal Road, the preset nearest
+   * its chorus (IV - V - iii - vi against the song's IV - V - vi), so pressing
+   * Ritual afterwards writes something in the same world rather than
+   * resetting to C minor.
    */
   const handleLoadSong = (name: string) => {
     const song = builtInSongByName(name);
