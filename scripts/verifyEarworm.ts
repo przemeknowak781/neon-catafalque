@@ -898,6 +898,16 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     const buried = leadNotes.filter((n) => noteToMidi(n.note) < padTop(n.startStep)).length;
     record('built-in song: the lead is never under the pad', 'texture', 1.0, buried === 0, buried);
 
+    // The lead is a harmonised line: in the choruses nearly every melody note
+    // is struck as a chord of at least three voices.
+    const onsets = new Map<number, number>();
+    for (const n of leadNotes) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
+    const chorusOnsets = [...onsets.entries()].filter(([s]) =>
+      [sections.chorus1, sections.chorus2, sections.chorus3].some((c) => inBars(s, c)));
+    const full = chorusOnsets.filter(([, k]) => k >= 3).length;
+    record('built-in song: the chorus melody is struck in three-voice chords', 'harmony', 1.0,
+      chorusOnsets.length > 0 && full / chorusOnsets.length >= 0.9, Math.round((100 * full) / Math.max(1, chorusOnsets.length)));
+
     // Every chorus leaves through the chromatic mediant (flat-VI major), turns
     // it minor — the tonic's hexatonic pole — and comes home with every pad
     // voice moving by one semitone (Cohn 2004).

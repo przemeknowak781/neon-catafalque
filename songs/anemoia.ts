@@ -320,8 +320,8 @@ function augmented(target: Builder, startStep: number, bars: readonly Bar[], vel
   });
 }
 
-function buildLead(): NoteEvent[] {
-  const lead = builder('lead');
+function buildMelody(): NoteEvent[] {
+  const lead = builder('melody');
   phrase(lead, 8, VERSE_LINE, 0.72);              // VERSE 1
   phrase(lead, 16, HOOK, 0.92);                   // CHORUS 1
   phrase(lead, 28, VERSE_LINE, 0.74);             // VERSE 2
@@ -331,6 +331,45 @@ function buildLead(): NoteEvent[] {
   }
   phrase(lead, 52, HOOK, 0.96, 2);                // CHORUS 3, in F
   phrase(lead, 60, TAG, 0.88, 2);                 // tag
+  return lead.notes;
+}
+
+/**
+ * The lead plays the melody as block chords: under every melody note, the
+ * nearest two tones of the chord written for that moment — its colours
+ * included, so a held major seventh gets the ninth and the fifth beneath it —
+ * each at least a minor third below the voice above, never below the pad's
+ * top voice, and never a semitone from anything the pad is sounding. Where the
+ * pad leaves no room, as under the low verse, the melody takes fewer voices.
+ * The melody stays the top voice and the loudest; the voices under it are
+ * quieter, so the tune reads through the chord.
+ */
+function buildLead(bars: Chord[][], pad: NoteEvent[]): NoteEvent[] {
+  const lead = builder('lead');
+  const chordAt = (step: number) => {
+    const chords = bars[Math.floor(step / STEPS_PER_BAR)];
+    return [...chords].reverse().find((c) => c.at <= step % STEPS_PER_BAR) ?? chords[0];
+  };
+  for (const n of buildMelody()) {
+    const top = midiOf(n.note);
+    lead.add(n.startStep, top, n.duration, n.velocity);
+    const c = chordAt(n.startStep);
+    const tones = new Set([...c.tones.map(pcOf), ((midiOf(c.root) % 12) + 12) % 12]);
+    const padNow = pad
+      .filter((p) => p.startStep < n.startStep + n.duration && p.startStep + p.duration > n.startStep)
+      .map((p) => midiOf(p.note));
+    const floor = Math.max(-1, ...padNow);
+    let above = top;
+    let voices = 0;
+    for (let m = top - 3; m >= floor && voices < 2; m--) {
+      if (m > above - 3) continue;
+      if (!tones.has(((m % 12) + 12) % 12)) continue;
+      if (padNow.some((p) => Math.abs(p - m) === 1)) continue;
+      lead.add(n.startStep, m, n.duration, n.velocity * 0.6);
+      above = m;
+      voices++;
+    }
+  }
   return lead.notes;
 }
 
@@ -579,8 +618,9 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 /** Every track of the song, in the order the app lists them. */
 export function buildAnemoiaTracks(): Track[] {
   const bars = harmony();
+  const pad = buildPad(bars);
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
-    lead: buildLead(), pluck: buildPluck(), pad: buildPad(bars), bass: buildBass(bars),
+    lead: buildLead(bars, pad), pluck: buildPluck(), pad, bass: buildBass(bars),
   };
   const drums = buildDrums();
   const order: TrackType[] = ['lead', 'pluck', 'pad', 'bass', 'fx', 'hihat', 'snare', 'kick'];

@@ -892,7 +892,9 @@ export class AudioEngine {
 
   private allocateVoice(type: string, time: number, voice: ActiveVoice, polyphony?: number) {
     const alive = (this.voices.get(type) ?? []).filter((v) => v.endsAt > time);
-    const limit = MONOPHONIC.has(type)
+    // A lead or bass is one voice unless its patch asks for more: a lead
+    // written as block chords is still the lead.
+    const limit = MONOPHONIC.has(type) && polyphony === undefined
       ? 1
       : Math.max(1, Math.min(MAX_PATCH_POLYPHONY, Math.round(polyphony ?? MAX_POLYPHONY)));
     while (alive.length >= limit) {

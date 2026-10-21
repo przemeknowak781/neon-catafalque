@@ -63,7 +63,8 @@ export interface InstrumentParams {
   drift?: number;
   /**
    * Voices this patch may sound at once, 1-8. Absent means the engine's
-   * default of four. Ignored by the monophonic parts (lead, bass). A pad that
+   * default of four; for the lead and bass, absent means one voice, and a
+   * patch that sets it plays them polyphonically. A pad that
    * voice-leads four-note chords needs room for the previous chord's release
    * to overlap the next chord's attack; at four voices every change is a cut.
    */

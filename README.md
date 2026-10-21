@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · six song forms · eight progressions · twenty-four synth patches · one written song<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 66 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 67 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   66 checks, 1944 generated songs
+...                                   67 checks, 1944 generated songs
 ```
 
 ---
@@ -85,10 +85,13 @@ The rest are built from the same vocabulary. Where a preset name refers to a
 genre rather than a machine, it describes a convention and says so — nothing
 here claims to be a band's actual patch without a source. Four — Afterimage,
 Tail Lights, Faded Slide and Music Box Mobile — are original, written for the
-song below, and say that too. Afterimage is a saw and a square locked at one
-pitch with the engine's per-note drift turned off (a new, optional `drift`
-parameter), so the two fuse into one wave that cannot beat against itself,
-through a resonant filter and drive, with no vibrato and no glide. The music
+song below, and say that too. Afterimage is a blurred pluck, a saw and a
+triangle that strike and decay to almost nothing, with a long release sent
+into the chorus, the delay and the plate, and eight voices: the song plays its
+melody as three-voice block chords. Leads and basses stay monophonic unless a
+patch sets its own voice count. An optional per-patch `drift` parameter sets
+how far each oscillator wanders over a note (4.5 cents, as before, when
+absent). The music
 box began as a physical model — a tine is a bar clamped at one end, whose
 second mode sits at about 6.27 times its first — and now puts its upper sine
 two octaves up instead, because in the song it doubles a melody over held
@@ -163,7 +166,10 @@ The parts of it research can speak to, and what the song does with each:
 | Hexatonic-pole progressions carried the uncanny in nineteenth-century music (Cohn, *JAMS* 57(2), 2004), and major-third progressions are associated with it in pop, though not in every instance (Forrest, *Music Theory Online* 23(4), 2017) | the chorus comes home from B minor, the tonic's pole, every voice moving a semitone; the bridge walks B – G – E♭ |
 | Hauntology hears the medium itself as the sign of a lost past (Fisher, *Dancecult* 5(2), 2013) | a tape clearest in the choruses, dissolving at both ends |
 
-The chorus has one rhythmic cell — two dotted eighths and a note held from
+The lead plays the melody as block chords: under every melody note, the two
+nearest tones of the chord written for that moment, extensions included, at
+least a minor third apart, never below the pad's top voice and never a
+semitone from any pad note. The chorus has one rhythmic cell — two dotted eighths and a note held from
 the "and" of beat two — and every held note is a chord colour or a chord's
 reason for being strange: the major seventh of A♭, the seventh of G7♭9, the
 ninth of C minor; then, after a C♭ major 9♯11 whose sharp eleventh the melody
@@ -188,7 +194,8 @@ of instead — one rhythmic cell, the repeat, held notes that are chord tones
 and mostly colours, the semitone return from the hexatonic pole, the verse
 pedal, the bridge in major thirds, a lead that never sinks under the pad — and
 for the spec's range, length, rhythm and contour bands per four bars, which it
-still meets: seventeen checks. The finding earworm.md quotes for its
+still meets, and that the lead plays its chorus as three-voice chords:
+eighteen checks. The finding earworm.md quotes for its
 turning-point rule — "less common average gradients between melodic turning
 points" — is from Jakubowski et al. (*Psychology of Aesthetics, Creativity,
 and the Arts* 11(2), 2017), who found it, together with more common global
@@ -230,7 +237,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 66 conformance checks
+npm run verify:earworm   # the 67 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```
