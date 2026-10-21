@@ -17,58 +17,56 @@ import { MIX_LEVELS } from "../constants";
  *    Hunter, Schellenberg & Schimmack (2008, Cognition and Emotion 22(2),
  *    327-352) produced mixed happy-sad feelings by putting tempo and mode cues
  *    in conflict. So: a driving 112 BPM under a verse in the relative minor,
- *    and a chorus whose own motif turns minor in its seventh bar before it
- *    comes home.
+ *    and a chorus that leaves its key and comes back strange.
  *
  * 2. Familiarity without a memory. Expectation research separates schematic
  *    expectations (knowledge of a style, absorbed passively) from veridical
  *    ones (knowledge of one particular piece) — Bharucha's distinction, as
- *    used by Huron (2006, Sweet Anticipation). Everything here is as
- *    schematically familiar as an eighties pop record can be — chorused pads,
- *    gated snare, octave bass, a final-chorus key change — while the melody is
- *    new. Krumhansl & Zupnick (2013, Psychological Science 24(10)) found
- *    young listeners' memory and emotion peaking for their parents' music,
- *    released before they were born: a measured version of missing an era one
- *    did not live through. Prototypical, fluent material is also simply liked
- *    more (Reber, Schwarz & Winkielman 2004, PSPR 8(4), 364-382).
+ *    used by Huron (2006, Sweet Anticipation). The sound is as schematically
+ *    familiar as an eighties record can be — chorused pads, gated snare,
+ *    octave bass, a last-chorus key change — and the first half of every
+ *    chorus is a progression the ear already knows: IVmaj7, III7, vi7,
+ *    v7 - I7, the loop of Grover Washington Jr. and Bill Withers's "Just the
+ *    Two of Us" (1980) in another key, here with ninths.
  *
- * 3. The audible medium. Mark Fisher's hauntology reads crackle and hiss as
- *    the medium making itself heard (Dancecult 5(2), 2013; Ghosts of My Life,
- *    2014). Here the tape is the narrator: worn through the sign-on, clearer
- *    in each chorus, most dissolved in the bridge, clearest in the last
- *    chorus, and going back to hiss at the end.
+ * 3. The familiar made strange. The second half of the chorus leaves through
+ *    a chromatic mediant (C-flat major, then C-flat turned minor as B minor)
+ *    and comes home from the tonic's hexatonic pole: B minor to E-flat major,
+ *    every voice moving by a semitone. Cohn (2004, JAMS 57(2), 285-324)
+ *    traced that pole relation to the uncanny in nineteenth-century music, in
+ *    darker contexts than this one; Forrest (2017, Music Theory Online 23(4))
+ *    found the related major-third progressions associated with the uncanny
+ *    in pop across generations, while noting that not every instance evokes
+ *    it. Freud's uncanny is the familiar made unfamiliar, which is the nearest
+ *    thing music theory has to the brief. The bridge walks the same relation
+ *    through major thirds — B, G, E-flat, the key centres of Coltrane's Giant
+ *    Steps.
  *
- * 4. A melody first heard as a memory. The sign-on plays the hook's rising
- *    half on a music box at half speed, through the most worn tape in the
- *    song, so the chorus arrives already half-known. The sign-off plays its
- *    motif twice more and stops short both times.
+ * 4. The audible medium. Mark Fisher's hauntology reads crackle and hiss as
+ *    the medium making itself heard (Dancecult 5(2), 2013). Here the tape is
+ *    the narrator: worn through the sign-on, clearer in each chorus, most
+ *    dissolved in the bridge, clearest in the last chorus, hiss at the end.
  *
- * The melody, second version. The first was written to earworm.md's
- * melodic targets — 70-90% stepwise motion, exactly one uncommon turning
- * point per four bars — and passed them, and was heard as busy and scalar:
- * a line that walked the scale instead of standing on the chords.
- * This one is built the other way round. One motif — fifth, third, fifth,
- * then up to the root and held — set on each chord in turn, so the motif
- * rises by step as the harmony does (IV, V, vi), repeats exactly, turns
- * minor on the borrowed iv, and closes 3-2-1 on the tonic. Every note of the
- * motif is a chord tone, and every held note of the chorus is harmonised a
- * sixth below by the pad's top voice. It sits outside the generator's
- * stepwise band on purpose; scripts/verifyEarworm checks what it does
- * instead.
+ * 5. A melody first heard as a memory. The sign-on plays the chorus's first
+ *    three bars on a music box at half speed, through the most worn tape in
+ *    the song, so the chorus arrives already half-known. The sign-off plays
+ *    the strange half once more and stops a note short of home.
  *
- * Harmony is plain triads with a seventh where the harmonising voice makes
- * one: verse i - i - bVI - bVII; chorus IV - V - vi - vi, IV - V - iv - I.
- * The minor-plagal close (iv - I) puts the minor colour on the last chord
- * before home.
+ * This is the third version. The first met earworm.md's melodic targets and
+ * was heard as busy and scalar; the second stood on plain triads with a
+ * fifth-third-fifth-root motif and was heard as naive. This one keeps the
+ * second's discipline — one rhythmic cell, a held note in every bar, nothing
+ * left to chance in the harmony — and puts the held notes on the colours of
+ * the chords: major sevenths, ninths, the sharp eleventh, the third of a chord
+ * that should not be there.
  *
  * Form, 72 bars at 112 BPM, about two and a half minutes:
  *   SIGN-ON 8 · VERSE 1 8 · CHORUS 1 8 · AFTERGLOW 4 · VERSE 2 8 · CHORUS 2 8
  *   · BRIDGE 8 · CHORUS 3 12 (up a whole tone) · SIGN-OFF 8
  *
- * Key: E-flat major, the verse in its relative minor; the last chorus and the
- * sign-off in F. The bridge ends on D-flat and E-flat, which are the flat-VI
- * and flat-VII of F: the old tonic is the pivot, and the new key arrives on
- * its IV, the chorus's first chord, a whole tone up.
+ * Key: E-flat major; the verse on a C pedal; the last chorus and the sign-off
+ * in F, reached through D-flat and E-flat, so every pad voice rises by a
+ * semitone or holds into the new key's first chord.
  */
 
 export const ANEMOIA_BPM = 112;
@@ -92,6 +90,9 @@ export function midiOf(name: string): number {
   return (parseInt(match[3], 10) + 1) * 12 + LETTER[match[1]] + accidental;
 }
 
+/** Pitch class of a spelled name without octave: 'Cb' is 11. */
+const pcOf = (name: string) => ((midiOf(`${name}4`) % 12) + 12) % 12;
+
 /** The engine's spelling: sharps only. */
 const engineName = (midi: number): string =>
   `${SHARP_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
@@ -103,164 +104,169 @@ type Cell = readonly [step: number, pitch: string, length: number];
 type Bar = readonly Cell[];
 
 /**
- * The motif: fifth, third, fifth, then up to the root and held. Three-three-
- * two and a long note — "da-da-da-daaa" — the same rhythm every time it
- * appears, so the ear has one shape to keep.
- */
-const motif = (fifth: string, third: string, root: string): Bar => [
-  [0, fifth, 3], [3, third, 3], [6, fifth, 2], [8, root, 8],
-];
-
-/**
- * The chorus, eight bars over IV - V - vi - vi, IV - V - iv - I in E-flat.
- * The motif climbs a step with each chord, so the held notes rise A-flat,
- * B-flat, C; bar 4 falls back down the C minor seventh; bars 5 and 6 repeat
- * 1 and 2 exactly; bar 7 is the motif with its third lowered — the same
- * shape on A-flat minor, C-flat for C — and bar 8 closes 3-2-1.
+ * The chorus. One rhythmic cell — two dotted eighths and a note held from the
+ * "and" of beat two, so the long note always lands off the beat — in six of
+ * its eight bars, and in every one of those the held note is a colour:
+ *
+ *   1 A-flat maj9    B-flat C, held G        the major seventh
+ *   2 G7(b9)         A-flat B, held F        the seventh, the cell a step down
+ *   3 C minor 9      E-flat G, held D        the ninth, the cell turned upward
+ *   4 B-flat m9, E-flat 9                    a descent onto E-flat's third
+ *   5 A-flat maj9    bar 1 again
+ *   6 C-flat maj9#11 B-flat D-flat, held F   the sharp eleventh
+ *   7 B minor        F-sharp B, held D       the third of the hexatonic pole
+ *   8 E-flat         E-flat held, at the top of the chorus
+ *
+ * Bar 7's D rises a semitone to bar 8's E-flat while every voice of the pad
+ * moves a semitone too: the tonic, reached from the chord furthest from it.
  */
 export const HOOK: readonly Bar[] = [
-  motif('Eb5', 'C5', 'Ab5'),
-  motif('F5', 'D5', 'Bb5'),
-  motif('G5', 'Eb5', 'C6'),
-  [[0, 'Bb5', 3], [3, 'G5', 3], [6, 'Eb5', 2], [8, 'G5', 8]],
-  motif('Eb5', 'C5', 'Ab5'),
-  motif('F5', 'D5', 'Bb5'),
-  motif('Eb5', 'Cb5', 'Ab5'),
-  [[0, 'G5', 3], [3, 'F5', 3], [6, 'Eb5', 10]],
+  [[0, 'Bb5', 3], [3, 'C6', 3], [6, 'G5', 10]],
+  [[0, 'Ab5', 3], [3, 'B5', 3], [6, 'F5', 10]],
+  [[0, 'Eb5', 3], [3, 'G5', 3], [6, 'D6', 10]],
+  [[0, 'Db6', 3], [3, 'C6', 3], [6, 'Ab5', 2], [8, 'G5', 6], [14, 'Ab5', 2]],
+  [[0, 'Bb5', 3], [3, 'C6', 3], [6, 'G5', 10]],
+  [[0, 'Bb5', 3], [3, 'Db6', 3], [6, 'F5', 10]],
+  [[0, 'F#5', 3], [3, 'B5', 3], [6, 'D6', 10]],
+  [[0, 'Eb6', 6], [6, 'Bb5', 4], [10, 'G5', 6]],
 ];
 
-/** The last chorus ends on a tag: the motif's first two bars, then its minor turn and the close. */
-const TAG: readonly Bar[] = [HOOK[0], HOOK[1], HOOK[6], HOOK[7]];
+/** The last chorus ends on a tag: its strange half once more. */
+const TAG: readonly Bar[] = HOOK.slice(4);
 
 /**
- * The verse: lower and slower, three notes a bar — a long note, a passing
- * note, a long note — over i - i - bVI - bVII in C minor. Bar 2 answers bar
- * 1 with 3-2-1; bar 3 is bar 2 a third lower on A-flat.
+ * The verse: lower, entering after the beat each bar, over a C pedal. A cell
+ * of two sixteenth pairs and a held note, set on each chord: C minor 9, then
+ * D-flat over C — the Phrygian second, the darkest colour in the song — then
+ * A-flat over C and B-flat over C; and on the way out, F minor and a G that
+ * hangs on its suspension before it turns dominant, and then does not resolve
+ * where a dominant should: the chorus starts on A-flat.
  */
 const VERSE_LINE: readonly Bar[] = [
-  [[0, 'G4', 6], [6, 'Bb4', 2], [8, 'C5', 8]],
-  [[0, 'Eb5', 6], [6, 'D5', 2], [8, 'C5', 8]],
-  [[0, 'C5', 6], [6, 'Bb4', 2], [8, 'Ab4', 8]],
-  [[0, 'Bb4', 6], [6, 'C5', 2], [8, 'D5', 8]],
-  [[0, 'G4', 6], [6, 'Bb4', 2], [8, 'C5', 8]],
-  [[0, 'Eb5', 6], [6, 'D5', 2], [8, 'C5', 8]],
-  [[0, 'C5', 6], [6, 'Bb4', 2], [8, 'Ab4', 8]],
-  [[0, 'F5', 6], [6, 'Eb5', 2], [8, 'D5', 6], [14, 'Bb4', 2]],
+  [[2, 'G4', 2], [4, 'Bb4', 2], [6, 'D5', 6], [12, 'C5', 4]],
+  [[2, 'Ab4', 2], [4, 'C5', 2], [6, 'F5', 6], [12, 'Eb5', 4]],
+  [[2, 'G4', 2], [4, 'C5', 2], [6, 'Eb5', 10]],
+  [[2, 'F4', 2], [4, 'Bb4', 2], [6, 'D5', 8], [14, 'C5', 2]],
+  [[2, 'G4', 2], [4, 'Bb4', 2], [6, 'D5', 6], [12, 'C5', 4]],
+  [[2, 'Ab4', 2], [4, 'C5', 2], [6, 'F5', 6], [12, 'Eb5', 4]],
+  [[2, 'Ab4', 2], [4, 'C5', 2], [6, 'G5', 6], [12, 'F5', 4]],
+  [[0, 'D5', 4], [4, 'C5', 4], [8, 'B4', 4], [12, 'D5', 2], [14, 'F5', 2]],
 ];
 
 /**
- * The bridge: the motif at half speed on the borrowed chords. It outlines
- * C-flat major and holds its root into A-flat minor, where the same note is
- * the third; again on E-flat, an octave down, into C minor; again on C-flat;
- * and last on D-flat, which is the flat-VI of the key the last chorus is in,
- * where for once the held note stays on its own chord.
+ * The bridge: long notes that hold while the chord moves a major third under
+ * them, so the same note changes meaning — B as the root of B major, then the
+ * third of G; E-flat as the tonic, then D-sharp, the third of B. It ends on
+ * D-flat and E-flat, the flat-VI and flat-VII of F.
  */
 const BRIDGE_LINE: readonly Cell[] = [
-  [0, 'Gb5', 6], [6, 'Eb5', 6], [12, 'Gb5', 4], [16, 'Cb6', 16],
-  [32, 'Bb4', 6], [38, 'G4', 6], [44, 'Bb4', 4], [48, 'Eb5', 16],
-  [64, 'Gb5', 6], [70, 'Eb5', 6], [76, 'Gb5', 4], [80, 'Cb6', 16],
-  [96, 'Ab5', 6], [102, 'F5', 6], [108, 'Ab5', 4], [112, 'Db6', 8],
+  [4, 'F#5', 4], [8, 'A#5', 8],
+  [16, 'B5', 12], [28, 'A5', 4],
+  [32, 'G5', 16],
+  [48, 'Bb5', 6], [54, 'D6', 10],
+  [64, 'D#6', 12], [76, 'C#6', 4],
+  [80, 'B5', 8], [88, 'C#6', 8],
+  [96, 'C6', 8], [104, 'Ab5', 8],
+  [112, 'Db6', 8], [120, 'Bb5', 8],
 ];
 
 // --- harmony --------------------------------------------------------------
 
 /**
- * A chord for the pad: its root (for the bass), the voicing, and where in the
- * bar it starts. Common tones are held across a change rather than struck
- * again (see buildPad).
+ * A chord: its symbol, its root (for the bass), every tone the symbol names
+ * (the pad voices four of them; the melody carries the rest), the voicing,
+ * and where in the bar it starts. Common tones are held across a change
+ * rather than struck again (see buildPad).
  */
-interface Chord { at: number; root: string; pad: readonly string[] }
-const chord = (root: string, pad: readonly string[], at = 0): Chord => ({ root, pad, at });
+interface Chord { at: number; name: string; root: string; tones: readonly string[]; pad: readonly string[] }
+const chord = (name: string, root: string, tones: readonly string[], pad: readonly string[], at = 0): Chord =>
+  ({ name, root, tones, pad, at });
 
-// Sign-on and verse: low triads, topped at E-flat 4, so the melody has the
-// octave above to itself.
-const lowAb = ['Eb3', 'Ab3', 'C4', 'Eb4'];
-const lowBb = ['D3', 'F3', 'Bb3', 'D4'];
-const lowCm = ['C3', 'G3', 'C4', 'Eb4'];
-// Chorus: the top voice sits a sixth under the melody's held note in that
-// bar — C under A-flat, D under B-flat, E-flat under C, B-flat under G — so
-// the long notes are harmonised in parallel sixths, the imperfect consonance
-// counterpoint lets move in parallel, and the C minor of bar 4 picks up its
-// seventh from it.
-const chAb = ['Ab3', 'Eb4', 'Ab4', 'C5'];
-const chBb = ['Bb3', 'F4', 'Bb4', 'D5'];
-const chCm = ['C4', 'G4', 'C5', 'Eb5'];
-const chCm7 = ['C4', 'Eb4', 'G4', 'Bb4'];
-const chAbm = ['Ab3', 'Eb4', 'Ab4', 'Cb5'];
-const chEb = ['Eb3', 'Bb3', 'Eb4', 'G4'];
-// Bridge: the flat side, plain triads. When the melody drops an octave in
-// bars 3 and 4, the pad drops with it, so the tune stays on top.
-const brCb = ['Gb3', 'Cb4', 'Eb4', 'Gb4'];
-const brAbm = ['Ab3', 'Cb4', 'Eb4', 'Ab4'];
-const brEbOverBb = ['Bb2', 'G3', 'Bb3', 'Eb4'];
-const brCm = ['C3', 'G3', 'C4', 'Eb4'];
-const brDb = ['Ab3', 'Db4', 'F4', 'Ab4'];
-const brEb = ['G3', 'Eb4', 'G4', 'Bb4'];
-// Sign-off in F: IV, iv, I — only the third of the IV chord moves.
-const fBb = ['F3', 'Bb3', 'D4', 'F4'];
-const fBbm = ['F3', 'Bb3', 'Db4', 'F4'];
-const fF = ['F3', 'A3', 'C4', 'F4'];
-const fFadd9 = ['F3', 'A3', 'C4', 'G4'];
+// Chorus. The pad is voiced in four close parts below the melody, and moves
+// as little as it can: from A-flat to G7 every voice falls a step, from C
+// minor to B-flat minor again, and from C-flat to B minor to E-flat only by
+// semitones.
+const cAbmaj9 = chord('Abmaj9', 'Ab1', ['Ab', 'C', 'Eb', 'G', 'Bb'], ['C4', 'Eb4', 'G4', 'Bb4']);
+const cG7b9 = chord('G7b9', 'G1', ['G', 'B', 'D', 'F', 'Ab'], ['B3', 'D4', 'F4', 'Ab4']);
+const cCm9 = chord('Cm9', 'C2', ['C', 'Eb', 'G', 'Bb', 'D'], ['Bb3', 'D4', 'Eb4', 'G4']);
+const cBbm9 = chord('Bbm9', 'Bb1', ['Bb', 'Db', 'F', 'Ab', 'C'], ['Ab3', 'C4', 'Db4', 'F4']);
+const cEb9 = (at: number) => chord('Eb9', 'Eb2', ['Eb', 'G', 'Bb', 'Db', 'F'], ['G3', 'Bb3', 'Db4', 'F4'], at);
+const cAbmaj9b = chord('Abmaj9', 'Ab1', ['Ab', 'C', 'Eb', 'G', 'Bb'], ['Bb3', 'C4', 'Eb4', 'G4']);
+const cCbmaj9s11 = chord('Cbmaj9#11', 'Cb2', ['Cb', 'Eb', 'Gb', 'Bb', 'Db', 'F'], ['Bb3', 'Db4', 'Eb4', 'Gb4']);
+const cBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B3', 'D4', 'F#4', 'B4']);
+const cEb = chord('Eb', 'Eb2', ['Eb', 'G', 'Bb'], ['Bb3', 'Eb4', 'G4', 'Bb4']);
 
-const up = (pitches: readonly string[], semitones: number) =>
-  pitches.map((p) => engineName(midiOf(p) + semitones));
+// Verse: a C pedal under four upper chords, low enough to leave the melody
+// the octave above.
+const vCm9 = chord('Cm9', 'C2', ['C', 'Eb', 'G', 'Bb', 'D'], ['C3', 'G3', 'Bb3', 'D4']);
+const vDbOverC = chord('Dbmaj7/C', 'C2', ['C', 'Db', 'F', 'Ab', 'Eb'], ['Db3', 'F3', 'Ab3', 'C4']);
+const vAbOverC = chord('Abmaj7/C', 'C2', ['C', 'Eb', 'G', 'Ab'], ['Eb3', 'G3', 'Ab3', 'C4']);
+const vBbOverC = chord('Bb/C', 'C2', ['C', 'D', 'F', 'Bb'], ['D3', 'F3', 'Bb3', 'D4']);
+const vFm9 = chord('Fm9', 'F1', ['F', 'Ab', 'C', 'Eb', 'G'], ['F3', 'Ab3', 'C4', 'Eb4']);
+const vGsus = chord('Gsus4', 'G1', ['G', 'C', 'D', 'F'], ['F3', 'C4', 'D4', 'G4']);
+const vG7b13 = chord('G7b13', 'G1', ['G', 'B', 'D', 'F', 'Eb'], ['F3', 'B3', 'Eb4', 'G4'], 8);
+
+// Bridge: major thirds down, B - G - E-flat, each move a pair of semitones in
+// contrary motion with the other voices held.
+const bBmaj9 = chord('Bmaj9', 'B1', ['B', 'D#', 'F#', 'A#', 'C#'], ['B3', 'D#4', 'F#4', 'C#5']);
+const bGmaj9s11 = chord('Gmaj9#11', 'G1', ['G', 'B', 'D', 'F#', 'A', 'C#'], ['B3', 'D4', 'F#4', 'C#5']);
+const bEbmaj9 = chord('Ebmaj9', 'Eb2', ['Eb', 'G', 'Bb', 'D', 'F'], ['Bb3', 'D4', 'F4', 'G4']);
+const bDbmaj9s11 = chord('Dbmaj7#11', 'Db2', ['Db', 'F', 'Ab', 'C', 'Eb', 'G'], ['C4', 'F4', 'G4', 'Db5']);
+const bEb13sus = chord('Eb13sus4', 'Eb2', ['Eb', 'Ab', 'Bb', 'Db', 'F', 'C'], ['Db4', 'F4', 'Ab4', 'C5']);
+
+// Sign-off in F.
+const fFadd9 = chord('Fadd9', 'F1', ['F', 'A', 'C', 'G'], ['F3', 'A3', 'C4', 'G4']);
+
+const NAMES_SHARP = SHARP_NAMES;
+/** A chord a number of semitones up: root, voicing and tones, respelled with sharps. */
+const lift = (c: Chord, semitones: number): Chord => ({
+  ...c,
+  name: `${c.name}+${semitones}`,
+  root: engineName(midiOf(c.root) + semitones),
+  tones: c.tones.map((t) => NAMES_SHARP[(pcOf(t) + semitones) % 12]),
+  pad: c.pad.map((p) => engineName(midiOf(p) + semitones)),
+});
 
 /** Harmony for every bar of the song: one or two chords each. */
 function harmony(): Chord[][] {
   const bars: Chord[][] = [];
   const push = (...chords: Chord[]) => bars.push(chords);
+  const chorusHalfA = () => {
+    push(cAbmaj9); push(cG7b9); push(cCm9); push(cBbm9, cEb9(8));
+  };
+  const chorusHalfB = (shift = 0) => {
+    for (const c of [cAbmaj9b, cCbmaj9s11, cBm, cEb]) push(lift(c, shift));
+  };
 
-  // SIGN-ON — IV, V, vi: the chords the hook will climb.
-  push(chord('Ab1', lowAb)); push(chord('Ab1', lowAb));
-  push(chord('Bb1', lowBb)); push(chord('Bb1', lowBb));
-  push(chord('C2', lowCm)); push(chord('C2', lowCm));
-  push(chord('Ab1', lowAb)); push(chord('Bb1', lowBb));
+  // SIGN-ON — the chorus's first half at half speed.
+  push(cAbmaj9); push(cAbmaj9); push(cG7b9); push(cG7b9);
+  push(cCm9); push(cCm9); push(cBbm9); push(cEb9(0));
 
   const verse = () => {
-    push(chord('C2', lowCm)); push(chord('C2', lowCm));
-    push(chord('Ab1', lowAb)); push(chord('Bb1', lowBb));
-    push(chord('C2', lowCm)); push(chord('C2', lowCm));
-    push(chord('Ab1', lowAb)); push(chord('Bb1', lowBb));
-  };
-  const chorus = () => {
-    push(chord('Ab1', chAb)); push(chord('Bb1', chBb));
-    push(chord('C2', chCm)); push(chord('C2', chCm7));
-    push(chord('Ab1', chAb)); push(chord('Bb1', chBb));
-    push(chord('Ab1', chAbm)); push(chord('Eb1', chEb));
+    push(vCm9); push(vDbOverC); push(vAbOverC); push(vBbOverC);
+    push(vCm9); push(vDbOverC); push(vFm9); push(vGsus, vG7b13);
   };
 
-  verse();   // VERSE 1
-  chorus();  // CHORUS 1
-  // AFTERGLOW — the chorus's answering half, carried by the music box.
-  push(chord('Ab1', chAb)); push(chord('Bb1', chBb));
-  push(chord('Ab1', chAbm)); push(chord('Eb1', chEb));
-  verse();   // VERSE 2
-  chorus();  // CHORUS 2
+  verse();                      // VERSE 1
+  chorusHalfA(); chorusHalfB(); // CHORUS 1
+  chorusHalfB();                // AFTERGLOW — the strange half, on the music box
+  verse();                      // VERSE 2
+  chorusHalfA(); chorusHalfB(); // CHORUS 2
 
-  // BRIDGE — flat-VI, iv, I6/4, vi; flat-VI, iv; then D-flat for a bar and
-  // a half and E-flat for the last two beats. E-flat is the old tonic and
-  // the flat-VII of F, so it is the pivot; every pad voice rises out of it
-  // into the first chord of the last chorus.
-  push(chord('Cb2', brCb)); push(chord('Ab1', brAbm));
-  push(chord('Bb1', brEbOverBb)); push(chord('C2', brCm));
-  push(chord('Cb2', brCb)); push(chord('Ab1', brAbm));
-  push(chord('Db2', brDb)); push(chord('Db2', brDb), chord('Eb2', brEb, 8));
+  // BRIDGE
+  push(bBmaj9); push(bGmaj9s11); push(bEbmaj9); push(bEbmaj9);
+  push(bBmaj9); push(bGmaj9s11); push(bDbmaj9s11); push(bEb13sus);
 
-  // CHORUS 3 — the same chorus a whole tone up, and a four-bar tag.
-  const lift = (root: string, pad: readonly string[]) =>
-    chord(engineName(midiOf(root) + 2), up(pad, 2));
-  push(lift('Ab1', chAb)); push(lift('Bb1', chBb));
-  push(lift('C2', chCm)); push(lift('C2', chCm7));
-  push(lift('Ab1', chAb)); push(lift('Bb1', chBb));
-  push(lift('Ab1', chAbm)); push(lift('Eb1', chEb));
-  push(lift('Ab1', chAb)); push(lift('Bb1', chBb));
-  push(lift('Ab1', chAbm)); push(lift('Eb1', chEb));
+  // CHORUS 3 — the same chorus a whole tone up, and the tag.
+  push(lift(cAbmaj9, 2)); push(lift(cG7b9, 2)); push(lift(cCm9, 2));
+  push(lift(cBbm9, 2), lift(cEb9(8), 2));
+  chorusHalfB(2);
+  chorusHalfB(2);
 
-  // SIGN-OFF in F — IV, iv, I, twice, the last tonic with its ninth.
-  push(chord('Bb1', fBb)); push(chord('Bb1', fBbm));
-  push(chord('F1', fF)); push(chord('F1', fF));
-  push(chord('Bb1', fBb)); push(chord('Bb1', fBbm));
-  push(chord('F1', fFadd9)); push(chord('F1', fFadd9));
+  // SIGN-OFF in F — the strange half, then B-flat, D-flat and home by the
+  // major-third step, the last chord with its ninth.
+  chorusHalfB(2);
+  push(lift(cAbmaj9b, 2)); push(lift(cCbmaj9s11, 2)); push(fFadd9); push(fFadd9);
 
   if (bars.length !== BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${BARS}`);
   return bars;
@@ -337,38 +343,46 @@ function buildLead(): NoteEvent[] {
 function buildPluck(): NoteEvent[] {
   const box = builder('pluck');
 
-  // SIGN-ON: the hook's rising half at half speed, in the register the lead
-  // will later play it in, then the two held notes it climbs towards.
-  augmented(box, bar(0), HOOK.slice(0, 3), 0.56);
-  box.add(bar(6), 'Ab5', 1, 0.4);
-  box.add(bar(7), 'Bb5', 1, 0.42);
+  // SIGN-ON: the chorus's first three bars at half speed, each answered in
+  // its second bar by one note of its chord; then B-flat minor and E-flat.
+  augmented(box, bar(0), [HOOK[0]], 0.56);
+  box.add(bar(1) + 8, 'Eb6', 1, 0.4);
+  augmented(box, bar(2), [HOOK[1]], 0.54);
+  box.add(bar(3) + 8, 'D6', 1, 0.4);
+  augmented(box, bar(4), [HOOK[2]], 0.54);
+  box.add(bar(5) + 8, 'Bb5', 1, 0.4);
+  box.add(bar(6), 'Db6', 1, 0.42); box.add(bar(6) + 8, 'C6', 1, 0.38);
+  box.add(bar(7), 'G5', 1, 0.42); box.add(bar(7) + 8, 'F5', 1, 0.38);
 
-  // AFTERGLOW: the chorus's answering half, motif, repeat, minor turn, home.
+  // AFTERGLOW: the chorus's strange half, alone.
   phrase(box, 24, HOOK.slice(4), 0.46, 0, true);
 
   // VERSE 2: a mobile, one chord tone per beat, an octave above everything.
-  const mobile: Record<string, string[]> = {
-    Cm: ['C6', 'Eb6', 'G6', 'Eb6'],
-    Ab: ['C6', 'Eb6', 'Ab6', 'Eb6'],
-    Bb: ['D6', 'F6', 'Bb6', 'F6'],
-  };
-  ['Cm', 'Cm', 'Ab', 'Bb', 'Cm', 'Cm', 'Ab', 'Bb'].forEach((name, b) =>
-    mobile[name].forEach((pitch, beat) =>
+  const mobile: string[][] = [
+    ['C6', 'G6', 'D6', 'Eb6'],
+    ['C6', 'Ab6', 'F6', 'Db6'],
+    ['C6', 'G6', 'Eb6', 'Ab6'],
+    ['D6', 'F6', 'Bb6', 'C6'],
+    ['C6', 'G6', 'D6', 'Eb6'],
+    ['C6', 'Ab6', 'F6', 'Db6'],
+    ['C6', 'Ab6', 'G6', 'Eb6'],
+    ['D6', 'G6', 'B5', 'F6'],
+  ];
+  mobile.forEach((pitches, b) =>
+    pitches.forEach((pitch, beat) =>
       box.add(bar(28 + b) + beat * 4, pitch, 1, beat === 0 ? 0.36 : 0.3)));
 
-  // CHORUS 3: the music box sings along with the second half and the tag.
+  // CHORUS 3: the music box sings along with the strange half and the tag.
   phrase(box, 56, HOOK.slice(4), 0.34, 14, true);
   phrase(box, 60, TAG, 0.32, 14, true);
 
-  // SIGN-OFF in F: the motif on IV, whole; on iv, without its last note; a
-  // tonic; the motif again without its last note; and finally "3, 2" over
-  // the tonic's ninth — the close the chorus made every time, left one note
-  // short. The listener supplies it.
+  // SIGN-OFF in F: the strange half once more, then its first two bars again,
+  // the second without its held note, and "3, 2" over the last chord — the
+  // descent the chorus never finishes, left for the listener.
+  phrase(box, 64, HOOK.slice(4), 0.42, 2, true);
   for (const [b, step, pitch, v] of [
-    [64, 0, 'F5', 0.42], [64, 3, 'D5', 0.38], [64, 6, 'F5', 0.38], [64, 8, 'Bb5', 0.42],
-    [65, 0, 'F5', 0.38], [65, 3, 'Db5', 0.36], [65, 6, 'F5', 0.36],
-    [66, 0, 'A5', 0.34],
-    [68, 0, 'F5', 0.34], [68, 3, 'D5', 0.32], [68, 6, 'F5', 0.32],
+    [68, 0, 'C6', 0.36], [68, 3, 'D6', 0.34], [68, 6, 'A5', 0.36],
+    [69, 0, 'C6', 0.32], [69, 3, 'Eb6', 0.3],
     [70, 0, 'A5', 0.3], [70, 8, 'G5', 0.28],
   ] as const) box.add(bar(b) + step, pitch, 1, v);
 
@@ -426,7 +440,8 @@ function buildBass(bars: Chord[][]): NoteEvent[] {
   // SIGN-ON: the bass arrives at bar 5 and only holds.
   for (const b of [4, 6, 7]) bass.add(bar(b), root(b), b === 4 ? 32 : 16, 0.5);
 
-  // Verse: eighth-note pulse on the root, the downbeats leaned on.
+  // Verse: eighth-note pulse on the root, the downbeats leaned on. Over the
+  // pedal it is the one thing that does not move.
   const pulse = (b: number, velocity: number, pickup: boolean) => {
     for (let s = 0; s < 16; s += 2) {
       const lift = pickup && s === 14 ? 12 : 0;
@@ -533,8 +548,7 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
 /**
  * The tape, section by section. Units as GlobalFXParams: wow and flutter in
  * cents, hiss 0-1, tone as a lowpass in Hz. A decent cassette deck is under
- * one cent of wow; the sign-on is ten. Halved from the first version, whose
- * fourteen to twenty cents read as a wobble rather than as age.
+ * one cent of wow; the sign-on is ten.
  */
 export const ANEMOIA_TAPE: readonly TapeAutomation[] = [
   { step: bar(0), wow: 10, flutter: 2.5, hiss: 0.6, tone: 7000, glide: 0.05 },
@@ -583,8 +597,8 @@ export function buildAnemoiaTracks(): Track[] {
 
 /**
  * What scripts/verifyEarworm checks the song against: the chorus as written
- * (in E-flat; the last chorus is the same a tone up), the bars it occupies,
- * and the section boundaries the structure checks look at.
+ * (in E-flat; the last chorus is the same a tone up), where it is stated, and
+ * the section boundaries the structure checks look at.
  */
 export const ANEMOIA_HOOK = {
   tonic: 'Eb',
@@ -598,8 +612,11 @@ export const ANEMOIA_HOOK = {
   } as Record<string, [number, number]>,
 };
 
-/** Chord roots and pad voicings per bar, for the checks in verifyEarworm. */
-export function anemoiaHarmony(): { bar: number; at: number; root: number; pad: number[] }[] {
+/** Chords per bar, as MIDI and pitch classes, for the checks in verifyEarworm. */
+export function anemoiaHarmony(): { bar: number; at: number; name: string; root: number; tones: number[]; pad: number[] }[] {
   return harmony().flatMap((chords, b) =>
-    chords.map((c) => ({ bar: b, at: c.at, root: midiOf(c.root), pad: c.pad.map(midiOf) })));
+    chords.map((c) => ({
+      bar: b, at: c.at, name: c.name, root: midiOf(c.root),
+      tones: c.tones.map(pcOf), pad: c.pad.map(midiOf),
+    })));
 }

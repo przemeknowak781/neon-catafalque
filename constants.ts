@@ -321,28 +321,27 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.75, delaySend: 0.34,
       flangerSend: 0.75,
     },
-    // Anemoia. An original patch, not a reconstruction, and the second one by
-    // that name: the first, a saw and a pulse seven cents apart with a
-    // delayed vibrato and a glide, was heard as wailing. Everything that
-    // moved the pitch of a held note is gone. No vibrato, no glide, and the
-    // two oscillators share no partials: a square has only odd harmonics and
-    // a triangle an octave up only twice-odd ones, so the engine's per-note
-    // drift cannot make them beat. Two waves at the same pitch would — a few
-    // cents apart, a square and a triangle beat at a few hertz with a depth
-    // of about half the level, which is a tremolo whether it was meant or
-    // not. The amplitude decays through a held note instead of standing on
-    // it, and the filter opens only at the strike: round, short, struck.
+    // Anemoia. An original patch, not a reconstruction, and the third by this
+    // name. The first, a saw and a pulse seven cents apart with a delayed
+    // vibrato and a glide, was heard as wailing: near 1 kHz those seven cents
+    // beat at about 4 Hz, a tremolo under the vibrato. The second, a square
+    // and a triangle an octave apart, held still but sounded like an ocarina,
+    // which with a simple tune read as naive. This one is a mono synth lead in
+    // the Minimoog manner: a saw and a square locked at one pitch with the
+    // engine's drift turned off, so they fuse into one bright, hollow wave
+    // that cannot beat against itself; a resonant 24 dB filter that bites at
+    // the strike and settles; drive for grain. Still no vibrato and no glide.
     'Afterimage': {
       ...DEFAULT_LEAD_PARAMS,
-      osc1Wave: 'square', osc2Wave: 'triangle', detune: 1200,
+      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 0, drift: 0,
       unison: 1, unisonDetune: 0,
-      subLevel: 0, noiseLevel: 0.006,
-      cutoff: 1800, resonance: 1.2, filterEnvAmount: 0.28,
-      attack: 0.006, decay: 1.1, sustain: 0.42, release: 0.28,
-      filterAttack: 0.004, filterDecay: 0.3, filterSustain: 0.18, filterRelease: 0.25,
+      subLevel: 0.06, noiseLevel: 0.004,
+      cutoff: 1250, resonance: 4.5, filterEnvAmount: 0.36,
+      attack: 0.008, decay: 0.8, sustain: 0.66, release: 0.32,
+      filterAttack: 0.012, filterDecay: 0.42, filterSustain: 0.3, filterRelease: 0.3,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
-      chorusMix: 0.1, drive: 0.1, pan: 0,
-      reverbSend: 0.3, delaySend: 0.22, phaserSend: 0,
+      chorusMix: 0.08, drive: 0.3, pan: 0,
+      reverbSend: 0.3, delaySend: 0.24, phaserSend: 0,
     },
   },
 

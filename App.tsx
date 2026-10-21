@@ -302,8 +302,8 @@ const App: React.FC = () => {
   /**
    * Load a song that ships with the app: its notes, its tempo and form, the
    * sound it was voiced for, and its tape moves. The generator is pointed at
-   * the song's key and mode too, and at the Royal Road, the preset nearest
-   * its chorus (IV - V - iii - vi against the song's IV - V - vi), so pressing
+   * the song's key and mode too, and at the Royal Road, the preset that
+   * shares its chorus's opening on IVmaj7 and its avoidance of I, so pressing
    * Ritual afterwards writes something in the same world rather than
    * resetting to C minor.
    */

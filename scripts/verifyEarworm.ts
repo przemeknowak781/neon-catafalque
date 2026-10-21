@@ -739,16 +739,18 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
 // --- built-in songs ----------------------------------------------------------
 //
 // A song written by hand gets no exemption, but it is held to what it is built
-// from rather than to the generator's melodic targets. Anemoia's chorus is one
-// motif of chord tones set on each chord in turn, so it sits far outside
-// §3.3's stepwise band — about 7% and 21% stepwise motion in its two four-bar
-// halves, against 70-90% — and all six or seven of its turning points per four
-// bars count as uncommon, where §8B asks for exactly one. Its first version met both targets and was
-// heard as busy and scalar. So what is checked is the motif, its repetition,
-// chord tones and the sixths under the held notes; the spec's range, length
-// and rhythm bands per four bars, which it still meets; and the structural
-// checks a generated song gets: a withheld hook, a bridge without the kit,
-// harmony that agrees with itself.
+// from rather than to the generator's melodic targets. Anemoia's chorus puts
+// its held notes on chord colours and leaves its key through a chromatic
+// mediant, so it sits outside §3.3's stepwise band (about 54% and 27%
+// stepwise motion in its two four-bar halves, against 70-90%), its turning
+// points are mostly uncommon where §8B asks for exactly one, and its
+// information content runs above §2.2's band. Its first version met those
+// targets and was heard as busy and scalar; its second was heard as naive.
+// So what is checked is what the third is made of — one rhythmic cell, the
+// repeat, held notes that are chord tones and mostly colours, the mediant and
+// the hexatonic pole, a verse pedal and a bridge in major thirds — plus the
+// spec's range, length and rhythm bands per four bars, which it still meets,
+// and the structural checks a generated song gets.
 
 {
   const IONIAN = SCALE_INTERVALS.ionian;
@@ -762,35 +764,36 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     const inBar = harmonyMap.filter((h) => h.bar === Math.floor(step / 16));
     return [...inBar].reverse().find((h) => h.at <= step % 16) ?? inBar[0];
   };
+  const chordAtBar = (b: number) => chordAtStep(b * 16);
+  /** A tone of the chord as written: its symbol's tones, its voicing, its root. */
+  const isChordTone = (midi: number, step: number) => {
+    const c = chordAtStep(step);
+    return c.tones.includes(mod(midi, 12)) || [c.root, ...c.pad].some((m) => mod(m - midi, 12) === 0);
+  };
+  const isMinor = (c: { root: number; tones: number[] }) =>
+    c.tones.includes(mod(c.root + 3, 12)) && !c.tones.includes(mod(c.root + 4, 12));
+  const isMajor = (c: { root: number; tones: number[] }) => c.tones.includes(mod(c.root + 4, 12));
 
-  /** Position on the staff, accidentals ignored: generic intervals, as spelled. */
-  const staff = (name: string) =>
-    parseInt(name.slice(-1), 10) * 7 + 'CDEFGAB'.indexOf(name[0]);
-  const shape = (cells: Cells) => ({
-    onsets: cells.map(([step]) => step).join(','),
-    steps: cells.slice(1).map(([, p], i) => staff(p) - staff(cells[i][1])).join(','),
-  });
-  const motif = shape(chorus[0]);
-  const statements = chorus.filter((cells) => {
-    const s = shape(cells);
-    return s.onsets === motif.onsets && s.steps === motif.steps;
-  }).length;
-  record('built-in hook: one motif, stated in at least six of eight bars', 'motif', 1.0,
-    statements >= 6, statements);
+  const cell = (cells: Cells) => cells.map(([step]) => step).join(',');
+  const commonest = [...new Set(chorus.map(cell))]
+    .map((r) => ({ r, n: chorus.filter((cells) => cell(cells) === r).length }))
+    .sort((x, y) => y.n - x.n)[0];
+  record('built-in hook: one rhythmic cell in at least six of eight bars', 'motif', 1.0,
+    commonest.n >= 6, commonest.n);
 
-  const same = (x: Cells, y: Cells) => JSON.stringify(x) === JSON.stringify(y);
-  record('built-in hook: bars 5-6 repeat bars 1-2 exactly', 'motif', 1.0,
-    same(chorus[4], chorus[0]) && same(chorus[5], chorus[1]));
+  record('built-in hook: bar 5 repeats bar 1 exactly', 'motif', 1.0,
+    JSON.stringify(chorus[4]) === JSON.stringify(chorus[0]));
 
-  // The longest note of each of the first three bars: its chord's root, and
-  // one step above the last.
-  const held = chorus.slice(0, 3).map((cells, b) => {
-    const [step, pitch] = cells.reduce((x, y) => (y[2] > x[2] ? y : x));
-    return { pitch, root: chordAtStep((firstChorus + b) * 16 + step).root };
-  });
-  record('built-in hook: its held notes climb by step, each on its chord root', 'motif', 1.0,
-    held.every((h, i) => mod(midiOf(h.pitch) - h.root, 12) === 0 &&
-      (i === 0 || staff(h.pitch) - staff(held[i - 1].pitch) === 1)));
+  // Held notes: chord tones, and at least half of them the chord's colours —
+  // a seventh, ninth, eleventh or thirteenth rather than its root, third or
+  // fifth.
+  const held = chorus.flatMap((cells, b) => cells
+    .filter(([, , length]) => length >= 6)
+    .map(([step, pitch]) => ({ midi: midiOf(pitch), step: (firstChorus + b) * 16 + step })));
+  const colours = held.filter((h) =>
+    [1, 2, 5, 6, 9, 10, 11].includes(mod(h.midi - chordAtStep(h.step).root, 12))).length;
+  record('built-in hook: at least half its held notes are chord colours', 'harmony', 1.0,
+    held.every((h) => isChordTone(h.midi, h.step)) && colours * 2 >= held.length, colours);
 
   const toMotif = (bars: readonly Cells[]) => {
     const notes: { step: number; degree: number; alteration: number }[] = [];
@@ -818,13 +821,16 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
       d.range >= TARGETS.rangeMin && d.range <= TARGETS.rangeMax &&
       notes.length >= 12 && notes.length <= 22 &&
       d.rhythmSimilarity >= TARGETS.rhythmSimilarityMin, d.range);
+    record('built-in hook: each four bars has a common contour', '§2.1A', 1.0,
+      d.contourClass === 'arch' || d.contourClass === 'descent');
   }
 
-  const last = chorus[chorus.length - 1];
-  const closingDegrees = last.map(([, p]) => IONIAN.indexOf(mod(midiOf(p) - tonicPc, 12)));
-  const closingChord = chordAtStep((firstChorus + chorus.length - 1) * 16 + last[last.length - 1][0]);
-  record('built-in hook: closes 3-2-1 over the tonic', '§3.3', 1.0,
-    closingDegrees.slice(-3).join(',') === '2,1,0' && mod(closingChord.root - tonicPc, 12) === 0);
+  // The last bar starts on the tonic, over the tonic, at the top of the chorus.
+  const all = chorus.flat().map(([, p]) => midiOf(p));
+  const [, lastPitch] = chorus[chorus.length - 1][0];
+  record('built-in hook: lands on the tonic at its highest note', '§3.3', 1.0,
+    mod(midiOf(lastPitch) - tonicPc, 12) === 0 && midiOf(lastPitch) === Math.max(...all) &&
+    mod(chordAtBar(firstChorus + chorus.length - 1).root - tonicPc, 12) === 0);
 
   for (const song of BUILT_IN_SONGS) {
     const tracks = song.build();
@@ -868,12 +874,6 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     }
     record('built-in song: no minor 2nds between tracks', 'harmony', 1.0, seconds === 0, seconds);
 
-    // Chord tones judged against the chord actually written for that beat —
-    // sevenths and added tones included, since the song is voiced in them.
-    const isChordTone = (midi: number, step: number) => {
-      const c = chordAtStep(step);
-      return [c.root, ...c.pad].some((m) => mod(m - midi, 12) === 0);
-    };
     let strongBeats = 0, onChord = 0;
     for (let s = 0; s < steps; s += 8) {
       const lead = sounding[s].find((x) => x.track === 'lead');
@@ -889,34 +889,40 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     record('built-in song: every held lead note is a chord tone', 'harmony', 1.0,
       heldLead.length > 0 && heldOnChord === heldLead.length, heldLead.length - heldOnChord);
 
-    // The pad's top voice harmonises every held note of every chorus a sixth
-    // below: parallel sixths, which counterpoint allows where it forbids
-    // parallel fifths and octaves.
+    // The tune is the top voice: no lead note under the pad's highest.
     const padNotes = notesOf('pad');
     const padTop = (step: number) => Math.max(-1, ...padNotes
       .filter((p) => p.startStep <= step && p.startStep + p.duration > step)
       .map((p) => noteToMidi(p.note)));
-    const choruses = [sections.chorus1, sections.chorus2, sections.chorus3];
-    const chorusHeld = heldLead.filter((n) => choruses.some((c) => inBars(n.startStep, c)));
-    const inSixths = chorusHeld.filter((n) =>
-      [8, 9].includes(noteToMidi(n.note) - padTop(n.startStep))).length;
-    record('built-in song: every held chorus note is a sixth above the pad', 'harmony', 1.0,
-      chorusHeld.length > 0 && inSixths === chorusHeld.length, chorusHeld.length - inSixths);
-
-    // The tune is the top voice: no lead note under the pad's highest.
     const leadNotes = notesOf('lead');
     const buried = leadNotes.filter((n) => noteToMidi(n.note) < padTop(n.startStep)).length;
     record('built-in song: the lead is never under the pad', 'texture', 1.0, buried === 0, buried);
 
-    // Every chorus closes on the minor iv, then the tonic: the minor plagal.
-    const plagal = ANEMOIA_HOOK.chorusStarts.every(([start, shift]) => {
-      const iv = chordAtStep((start + 6) * 16);
-      const I = chordAtStep((start + 7) * 16);
-      return mod(iv.root - tonicPc - shift, 12) === 5 &&
-        iv.pad.some((m) => mod(m - iv.root, 12) === 3) &&
-        mod(I.root - tonicPc - shift, 12) === 0;
+    // Every chorus leaves through the chromatic mediant (flat-VI major), turns
+    // it minor — the tonic's hexatonic pole — and comes home with every pad
+    // voice moving by one semitone (Cohn 2004).
+    const strange = ANEMOIA_HOOK.chorusStarts.every(([start, shift]) => {
+      const mediant = chordAtBar(start + 5), pole = chordAtBar(start + 6), home = chordAtBar(start + 7);
+      const rel = (c: { root: number }) => mod(c.root - tonicPc - shift, 12);
+      const a = [...pole.pad].sort((x, y) => x - y), b = [...home.pad].sort((x, y) => x - y);
+      return rel(mediant) === 8 && isMajor(mediant) && rel(pole) === 8 && isMinor(pole) &&
+        rel(home) === 0 && isMajor(home) && a.every((m, i) => Math.abs(m - b[i]) === 1);
     });
-    record('built-in song: every chorus closes on the minor iv, then the tonic', 'harmony', 1.0, plagal);
+    record('built-in song: every chorus comes home from the hexatonic pole by semitones', 'harmony', 1.0, strange);
+
+    // The verse holds one bass note under four different chords.
+    const v = sections.verse1[0];
+    const verseRoots = new Set([0, 1, 2, 3].map((i) => mod(chordAtBar(v + i).root, 12)));
+    const verseChords = new Set([0, 1, 2, 3].map((i) => chordAtBar(v + i).name));
+    record('built-in song: the verse holds a pedal under four chords', 'harmony', 1.0,
+      verseRoots.size === 1 && verseChords.size === 4);
+
+    // The bridge moves by major thirds down, B - G - E-flat.
+    const br = sections.bridge[0];
+    const brRoots = [0, 1, 2].map((i) => chordAtBar(br + i).root);
+    record('built-in song: the bridge moves by major thirds', 'harmony', 1.0,
+      mod(brRoots[1] - brRoots[0], 12) === 8 && mod(brRoots[2] - brRoots[1], 12) === 8 &&
+      [0, 1, 2].every((i) => isMajor(chordAtBar(br + i))));
   }
 }
 

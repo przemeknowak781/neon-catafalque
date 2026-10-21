@@ -29,7 +29,7 @@ export interface BuiltInSong {
 export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
   {
     name: 'Anemoia',
-    note: 'Written by hand, in E-flat with a last chorus in F, 112 BPM. One motif of chord tones climbing IV, V, vi, turning minor on the borrowed iv and closing 3-2-1, harmonised a sixth below by the pad; a bridge that sets it on the flat side at half speed; and a tape that is clearest in the choruses and dissolves at the end.',
+    note: 'Written by hand, in E-flat with a last chorus in F, 112 BPM. A chorus that opens on IVmaj9 - III7b9 - vi9 - v9 I9 and comes home from the hexatonic pole, B minor, every voice moving a semitone; a verse on a C pedal; a bridge in major thirds; and a tape that is clearest in the choruses and dissolves at the end.',
     bpm: ANEMOIA_BPM,
     totalSteps: ANEMOIA_STEPS,
     arrangement: 'Anemoia',

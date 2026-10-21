@@ -1060,10 +1060,13 @@ export class AudioEngine {
         osc.frequency.setValueAtTime(frequency, t);
       }
 
-      const drift = (this.random() * 2 - 1) * 4.5;
+      // Both random draws are taken whatever the drift, so a patch that sets
+      // it leaves the random sequence — and every other voice — unchanged.
+      const driftRange = Math.max(0, params.drift ?? 4.5);
+      const drift = (this.random() * 2 - 1) * driftRange;
       osc.detune.setValueAtTime(detuneCents + drift, t);
       osc.detune.linearRampToValueAtTime(
-        detuneCents + drift + (this.random() * 2 - 1) * 4.5, stopTime);
+        detuneCents + drift + (this.random() * 2 - 1) * driftRange, stopTime);
       lfoGain.connect(osc.detune);
 
       const gain = this.ctx.createGain();

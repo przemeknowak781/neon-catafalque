@@ -54,6 +54,14 @@ export interface InstrumentParams {
    */
   vibratoDelay?: number;
   /**
+   * How far each oscillator's pitch may wander over a note, in cents: a
+   * random offset at the strike and another by the release. Absent means the
+   * engine's 4.5, which is what keeps two oscillators at one pitch from
+   * fusing into a single waveform. 0 holds a voice exactly in tune, which a
+   * melody harmonised by other parts may want.
+   */
+  drift?: number;
+  /**
    * Voices this patch may sound at once, 1-8. Absent means the engine's
    * default of four. Ignored by the monophonic parts (lead, bass). A pad that
    * voice-leads four-note chords needs room for the previous chord's release
