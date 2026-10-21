@@ -46,6 +46,20 @@ export interface InstrumentParams {
   /** LFO to filter cutoff, 0-1. The Juno-106's LFO reaches the VCF as well as
    *  the oscillators; this is that destination. */
   lfoToFilter?: number;
+  /**
+   * Seconds before the LFO reaches full depth, 0-3. The Juno-106 has this as
+   * the LFO's DELAY TIME control, 0 to 3 s in Roland's own specification: a
+   * note starts straight and the vibrato blooms into it, which is how a held
+   * note is sung rather than how it is wobbled. Absent means no delay.
+   */
+  vibratoDelay?: number;
+  /**
+   * Voices this patch may sound at once, 1-8. Absent means the engine's
+   * default of four. Ignored by the monophonic parts (lead, bass). A pad that
+   * voice-leads four-note chords needs room for the previous chord's release
+   * to overlap the next chord's attack; at four voices every change is a cut.
+   */
+  polyphony?: number;
 }
 
 export interface GlobalFXParams {
@@ -102,6 +116,36 @@ export interface GlobalFXParams {
   reverbPreDelay?: number;
   /** How wide the phaser sweeps, 0-1. */
   phaserDepth?: number;
+
+  // --- Tape. The whole mix printed to a cassette and played back on a
+  // machine that has seen better days. All optional and all off by default,
+  // so every existing patch renders exactly as it did.
+  /** Wow: slow speed wander of the whole mix, peak deviation in cents, 0-40. */
+  tapeWow?: number;
+  /** Wow rate in Hz, 0.05-4. */
+  tapeWowRate?: number;
+  /** Flutter: fast capstan wobble, peak deviation in cents, 0-12. */
+  tapeFlutter?: number;
+  /** Tape hiss level, 0-1. */
+  tapeHiss?: number;
+  /** Bandwidth of the tape in Hz: a lowpass on the whole mix. 0 means off. */
+  tapeTone?: number;
+}
+
+/**
+ * The tape is the one effect a song is allowed to move while it plays: a
+ * memory is not equally sharp all the way through. Each event glides the tape
+ * towards new settings from its step onward. Values are the same units as the
+ * GlobalFXParams fields of the same names.
+ */
+export interface TapeAutomation {
+  step: number;
+  wow?: number;
+  flutter?: number;
+  hiss?: number;
+  tone?: number;
+  /** Time constant of the glide, in seconds. */
+  glide?: number;
 }
 
 export interface NoteEvent {

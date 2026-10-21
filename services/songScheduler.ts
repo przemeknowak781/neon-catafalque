@@ -1,4 +1,4 @@
-import type { InstrumentParams, Track, TrackType } from "../types";
+import type { InstrumentParams, TapeAutomation, Track, TrackType } from "../types";
 import type { AudioEngine } from "./audioEngine";
 
 /**
@@ -9,6 +9,10 @@ import type { AudioEngine } from "./audioEngine";
  * output was to open a tab. Anything that measures the mix would have had to
  * reimplement it and would then have been testing a copy rather than the thing
  * that actually plays.
+ *
+ * `automation` is a song's tape moves, if it has any. They are applied before
+ * the step's notes, and the bar's hiss is scheduled after them, so a section
+ * that changes the hiss starts with the new level rather than one bar late.
  */
 export function scheduleStep(
   engine: AudioEngine,
@@ -17,7 +21,15 @@ export function scheduleStep(
   stepNumber: number,
   time: number,
   secondsPerStep: number,
+  automation?: readonly TapeAutomation[] | null,
 ): void {
+  if (automation) {
+    for (const event of automation) {
+      if (event.step === stepNumber) engine.setTapeAt(time, event);
+    }
+  }
+  if (stepNumber % 16 === 0) engine.scheduleTapeHiss(time, secondsPerStep * 16);
+
   const hasSoloedTrack = tracks.some((t) => t.isSoloed);
 
   for (const track of tracks) {
