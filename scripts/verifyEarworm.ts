@@ -23,6 +23,7 @@ import {
 import { TARGETS, analyzeExpectation, degreeToMidi, mod, scoreMotif } from '../services/earwormAnalysis';
 import { BUILT_IN_SONGS } from '../songs';
 import { ANEMOIA_HOOK, anemoiaHarmony, midiOf } from '../songs/anemoia';
+import { SUMMER_CHORUS } from '../songs/summer';
 import {
   ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
 } from '../services/arrangement';
@@ -832,82 +833,10 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     mod(midiOf(lastPitch) - tonicPc, 12) === 0 && midiOf(lastPitch) === Math.max(...all) &&
     mod(chordAtBar(firstChorus + chorus.length - 1).root - tonicPc, 12) === 0);
 
-  for (const song of BUILT_IN_SONGS) {
-    const tracks = song.build();
-    const steps = song.totalSteps;
-    const lane = (id: string) => tracks.find((t) => t.id === id)!;
-    const notesOf = (id: string) => lane(id).notes ?? [];
+  // Anemoia's own harmony: the mediant, the hexatonic pole, the verse pedal
+  // and the bridge in major thirds.
+  {
     const sections = ANEMOIA_HOOK.sections;
-    const barsOf = ([from, to]: [number, number]) => ({ from: from * 16, to: to * 16 });
-    const inBars = (step: number, [from, to]: [number, number]) => step >= from * 16 && step < to * 16;
-
-    record('built-in song: every track fits its grid', 'structural', 1.0,
-      tracks.every((t) => (t.notes ?? []).every((n) => n.startStep >= 0 && n.startStep < steps) &&
-        (!t.steps || t.steps.length === steps)));
-
-    const signOn = barsOf(sections.signOn);
-    record('built-in song: the lead is withheld through the sign-on', 'structure', 1.0,
-      notesOf('lead').every((n) => n.startStep < signOn.from || n.startStep >= signOn.to));
-
-    const bridge = barsOf(sections.bridge);
-    record('built-in song: the bridge drops the kick', 'structure', 1.0,
-      lane('kick').steps!.slice(bridge.from, bridge.to).every((s) => !s.active));
-
-    // "A final chorus that lands higher than the first": here, literally.
-    const meanLead = (range: [number, number]) => {
-      const ns = notesOf('lead').filter((n) => inBars(n.startStep, range));
-      return ns.reduce((sum, n) => sum + noteToMidi(n.note), 0) / Math.max(1, ns.length);
-    };
-    record('built-in song: the last chorus sits higher than the first', 'structure', 1.0,
-      meanLead(sections.chorus3) > meanLead(sections.chorus1));
-
-    // Exact semitones sounding between two different parts, anywhere.
-    const sounding: { track: string; midi: number }[][] = Array.from({ length: steps }, () => []);
-    for (const t of tracks) for (const n of t.notes ?? []) {
-      const from = Math.floor(n.startStep);
-      const to = Math.min(steps, from + Math.max(1, Math.round(n.duration)));
-      for (let s = from; s < to; s++) sounding[s].push({ track: t.id, midi: noteToMidi(n.note) });
-    }
-    let seconds = 0;
-    for (const now of sounding) for (let i = 0; i < now.length; i++) for (let j = i + 1; j < now.length; j++) {
-      if (now[i].track !== now[j].track && Math.abs(now[i].midi - now[j].midi) === 1) seconds++;
-    }
-    record('built-in song: no minor 2nds between tracks', 'harmony', 1.0, seconds === 0, seconds);
-
-    let strongBeats = 0, onChord = 0;
-    for (let s = 0; s < steps; s += 8) {
-      const lead = sounding[s].find((x) => x.track === 'lead');
-      if (!lead) continue;
-      strongBeats++;
-      if (isChordTone(lead.midi, s)) onChord++;
-    }
-    record('built-in song: lead on a chord tone on beats 1 and 3', '§6', 1.0,
-      onChord / Math.max(1, strongBeats) >= 0.75, Math.round((onChord / Math.max(1, strongBeats)) * 100));
-
-    const heldLead = notesOf('lead').filter((n) => n.duration >= 6);
-    const heldOnChord = heldLead.filter((n) => isChordTone(noteToMidi(n.note), n.startStep)).length;
-    record('built-in song: every held lead note is a chord tone', 'harmony', 1.0,
-      heldLead.length > 0 && heldOnChord === heldLead.length, heldLead.length - heldOnChord);
-
-    // The tune is the top voice: no lead note under the pad's highest.
-    const padNotes = notesOf('pad');
-    const padTop = (step: number) => Math.max(-1, ...padNotes
-      .filter((p) => p.startStep <= step && p.startStep + p.duration > step)
-      .map((p) => noteToMidi(p.note)));
-    const leadNotes = notesOf('lead');
-    const buried = leadNotes.filter((n) => noteToMidi(n.note) < padTop(n.startStep)).length;
-    record('built-in song: the lead is never under the pad', 'texture', 1.0, buried === 0, buried);
-
-    // The lead is a harmonised line: in the choruses nearly every melody note
-    // is struck as a chord of at least three voices.
-    const onsets = new Map<number, number>();
-    for (const n of leadNotes) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
-    const chorusOnsets = [...onsets.entries()].filter(([s]) =>
-      [sections.chorus1, sections.chorus2, sections.chorus3].some((c) => inBars(s, c)));
-    const full = chorusOnsets.filter(([, k]) => k >= 3).length;
-    record('built-in song: the chorus melody is struck in three-voice chords', 'harmony', 1.0,
-      chorusOnsets.length > 0 && full / chorusOnsets.length >= 0.9, Math.round((100 * full) / Math.max(1, chorusOnsets.length)));
-
     // Every chorus leaves through the chromatic mediant (flat-VI major), turns
     // it minor — the tonic's hexatonic pole — and comes home with every pad
     // voice moving by one semitone (Cohn 2004).
@@ -920,20 +849,171 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     });
     record('built-in song: every chorus comes home from the hexatonic pole by semitones', 'harmony', 1.0, strange);
 
-    // The verse holds one bass note under four different chords.
     const v = sections.verse1[0];
     const verseRoots = new Set([0, 1, 2, 3].map((i) => mod(chordAtBar(v + i).root, 12)));
     const verseChords = new Set([0, 1, 2, 3].map((i) => chordAtBar(v + i).name));
     record('built-in song: the verse holds a pedal under four chords', 'harmony', 1.0,
       verseRoots.size === 1 && verseChords.size === 4);
 
-    // The bridge moves by major thirds down, B - G - E-flat.
     const br = sections.bridge[0];
     const brRoots = [0, 1, 2].map((i) => chordAtBar(br + i).root);
     record('built-in song: the bridge moves by major thirds', 'harmony', 1.0,
       mod(brRoots[1] - brRoots[0], 12) === 8 && mod(brRoots[2] - brRoots[1], 12) === 8 &&
       [0, 1, 2].every((i) => isMajor(chordAtBar(br + i))));
   }
+}
+
+// The Summer We Never Had: a falling bass, a borrowed iv, appoggiaturas and
+// sequences (Sloboda 1991), and the chorus a semitone up at the end.
+{
+  const song = BUILT_IN_SONGS.find((s) => s.name === 'The Summer We Never Had')!;
+  const map = song.analysis.harmony();
+  const chordAtBarS = (b: number) => map.find((h) => h.bar === b && h.at === 0) ?? map.find((h) => h.bar === b)!;
+  const tonicPc = mod(midiOf('D4'), 12);
+  const [start] = song.analysis.chorusStarts[0];
+
+  const roots = [0, 1, 2, 3, 4, 5].map((i) => chordAtBarS(start + i).root);
+  record('summer: the chorus bass falls by step for six bars', 'harmony', 1.0,
+    roots.slice(1).every((r, i) => [1, 2].includes(mod(roots[i] - r, 12))));
+
+  // G minor over its B-flat: the subdominant with the key's sixth lowered.
+  const iv = chordAtBarS(start + 6);
+  record('summer: the chorus turns to the borrowed minor iv before its cadence', 'harmony', 1.0,
+    mod(iv.root - tonicPc, 12) === 8 && iv.tones.includes(mod(tonicPc + 5, 12)) &&
+    iv.tones.includes(mod(tonicPc + 8, 12)) && !iv.tones.includes(mod(tonicPc + 9, 12)));
+
+  // Bars 2, 4 and 6 open on a note foreign to the chord that falls a step
+  // into it: the appoggiatura.
+  const appoggiaturas = [1, 3, 5].filter((b) => {
+    const [first, second] = SUMMER_CHORUS[b];
+    const c = chordAtBarS(start + b);
+    const a = midiOf(first[1]), r = midiOf(second[1]);
+    return first[2] >= 4 && !c.tones.includes(mod(a, 12)) && c.tones.includes(mod(r, 12)) && [1, 2].includes(a - r);
+  }).length;
+  record('summer: three appoggiaturas, each falling a step into its chord', 'Sloboda 1991', 1.0,
+    appoggiaturas === 3, appoggiaturas);
+
+  // Bars 1 and 3 state one idea, the second a diatonic third lower: a sequence.
+  const shape = (cells: typeof SUMMER_CHORUS[number]) =>
+    cells.map(([step, , length]) => `${step}:${length}`).join(',');
+  const intervals = (cells: typeof SUMMER_CHORUS[number]) =>
+    cells.slice(1).map(([, p], i) => midiOf(p) - midiOf(cells[i][1]));
+  const i1 = intervals(SUMMER_CHORUS[0]), i3 = intervals(SUMMER_CHORUS[2]);
+  record('summer: bar 3 is bar 1 in sequence', 'Sloboda 1991', 1.0,
+    shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[2]) && shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[4]) &&
+    i1.every((x, i) => Math.sign(x) === Math.sign(i3[i]) && Math.abs(x - i3[i]) <= 2));
+
+  const all = SUMMER_CHORUS.flat().map(([, p]) => midiOf(p));
+  const peakBar = SUMMER_CHORUS.findIndex((cells) => cells.some(([, p]) => midiOf(p) === Math.max(...all)));
+  record('summer: the chorus peaks in its second half', 'structure', 1.0, peakBar >= 4, peakBar + 1);
+
+  const tracks = song.build();
+  const lead = tracks.find((t) => t.id === 'lead')!.notes!;
+  const tops = (from: number) => {
+    const by = new Map<number, number>();
+    for (const n of lead) if (n.startStep >= from * 16 && n.startStep < (from + 8) * 16) {
+      by.set(n.startStep - from * 16, Math.max(by.get(n.startStep - from * 16) ?? -1, noteToMidi(n.note)));
+    }
+    return by;
+  };
+  const [lastStart, shift] = song.analysis.chorusStarts[2];
+  const first = tops(start), last = tops(lastStart);
+  record('summer: the last chorus is the first a semitone up', 'structure', 1.0,
+    shift === 1 && first.size === last.size && [...first].every(([s, m]) => last.get(s) === m + 1));
+
+  const pluck = tracks.find((t) => t.id === 'pluck')!.notes!;
+  const memory = pluck.filter((n) => n.startStep < song.analysis.intro[1] * 16).map((n) => noteToMidi(n.note));
+  const chorusOpening = SUMMER_CHORUS.slice(0, 4).flat().map(([, p]) => midiOf(p));
+  record('summer: the intro plays the chorus opening before the lead does', 'structure', 1.0,
+    JSON.stringify(memory) === JSON.stringify(chorusOpening));
+}
+
+// Every written song: the structural checks a generated song gets, and the
+// harmony and texture rules both songs are written to.
+for (const song of BUILT_IN_SONGS) {
+  const tracks = song.build();
+  const steps = song.totalSteps;
+  const lane = (id: string) => tracks.find((t) => t.id === id)!;
+  const notesOf = (id: string) => lane(id).notes ?? [];
+  const { intro, bridge: bridgeBars, choruses } = song.analysis;
+  const map = song.analysis.harmony();
+  const chordAtStep = (step: number) => {
+    const inBar = map.filter((h) => h.bar === Math.floor(step / 16));
+    return [...inBar].reverse().find((h) => h.at <= step % 16) ?? inBar[0];
+  };
+  const isChordTone = (midi: number, step: number) => {
+    const c = chordAtStep(step);
+    return c.tones.includes(mod(midi, 12)) || [c.root, ...c.pad].some((m) => mod(m - midi, 12) === 0);
+  };
+  const barsOf = ([from, to]: [number, number]) => ({ from: from * 16, to: to * 16 });
+  const inBars = (step: number, [from, to]: [number, number]) => step >= from * 16 && step < to * 16;
+
+  record('built-in song: every track fits its grid', 'structural', 1.0,
+    tracks.every((t) => (t.notes ?? []).every((n) => n.startStep >= 0 && n.startStep < steps) &&
+      (!t.steps || t.steps.length === steps)));
+
+  const signOn = barsOf(intro);
+  record('built-in song: the lead is withheld through the intro', 'structure', 1.0,
+    notesOf('lead').every((n) => n.startStep < signOn.from || n.startStep >= signOn.to));
+
+  const bridge = barsOf(bridgeBars);
+  record('built-in song: the bridge drops the kick', 'structure', 1.0,
+    lane('kick').steps!.slice(bridge.from, bridge.to).every((s) => !s.active));
+
+  // "A final chorus that lands higher than the first": here, literally.
+  const meanLead = (range: [number, number]) => {
+    const ns = notesOf('lead').filter((n) => inBars(n.startStep, range));
+    return ns.reduce((sum, n) => sum + noteToMidi(n.note), 0) / Math.max(1, ns.length);
+  };
+  record('built-in song: the last chorus sits higher than the first', 'structure', 1.0,
+    meanLead(choruses[choruses.length - 1]) > meanLead(choruses[0]));
+
+  const sounding: { track: string; midi: number }[][] = Array.from({ length: steps }, () => []);
+  for (const t of tracks) for (const n of t.notes ?? []) {
+    const from = Math.floor(n.startStep);
+    const to = Math.min(steps, from + Math.max(1, Math.round(n.duration)));
+    for (let s = from; s < to; s++) sounding[s].push({ track: t.id, midi: noteToMidi(n.note) });
+  }
+  let seconds = 0;
+  for (const now of sounding) for (let i = 0; i < now.length; i++) for (let j = i + 1; j < now.length; j++) {
+    if (now[i].track !== now[j].track && Math.abs(now[i].midi - now[j].midi) === 1) seconds++;
+  }
+  record('built-in song: no minor 2nds between tracks', 'harmony', 1.0, seconds === 0, seconds);
+
+  let strongBeats = 0, onChord = 0;
+  for (let s = 0; s < steps; s += 8) {
+    const lead = sounding[s].find((x) => x.track === 'lead');
+    if (!lead) continue;
+    strongBeats++;
+    if (isChordTone(lead.midi, s)) onChord++;
+  }
+  record('built-in song: lead on a chord tone on beats 1 and 3', '§6', 1.0,
+    onChord / Math.max(1, strongBeats) >= 0.75, Math.round((onChord / Math.max(1, strongBeats)) * 100));
+
+  // Held notes are chord tones — except a written appoggiatura, which is
+  // held on purpose and resolves within its bar.
+  const leadNotes = notesOf('lead');
+  const heldLead = leadNotes.filter((n) => n.duration >= 6);
+  const resolves = (n: (typeof leadNotes)[number]) => leadNotes.some((r) =>
+    r.startStep === n.startStep + n.duration && [1, 2].includes(noteToMidi(n.note) - noteToMidi(r.note)) &&
+    isChordTone(noteToMidi(r.note), r.startStep));
+  const heldOnChord = heldLead.filter((n) => isChordTone(noteToMidi(n.note), n.startStep) || resolves(n)).length;
+  record('built-in song: every held lead note is a chord tone or resolves by step', 'harmony', 1.0,
+    heldLead.length > 0 && heldOnChord === heldLead.length, heldLead.length - heldOnChord);
+
+  const padNotes = notesOf('pad');
+  const padTop = (step: number) => Math.max(-1, ...padNotes
+    .filter((p) => p.startStep <= step && p.startStep + p.duration > step)
+    .map((p) => noteToMidi(p.note)));
+  const buried = leadNotes.filter((n) => noteToMidi(n.note) < padTop(n.startStep)).length;
+  record('built-in song: the lead is never under the pad', 'texture', 1.0, buried === 0, buried);
+
+  const onsets = new Map<number, number>();
+  for (const n of leadNotes) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
+  const chorusOnsets = [...onsets.entries()].filter(([s]) => choruses.some((c) => inBars(s, c)));
+  const full = chorusOnsets.filter(([, k]) => k >= 3).length;
+  record('built-in song: the chorus melody is struck in three-voice chords', 'harmony', 1.0,
+    chorusOnsets.length > 0 && full / chorusOnsets.length >= 0.9, Math.round((100 * full) / Math.max(1, chorusOnsets.length)));
 }
 
 // --- report ----------------------------------------------------------------

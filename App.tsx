@@ -302,10 +302,9 @@ const App: React.FC = () => {
   /**
    * Load a song that ships with the app: its notes, its tempo and form, the
    * sound it was voiced for, and its tape moves. The generator is pointed at
-   * the song's key and mode too, and at the Royal Road, the preset that
-   * shares its chorus's opening on IVmaj7 and its avoidance of I, so pressing
-   * Ritual afterwards writes something in the same world rather than
-   * resetting to C minor.
+   * the key, mode and progression the song names, so pressing Ritual
+   * afterwards writes something in the same world rather than resetting to
+   * C minor.
    */
   const handleLoadSong = (name: string) => {
     const song = builtInSongByName(name);
@@ -322,9 +321,9 @@ const App: React.FC = () => {
     setSongAutomation(song.automation);
     setLoadedSong(song.name);
     setCurrentTheme(song.name);
-    setGenMode('ionian');
-    setGenKey('D#');
-    setGenHarmony('Royal Road');
+    setGenMode(song.generator.mode as GenMode);
+    if (KEYS.includes(song.generator.key as GenKey)) setGenKey(song.generator.key as GenKey);
+    setGenHarmony(song.generator.harmony);
     setExportStatus(`Loaded ${song.name} — ${song.bpm} BPM`);
     if (isPlaying) {
       setIsPlaying(false);

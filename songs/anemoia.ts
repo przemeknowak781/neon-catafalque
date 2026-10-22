@@ -1,5 +1,11 @@
 import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from "../types";
 import { MIX_LEVELS } from "../constants";
+import {
+  STEPS_PER_BAR, augmented, bar, buildPad as padFrom, builder, chord, harmonise, harmonyMap,
+  lift, midiOf, phrase, type Bar, type Cell, type Chord,
+} from "./score";
+
+export { midiOf };
 
 /**
  * ANEMOIA — a built-in song, written by hand.
@@ -70,38 +76,10 @@ import { MIX_LEVELS } from "../constants";
  */
 
 export const ANEMOIA_BPM = 112;
-const STEPS_PER_BAR = 16;
 const BARS = 72;
 export const ANEMOIA_STEPS = BARS * STEPS_PER_BAR;
 
-// --- pitch spelling -------------------------------------------------------
-
-const LETTER: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-const SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-/**
- * 'Eb5', 'Cb4', 'F#3' to MIDI. Spelled as a musician writes them, so the score
- * reads in the key it is in; C-flat 4 is B3, which is what it sounds as.
- */
-export function midiOf(name: string): number {
-  const match = name.match(/^([A-G])(bb|b|#)?(-?\d)$/);
-  if (!match) throw new Error(`Unreadable pitch ${name}`);
-  const accidental = match[2] === 'b' ? -1 : match[2] === 'bb' ? -2 : match[2] === '#' ? 1 : 0;
-  return (parseInt(match[3], 10) + 1) * 12 + LETTER[match[1]] + accidental;
-}
-
-/** Pitch class of a spelled name without octave: 'Cb' is 11. */
-const pcOf = (name: string) => ((midiOf(`${name}4`) % 12) + 12) % 12;
-
-/** The engine's spelling: sharps only. */
-const engineName = (midi: number): string =>
-  `${SHARP_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
-
 // --- the melody -----------------------------------------------------------
-
-/** One note of a phrase: step within its bar, pitch, length in steps. */
-type Cell = readonly [step: number, pitch: string, length: number];
-type Bar = readonly Cell[];
 
 /**
  * The chorus. One rhythmic cell — two dotted eighths and a note held from the
@@ -172,16 +150,6 @@ const BRIDGE_LINE: readonly Cell[] = [
 
 // --- harmony --------------------------------------------------------------
 
-/**
- * A chord: its symbol, its root (for the bass), every tone the symbol names
- * (the pad voices four of them; the melody carries the rest), the voicing,
- * and where in the bar it starts. Common tones are held across a change
- * rather than struck again (see buildPad).
- */
-interface Chord { at: number; name: string; root: string; tones: readonly string[]; pad: readonly string[] }
-const chord = (name: string, root: string, tones: readonly string[], pad: readonly string[], at = 0): Chord =>
-  ({ name, root, tones, pad, at });
-
 // Chorus. The pad is voiced in four close parts below the melody, and moves
 // as little as it can: from A-flat to G7 every voice falls a step, from C
 // minor to B-flat minor again, and from C-flat to B minor to E-flat only by
@@ -216,16 +184,6 @@ const bEb13sus = chord('Eb13sus4', 'Eb2', ['Eb', 'Ab', 'Bb', 'Db', 'F', 'C'], ['
 
 // Sign-off in F.
 const fFadd9 = chord('Fadd9', 'F1', ['F', 'A', 'C', 'G'], ['F3', 'A3', 'C4', 'G4']);
-
-const NAMES_SHARP = SHARP_NAMES;
-/** A chord a number of semitones up: root, voicing and tones, respelled with sharps. */
-const lift = (c: Chord, semitones: number): Chord => ({
-  ...c,
-  name: `${c.name}+${semitones}`,
-  root: engineName(midiOf(c.root) + semitones),
-  tones: c.tones.map((t) => NAMES_SHARP[(pcOf(t) + semitones) % 12]),
-  pad: c.pad.map((p) => engineName(midiOf(p) + semitones)),
-});
 
 /** Harmony for every bar of the song: one or two chords each. */
 function harmony(): Chord[][] {
@@ -274,52 +232,6 @@ function harmony(): Chord[][] {
 
 // --- track builders -------------------------------------------------------
 
-interface Builder { notes: NoteEvent[]; add: (step: number, pitch: string | number, length: number, velocity: number) => void }
-
-function builder(id: string): Builder {
-  const notes: NoteEvent[] = [];
-  return {
-    notes,
-    add(step, pitch, length, velocity) {
-      const midi = typeof pitch === 'number' ? pitch : midiOf(pitch);
-      notes.push({
-        id: `${id}-${notes.length}`,
-        note: engineName(midi),
-        startStep: step,
-        duration: length,
-        velocity: Math.round(velocity * 1000) / 1000,
-      });
-    },
-  };
-}
-
-const bar = (n: number) => n * STEPS_PER_BAR;
-
-/**
- * Lay a phrase of bars down starting at a bar, optionally transposed. A music
- * box gets `struck` set: every note one step long, because a struck tine
- * rings on its own release and the written length means nothing to it.
- */
-function phrase(target: Builder, startBar: number, bars: readonly Bar[], velocity: number, transpose = 0, struck = false) {
-  bars.forEach((cells, b) => {
-    for (const [step, pitch, length] of cells) {
-      // The held note a touch louder than the pick-up notes: it is the one
-      // the phrase leans on.
-      const v = velocity * (length >= 6 ? 1.04 : length <= 2 ? 0.9 : 0.95);
-      target.add(bar(startBar + b) + step, midiOf(pitch) + transpose, struck ? 1 : length, Math.min(1, v));
-    }
-  });
-}
-
-/** The same phrase at half speed, every onset doubled, struck. */
-function augmented(target: Builder, startStep: number, bars: readonly Bar[], velocity: number, transpose = 0) {
-  bars.forEach((cells, b) => {
-    for (const [step, pitch] of cells) {
-      target.add(startStep + (b * STEPS_PER_BAR + step) * 2, midiOf(pitch) + transpose, 1, velocity);
-    }
-  });
-}
-
 function buildMelody(): NoteEvent[] {
   const lead = builder('melody');
   phrase(lead, 8, VERSE_LINE, 0.72);              // VERSE 1
@@ -345,32 +257,7 @@ function buildMelody(): NoteEvent[] {
  * quieter, so the tune reads through the chord.
  */
 function buildLead(bars: Chord[][], pad: NoteEvent[]): NoteEvent[] {
-  const lead = builder('lead');
-  const chordAt = (step: number) => {
-    const chords = bars[Math.floor(step / STEPS_PER_BAR)];
-    return [...chords].reverse().find((c) => c.at <= step % STEPS_PER_BAR) ?? chords[0];
-  };
-  for (const n of buildMelody()) {
-    const top = midiOf(n.note);
-    lead.add(n.startStep, top, n.duration, n.velocity);
-    const c = chordAt(n.startStep);
-    const tones = new Set([...c.tones.map(pcOf), ((midiOf(c.root) % 12) + 12) % 12]);
-    const padNow = pad
-      .filter((p) => p.startStep < n.startStep + n.duration && p.startStep + p.duration > n.startStep)
-      .map((p) => midiOf(p.note));
-    const floor = Math.max(-1, ...padNow);
-    let above = top;
-    let voices = 0;
-    for (let m = top - 3; m >= floor && voices < 2; m--) {
-      if (m > above - 3) continue;
-      if (!tones.has(((m % 12) + 12) % 12)) continue;
-      if (padNow.some((p) => Math.abs(p - m) === 1)) continue;
-      lead.add(n.startStep, m, n.duration, n.velocity * 0.6);
-      above = m;
-      voices++;
-    }
-  }
-  return lead.notes;
+  return harmonise(buildMelody(), bars, pad);
 }
 
 /**
@@ -428,45 +315,10 @@ function buildPluck(): NoteEvent[] {
   return box.notes;
 }
 
-/**
- * Pad: the harmony above, with common tones held across the barline rather
- * than struck again. A pad that re-attacks every note on every chord is a
- * keyboard player hitting the chord; one that only moves the voices that
- * change is a string section.
- */
-function buildPad(bars: Chord[][]): NoteEvent[] {
-  const pad = builder('pad');
-  // Velocity per bar, following the sections, with the sign-off fading.
-  const energy = (b: number) =>
-    b < 8 ? 0.24 : b < 16 ? 0.26 : b < 24 ? 0.3 : b < 28 ? 0.27 : b < 36 ? 0.27
-      : b < 44 ? 0.31 : b < 52 ? 0.33 : b < 64 ? 0.32 : 0.3 - (b - 64) * 0.018;
-
-  const spans: { start: number; end: number; pitches: number[]; velocity: number }[] = [];
-  bars.forEach((chords, b) => {
-    chords.forEach((c, i) => {
-      const start = bar(b) + c.at;
-      const end = i + 1 < chords.length ? bar(b) + chords[i + 1].at : bar(b + 1);
-      spans.push({ start, end, pitches: c.pad.map(midiOf), velocity: energy(b) });
-    });
-  });
-
-  // Hold any pitch that continues into the next span.
-  const open = new Map<number, { start: number; velocity: number }>();
-  spans.forEach((span, i) => {
-    const next = spans[i + 1];
-    for (const p of span.pitches) {
-      if (!open.has(p)) open.set(p, { start: span.start, velocity: span.velocity });
-    }
-    for (const [p, from] of [...open]) {
-      const continues = next && next.pitches.includes(p) && next.start === span.end;
-      if (!continues) {
-        pad.add(from.start, p, span.end - from.start, from.velocity);
-        open.delete(p);
-      }
-    }
-  });
-  return pad.notes;
-}
+/** Pad velocity per bar, following the sections, with the sign-off fading. */
+const padEnergy = (b: number) =>
+  b < 8 ? 0.24 : b < 16 ? 0.26 : b < 24 ? 0.3 : b < 28 ? 0.27 : b < 36 ? 0.27
+    : b < 44 ? 0.31 : b < 52 ? 0.33 : b < 64 ? 0.32 : 0.3 - (b - 64) * 0.018;
 
 function buildBass(bars: Chord[][]): NoteEvent[] {
   const bass = builder('bass');
@@ -618,7 +470,7 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 /** Every track of the song, in the order the app lists them. */
 export function buildAnemoiaTracks(): Track[] {
   const bars = harmony();
-  const pad = buildPad(bars);
+  const pad = padFrom(bars, padEnergy);
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
     lead: buildLead(bars, pad), pluck: buildPluck(), pad, bass: buildBass(bars),
   };
@@ -653,10 +505,4 @@ export const ANEMOIA_HOOK = {
 };
 
 /** Chords per bar, as MIDI and pitch classes, for the checks in verifyEarworm. */
-export function anemoiaHarmony(): { bar: number; at: number; name: string; root: number; tones: number[]; pad: number[] }[] {
-  return harmony().flatMap((chords, b) =>
-    chords.map((c) => ({
-      bar: b, at: c.at, name: c.name, root: midiOf(c.root),
-      tones: c.tones.map(pcOf), pad: c.pad.map(midiOf),
-    })));
-}
+export const anemoiaHarmony = () => harmonyMap(harmony());

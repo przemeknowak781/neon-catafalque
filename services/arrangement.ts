@@ -108,6 +108,22 @@ export const ARRANGEMENT_PRESETS: readonly Arrangement[] = [
       { kind: 'outro',  label: 'SIGN-OFF',  bars: 8,  repeat: 0 },
     ],
   },
+  {
+    name: 'The Summer We Never Had',
+    note: 'The form of the second built-in song: verses that climb through a four-bar pre-chorus, a bridge without the kit, a last chorus a semitone up.',
+    sections: [
+      { kind: 'intro',  label: 'INTRO',    bars: 8, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 1',  bars: 8, repeat: 0 },
+      { kind: 'verse',  label: 'PRE',      bars: 4, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 1', bars: 8, repeat: 0 },
+      { kind: 'verse',  label: 'VERSE 2',  bars: 8, repeat: 1 },
+      { kind: 'verse',  label: 'PRE',      bars: 4, repeat: 1 },
+      { kind: 'chorus', label: 'CHORUS 2', bars: 8, repeat: 1 },
+      { kind: 'bridge', label: 'BRIDGE',   bars: 8, repeat: 0 },
+      { kind: 'chorus', label: 'CHORUS 3', bars: 8, repeat: 2 },
+      { kind: 'outro',  label: 'OUTRO',    bars: 8, repeat: 0 },
+    ],
+  },
 ];
 
 export const DEFAULT_ARRANGEMENT = ARRANGEMENT_PRESETS[0];

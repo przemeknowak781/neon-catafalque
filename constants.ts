@@ -345,6 +345,24 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.52, delaySend: 0.3, phaserSend: 0,
       polyphony: 8,
     },
+    // The Summer We Never Had. Original. Afterimage's idea — the melody as
+    // block chords on a polyphonic patch — with more sustain, so the long
+    // notes sing instead of dying into the reverb: a saw and a triangle that
+    // strike, fall to under half and hold, with a release that lets one chord
+    // overlap the next. No vibrato, no glide.
+    'Long Exposure': {
+      ...DEFAULT_LEAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'triangle', detune: 4,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0, noiseLevel: 0.004,
+      cutoff: 1500, resonance: 1.4, filterEnvAmount: 0.3,
+      attack: 0.012, decay: 0.9, sustain: 0.45, release: 0.9,
+      filterAttack: 0.006, filterDecay: 0.5, filterSustain: 0.25, filterRelease: 0.6,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
+      chorusMix: 0.3, drive: 0.08, pan: 0,
+      reverbSend: 0.48, delaySend: 0.28, phaserSend: 0,
+      polyphony: 8,
+    },
   },
 
   bass: {
@@ -415,6 +433,20 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       filterAttack: 0.004, filterDecay: 0.16, filterSustain: 0.14, filterRelease: 0.12,
       glide: 0, vibratoRate: 0, vibratoDepth: 0,
       chorusMix: 0.1, drive: 0.3, pan: 0, reverbSend: 0, delaySend: 0,
+    },
+    // The Summer We Never Had. Original. The driving octave bass of
+    // night-drive synth pop, a little brighter and harder than Tail Lights,
+    // because this song pushes where Anemoia floated.
+    'Overpass': {
+      ...DEFAULT_BASS_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 5,
+      unison: 2, unisonDetune: 6,
+      subLevel: 0.22, noiseLevel: 0.006,
+      cutoff: 460, resonance: 5, filterEnvAmount: 0.24,
+      attack: 0.003, decay: 0.18, sustain: 0.6, release: 0.1,
+      filterAttack: 0.003, filterDecay: 0.14, filterSustain: 0.12, filterRelease: 0.1,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0,
+      chorusMix: 0.08, drive: 0.36, pan: 0, reverbSend: 0, delaySend: 0,
     },
   },
 
@@ -503,6 +535,23 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       flangerSend: 0, phaserSend: 0.25,
       polyphony: 8,
     },
+    // The Summer We Never Had. Original. A string-machine stack, slow in and
+    // slow out, chorused, with no pitch LFO (the lead's chords sit right on
+    // top of it) and the filter breathing at a quarter of a hertz.
+    'Cassette Strings': {
+      ...DEFAULT_PAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 10,
+      unison: 3, unisonDetune: 14,
+      subLevel: 0.03, noiseLevel: 0.015,
+      cutoff: 1400, resonance: 1, filterEnvAmount: 0.06,
+      attack: 0.7, decay: 1.2, sustain: 0.9, release: 1.7,
+      filterAttack: 1.0, filterDecay: 1.4, filterSustain: 0.85, filterRelease: 1.4,
+      vibratoRate: 0.25, vibratoDepth: 0, lfoToFilter: 0.08,
+      chorusMix: 0.7, drive: 0.05, pan: 0.04,
+      reverbSend: 0.6, delaySend: 0.06,
+      flangerSend: 0, phaserSend: 0,
+      polyphony: 8,
+    },
   },
 
   pluck: {
@@ -568,6 +617,23 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       vibratoRate: 0, vibratoDepth: 0,
       chorusMix: 0.22, drive: 0.04, pan: -0.32,
       reverbSend: 0.6, delaySend: 0.42,
+      polyphony: 6,
+    },
+    // The Summer We Never Had. Original. A short glassy pluck for the
+    // sixteenth-note arpeggio and the intro's memory of the chorus: a
+    // triangle with a sine an octave up, the filter shut within a sixth of a
+    // second, the delay doing the rest.
+    'Night Bus': {
+      ...DEFAULT_PLUCK_PARAMS,
+      osc1Wave: 'triangle', osc2Wave: 'sine', detune: 1200,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0, noiseLevel: 0.004,
+      cutoff: 2300, resonance: 2, filterEnvAmount: 0.42,
+      attack: 0.001, decay: 0.32, sustain: 0, release: 0.45,
+      filterAttack: 0.001, filterDecay: 0.15, filterSustain: 0.04, filterRelease: 0.2,
+      vibratoRate: 0, vibratoDepth: 0,
+      chorusMix: 0.25, drive: 0.05, pan: 0.1,
+      reverbSend: 0.4, delaySend: 0.32,
       polyphony: 6,
     },
   },
@@ -641,6 +707,20 @@ export const SONG_PRESETS: readonly SongPreset[] = [
       flangerMix: 0, sidechain: 0.32, sidechainRelease: 0.2,
       width: 1.15, lowShelf: -1, airShelf: 1, glue: 0.42, masterDrive: 0.24,
       tapeWow: 3, tapeWowRate: 0.5, tapeFlutter: 1, tapeHiss: 0.3, tapeTone: 13000,
+    },
+  },
+  {
+    name: 'The Summer We Never Had',
+    note: 'Original patches for the second built-in song: block-chord lead, string-machine pad, octave bass and a sixteenth-note arpeggio, with the pad ducking under the kick and a lighter tape than Anemoia.',
+    lead: 'Long Exposure', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
+    fx: {
+      reverbMix: 0.5, reverbSize: 3.0, reverbDamp: 0.4, reverbPreDelay: 0.03,
+      delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.38, delayMix: 0.8,
+      delayDamp: 2600, delayPingPong: true,
+      chorusMix: 0.85, phaserMix: 0, phaserRate: 0.2, phaserDepth: 0.3,
+      flangerMix: 0, sidechain: 0.4, sidechainRelease: 0.18,
+      width: 1.1, lowShelf: -0.5, airShelf: 1.5, glue: 0.45, masterDrive: 0.22,
+      tapeWow: 2.5, tapeWowRate: 0.5, tapeFlutter: 0.8, tapeHiss: 0.25, tapeTone: 14000,
     },
   },
 ];

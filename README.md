@@ -5,8 +5,8 @@
 **A darkwave sequencer that generates hooks against a written specification — and proves it did.**
 
 <sub>
-Twelve scales · twelve keys · six song forms · eight progressions · twenty-four synth patches · one written song<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 67 conformance checks · runs entirely in the browser, no server and no account
+Twelve scales · twelve keys · seven song forms · eight progressions · twenty-eight synth patches · two written songs<br>
+Web Audio synthesis · a tape stage · MIDI and WAV export · 74 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   67 checks, 1944 generated songs
+...                                   74 checks, 1944 generated songs
 ```
 
 ---
@@ -70,7 +70,7 @@ something. The generator's own median is 3.31 bits.
 
 ## Sound
 
-Twenty-four synth patches. Three reconstruct documented instruments and say so:
+Twenty-eight synth patches. Three reconstruct documented instruments and say so:
 
 - **Vox Humana** — the Polymoog 280A factory preset Gary Numan bought the
   instrument for, and the string part on *Cars* (1979). Chorused, near-still
@@ -138,17 +138,17 @@ octaves.
 
 | bank | count | examples |
 |---|---|---|
-| Instrument patches | 24 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage |
-| Song presets | 7 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia |
-| Song forms | 6 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72) |
+| Instrument patches | 28 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
+| Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
+| Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (72) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
 | Voice leading | 5 | Cantabile, Chorale, Angular, Drone, Soaring |
 
-All 240 combinations of form, progression and voice-leading style are swept by
+All 280 combinations of form, progression and voice-leading style are swept by
 the test suite and each one still has to keep a common contour, a singable
 range, one twist and its mode. Presets propose; the specification disposes.
 
-## A song that ships with it
+## Songs that ship with it
 
 **Anemoia** is written by hand rather than generated. Load it from **Song** in
 the left panel; the generator is pointed at its key at the same time.
@@ -202,6 +202,26 @@ and the Arts* 11(2), 2017), who found it, together with more common global
 contours, in earworm tunes against matched tunes and a pop corpus. That is a
 statistic of a whole tune; the spec turned it into a count per four bars.
 
+**The Summer We Never Had** is the second, written after Anemoia had drifted
+towards chill: extended chords everywhere and the energy held down. This one
+is aimed at nostalgia rather than calm, and the difference it bets on is
+arousal and line. Arousal predicted music-evoked nostalgia in Barrett et al.
+(2010), so it drives: 108 BPM, a sixteenth-note arpeggio, four on the floor
+in the choruses, a pad that ducks under the kick. And it sings: plain triads
+with the colour put into the melody, in the two devices Sloboda (*Psychology
+of Music* 19(2), 1991) found listeners linking to tears and chills,
+appoggiaturas and melodic sequences. The chorus is the canon progression over
+a falling bass (D, C♯, B, A, G, F♯), a major-key cousin of the descending
+tetrachord Rosand traced as the emblem of lament (*Musical Quarterly* 65(3),
+1979), turning to G minor over B♭, the borrowed iv, before the dominant. Its
+melody states a two-bar idea and its sequence on the way down, each long note
+arriving as an appoggiatura that falls a step into its chord, then climbs to
+the song's highest note in the sixth bar. It keeps what worked in Anemoia: the
+lead plays the melody in three-voice chords on a polyphonic patch, and the
+intro plays the chorus first, at half speed, as a memory. The last chorus is a
+semitone up, reached through F and B♭. Seven checks of its own in
+`verify:earworm`, and the shared song checks, which both songs pass.
+
 ## Holding a hook
 
 Found a melody worth keeping? **Hold** pins it. Generating again keeps it note
@@ -237,7 +257,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 67 conformance checks
+npm run verify:earworm   # the 74 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```
@@ -277,7 +297,9 @@ services/
   offlineRender.ts      OfflineAudioContext rendering for export and measurement
   songExport.ts         MIDI and WAV writing, MIDI and preset reading
 songs/
-  anemoia.ts            the written song: its score, harmony and tape moves
+  score.ts              what the written songs share: spelling, chords, pad, harmoniser
+  anemoia.ts            the first written song: its score, harmony and tape moves
+  summer.ts             the second
   arrangement.ts        song forms
   harmonyPresets.ts     progressions and voice-leading styles
 scripts/
