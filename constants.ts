@@ -739,7 +739,7 @@ export const SONG_PRESETS: readonly SongPreset[] = [
       delayDamp: 3200, delayPingPong: true,
       chorusMix: 0.85, phaserMix: 0.25, phaserRate: 0.14, phaserDepth: 0.35,
       flangerMix: 0, sidechain: 0.65, sidechainRelease: 0.17,
-      width: 1.15, lowShelf: 1, airShelf: 2.5, glue: 0.5, masterDrive: 0.26,
+      width: 1.15, lowShelf: 1, airShelf: 3.5, glue: 0.28, masterDrive: 0.24,
       tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 18000,
     },
   },

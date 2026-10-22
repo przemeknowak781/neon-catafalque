@@ -927,8 +927,10 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   };
   const [lastStart, shift] = song.analysis.chorusStarts[2];
   const first = tops(start), last = tops(lastStart);
+  // The last chorus contains the first a semitone up; it may add answers in
+  // the rests, which the first chorus does not have.
   record('summer: the last chorus is the first a semitone up', 'structure', 1.0,
-    shift === 1 && first.size === last.size && [...first].every(([s, m]) => last.get(s) === m + 1));
+    shift === 1 && [...first].every(([s, m]) => last.get(s) === m + 1));
 
 }
 
@@ -1012,8 +1014,10 @@ for (const song of BUILT_IN_SONGS) {
   const buried = leadNotes.filter((n) => noteToMidi(n.note) < padTop(n.startStep)).length;
   record('built-in song: the lead is never under the pad', 'texture', 1.0, buried === 0, buried);
 
+  // The melody's own onsets; a song may add answering figures on the lead
+  // track under their own ids, and those are not the melody.
   const onsets = new Map<number, number>();
-  for (const n of leadNotes) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
+  for (const n of leadNotes.filter((x) => x.id.startsWith('lead-'))) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
   const chorusOnsets = [...onsets.entries()].filter(([s]) => choruses.some((c) => inBars(s, c)));
   const full = chorusOnsets.filter(([, k]) => k >= 3).length;
   record('built-in song: the chorus melody is struck in three-voice chords', 'harmony', 1.0,

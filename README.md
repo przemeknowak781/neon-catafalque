@@ -225,7 +225,14 @@ them as four-voice chords on a five-voice supersaw, a sixteenth-note
 arpeggio climbs two octaves between pad and lead, and the rhythm is a pulse:
 the kick on every beat, the open hat against it, a bass of held roots, short
 octaves and a ghost before each beat, layered with an octave sub, and the pad
-pumping under the kick. The last chorus
+pumping under the kick. The song is shaped against its own measurements:
+the first verse has no kick for four bars and a bass in quiet eighths, the
+two bars before every chorus drop the kit and the bass while the tape's
+hiss rises like a riser and its lowpass opens, the drop lands on the chorus
+downbeat, the second verse puts the arpeggio an octave up, and the second
+and third choruses answer every held note in the rest after it. Rendered,
+the first verse sits 3.7 dB under the first chorus and 160 Hz darker in
+spectral centroid, where the flat version before it managed 0.8 dB. The last chorus
 is a semitone up, reached through F and B♭. Eight checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 

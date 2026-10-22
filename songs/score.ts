@@ -160,8 +160,8 @@ export function buildPad(bars: Chord[][], energy: (bar: number) => number): Note
  * no room the melody takes fewer voices. The melody stays the top voice and
  * the loudest; the voices under it are quieter, so the tune reads through.
  */
-export function harmonise(melody: NoteEvent[], bars: Chord[][], pad: NoteEvent[], voices = 2, under = 0.6): NoteEvent[] {
-  const lead = builder('lead');
+export function harmonise(melody: NoteEvent[], bars: Chord[][], pad: NoteEvent[], voices = 2, under = 0.6, id = 'lead'): NoteEvent[] {
+  const lead = builder(id);
   for (const n of melody) {
     const top = midiOf(n.note);
     lead.add(n.startStep, top, n.duration, n.velocity);

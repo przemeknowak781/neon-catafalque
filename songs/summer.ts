@@ -167,10 +167,10 @@ function harmony(): Chord[][] {
 
 function buildMelody(): NoteEvent[] {
   const m = builder('melody');
-  phrase(m, 0, VERSE, 0.72);                // VERSE 1
+  phrase(m, 0, VERSE, 0.6);                 // VERSE 1
   phrase(m, 8, PRE, 0.8);                   // PRE
   phrase(m, 12, SUMMER_CHORUS, 0.92);       // CHORUS 1
-  phrase(m, 20, VERSE, 0.74);               // VERSE 2
+  phrase(m, 20, VERSE, 0.64);               // VERSE 2
   phrase(m, 28, PRE, 0.84);                 // PRE
   phrase(m, 32, SUMMER_CHORUS, 0.94);       // CHORUS 2
   phrase(m, 40, BRIDGE, 0.7);               // BRIDGE
@@ -193,7 +193,7 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
   // Up through the chord over two octaves and back: the arpeggio spans the
   // room between the pad and the lead.
   const ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, 2, 3];
-  const arp = (from: number, to: number, velocity: (b: number) => number, every = 1) => {
+  const arp = (from: number, to: number, velocity: (b: number) => number, every = 1, octave = 0) => {
     for (let b = from; b < to; b++) {
       for (let s = 0; s < STEPS_PER_BAR; s += every) {
         const step = bar(b) + s;
@@ -204,30 +204,59 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
         const top = now.length ? Math.max(...now) : Infinity;
         const fits = (x: number) => x <= top && x > padTop && !now.some((y) => Math.abs(y - x) === 1) &&
           !pitches.some((y) => Math.abs(y - x) === 1);
-        const ladder = [...new Set([...pitches.map((x) => x + 12), ...pitches.map((x) => x + 24)])].sort((x, y) => x - y);
+        const ladder = [...new Set([...pitches.map((x) => x + 12 + octave), ...pitches.map((x) => x + 24 + octave)])].sort((x, y) => x - y);
         const wanted = ladder[Math.min(ladder.length - 1, ORDER[(s / every) % ORDER.length])];
         const candidates = [wanted, wanted - 12, ...ladder];
-        const m = candidates.find(fits) ?? wanted;
+        const clear = (x: number) => x > padTop && !pitches.some((y) => Math.abs(y - x) === 1);
+        const m = candidates.find(fits) ?? candidates.find(clear);
+        if (m === undefined) continue;
         const accent = s % 4 === 0 ? 1 : 0.78;
         p.add(step, m, 1, velocity(b) * accent);
       }
     }
   };
-  arp(0, 8, () => 0.56);              // VERSE 1: sixteenths from the start
-  arp(8, 12, (b) => 0.6 + (b - 8) * 0.03);
-  arp(12, 20, () => 0.74);            // CHORUS 1
-  arp(20, 28, () => 0.6);             // VERSE 2
-  arp(28, 32, (b) => 0.62 + (b - 28) * 0.03);
-  arp(32, 40, () => 0.76);            // CHORUS 2
-  arp(40, 48, () => 0.5, 2);          // BRIDGE: eighths
-  arp(48, 56, () => 0.8);             // CHORUS 3
+  arp(0, 8, () => 0.4, 2);            // VERSE 1: eighths, quiet, alone with the melody
+  arp(8, 10, (b) => 0.58 + (b - 8) * 0.06);
+  arp(10, 12, (b) => 0.66 + (b - 10) * 0.06, 1, 12);  // the breakdown: the arpeggio alone, an octave up
+  arp(12, 20, () => 0.8);             // CHORUS 1
+  arp(20, 28, () => 0.48, 1, 12);     // VERSE 2: sixteenths an octave up
+  arp(28, 30, (b) => 0.6 + (b - 28) * 0.06);
+  arp(30, 32, (b) => 0.68 + (b - 30) * 0.06, 1, 12);
+  arp(32, 40, () => 0.82);            // CHORUS 2
+  arp(40, 46, () => 0.42, 2);         // BRIDGE: eighths
+  arp(46, 48, (b) => 0.6 + (b - 46) * 0.1, 1, 12);
+  arp(48, 56, () => 0.86);            // CHORUS 3
   arp(56, 64, (b) => 0.6 - (b - 56) * 0.05);  // OUTRO, thinning
   return p.notes;
 }
 
+/**
+ * The second and third choruses answer every held note in the rest after it:
+ * two chord tones falling into the next bar, single voices, quieter — a
+ * call-and-response that the first chorus, heard once, does not have.
+ */
+function answers(bars: Chord[][]): NoteEvent[] {
+  const a = builder('answer');
+  for (const [start, shift] of [[32, 0], [48, 1], [56, 1]] as const) {
+    for (let b = 0; b < 8; b++) {
+      if (start + b >= 62) break;
+      const cells = SUMMER_CHORUS[b];
+      const held = midiOf(cells[cells.length - 1][1]) + shift;
+      const c = chordAt(bars, bar(start + b));
+      const top = Math.max(...c.pad.map(midiOf));
+      const tones = c.tones.flatMap((t) => [midiOf(`${t}5`), midiOf(`${t}6`)])
+        .filter((m) => m < held - 1 && m > top + 2).sort((x, y) => y - x);
+      if (tones.length < 2) continue;
+      a.add(bar(start + b) + 12, tones[0], 2, 0.5);
+      a.add(bar(start + b) + 14, tones[1], 2, 0.46);
+    }
+  }
+  return a.notes;
+}
+
 const padEnergy = (b: number) =>
-  b < 8 ? 0.25 : b < 12 ? 0.29 : b < 20 ? 0.33 : b < 28 ? 0.27
-    : b < 32 ? 0.3 : b < 40 ? 0.34 : b < 48 ? 0.33 : b < 56 ? 0.35 : 0.32 - (b - 56) * 0.02;
+  b < 8 ? 0.16 : b < 12 ? 0.26 : b < 20 ? 0.36 : b < 28 ? 0.2
+    : b < 32 ? 0.29 : b < 40 ? 0.35 : b < 48 ? 0.3 : b < 56 ? 0.36 : 0.32 - (b - 56) * 0.02;
 
 /**
  * Bass: a pulse. The root on every beat, held, the octave on every "and",
@@ -245,15 +274,16 @@ function buildBass(bars: Chord[][]): NoteEvent[] {
       if (ghosts) bass.add(bar(b) + s + 3, root(b, s + 3) + (s === 12 ? 7 : 0), 0.7, v * (s === 12 ? 0.9 : 0.5));
     }
   };
-  for (let b = 0; b < 8; b++) pulse(b, 0.66, false);
-  for (let b = 8; b < 12; b++) pulse(b, 0.74 + (b - 8) * 0.03);
-  for (let b = 12; b < 20; b++) pulse(b, 0.92);
-  for (let b = 20; b < 28; b++) pulse(b, 0.7);
-  for (let b = 28; b < 32; b++) pulse(b, 0.76 + (b - 28) * 0.03);
-  for (let b = 32; b < 40; b++) pulse(b, 0.94);
-  for (let b = 40; b < 46; b++) bass.add(bar(b), root(b), 16, 0.6);   // BRIDGE: held
-  for (let b = 46; b < 48; b++) pulse(b, 0.72);
-  for (let b = 48; b < 56; b++) pulse(b, 0.97);
+  // VERSE 1: roots in eighths only, quiet — the pulse is withheld.
+  for (let b = 0; b < 8; b++) for (let s = 0; s < 16; s += 2) bass.add(bar(b) + s, root(b, s), 1.6, 0.5 * (s % 4 === 0 ? 1 : 0.8));
+  // PRE: the pulse arrives, then the breakdown — two bars without bass — and the drop.
+  for (let b = 8; b < 10; b++) pulse(b, 0.78 + (b - 8) * 0.04);
+  for (let b = 12; b < 20; b++) pulse(b, 0.94);
+  for (let b = 20; b < 28; b++) pulse(b, 0.62, b >= 24);
+  for (let b = 28; b < 30; b++) pulse(b, 0.8 + (b - 28) * 0.04);
+  for (let b = 32; b < 40; b++) pulse(b, 0.96);
+  for (let b = 40; b < 44; b++) bass.add(bar(b), root(b), 16, 0.5);   // BRIDGE: held, then nothing
+  for (let b = 48; b < 56; b++) pulse(b, 1);
   for (let b = 56; b < 60; b++) pulse(b, 0.74 - (b - 56) * 0.05, false);
   for (let b = 60; b < 63; b++) bass.add(bar(b), root(b), 16, 0.5 - (b - 60) * 0.06);
   bass.add(bar(63), root(63), 16, 0.32);
@@ -296,11 +326,28 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
     build(from + 3);
   };
 
-  for (let b = 0; b < 8; b++) verseBar(b, 0.9, true);
-  pre(8);
+  // VERSE 1: no kick for four bars, then a light one; the verse is the
+  // quiet the chorus is measured against.
+  for (let b = 0; b < 8; b++) {
+    if (b >= 4) for (const s of [0, 8]) hit(kick, bar(b) + s, 0.6);
+    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.62);
+    for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.4);
+  }
+  // PRE: two bars of the full pulse, then the breakdown: kit out, a snare
+  // build in the last bar, the drop on the chorus downbeat.
+  const breakdown = (from: number) => {
+    for (let b = from; b < from + 2; b++) {
+      for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.9);
+      for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8);
+      for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, s % 4 === 2 ? 0.55 : 0.2);
+    }
+    for (let s = 0; s < 16; s += 4) hit(snare, bar(from + 2) + s, 0.4 + s * 0.02);
+    build(from + 3);
+  };
+  breakdown(8);
   for (let b = 12; b < 20; b++) chorusBar(b, 1);
-  for (let b = 20; b < 28; b++) verseBar(b, 0.94, true);
-  pre(28);
+  for (let b = 20; b < 28; b++) verseBar(b, 0.78, b >= 24);
+  breakdown(28);
   for (let b = 32; b < 40; b++) chorusBar(b, 1.03);
   // BRIDGE: the kit drops out; hats come back for the last two bars, then a build.
   for (let b = 45; b < 47; b++) for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.3);
@@ -317,13 +364,23 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
 }
 
 /** The tape: a modern record with a little age on it, not a worn cassette. */
+/**
+ * The tape as the song's dynamic arc: the verses dark and faintly hissy, the
+ * two bars before each drop a hiss that rises like a riser, the choruses
+ * wide open and clean, the bridge dark again.
+ */
 export const SUMMER_TAPE: readonly TapeAutomation[] = [
-  { step: bar(0), wow: 2, flutter: 0.6, hiss: 0.16, tone: 15000, glide: 0.05 },
-  { step: bar(12), wow: 1, flutter: 0.4, hiss: 0.1, tone: 19000, glide: 0.6 },
-  { step: bar(20), wow: 1.8, flutter: 0.6, hiss: 0.14, tone: 15000, glide: 1.2 },
-  { step: bar(32), wow: 1, flutter: 0.4, hiss: 0.1, tone: 19000, glide: 0.6 },
-  { step: bar(40), wow: 3, flutter: 0.9, hiss: 0.22, tone: 10000, glide: 1.6 },
-  { step: bar(48), wow: 0.8, flutter: 0.3, hiss: 0.08, tone: 20000, glide: 0.3 },
+  { step: bar(0), wow: 2, flutter: 0.6, hiss: 0.22, tone: 6500, glide: 0.05 },
+  { step: bar(8), wow: 1.5, flutter: 0.5, hiss: 0.2, tone: 9000, glide: 1.2 },
+  { step: bar(10), hiss: 0.7, tone: 20000, glide: 1.6 },
+  { step: bar(12), wow: 0.8, flutter: 0.3, hiss: 0.06, tone: 20000, glide: 0.05 },
+  { step: bar(20), wow: 1.8, flutter: 0.6, hiss: 0.2, tone: 7500, glide: 1.5 },
+  { step: bar(28), hiss: 0.2, tone: 10000, glide: 1.2 },
+  { step: bar(30), hiss: 0.75, tone: 20000, glide: 1.6 },
+  { step: bar(32), wow: 0.8, flutter: 0.3, hiss: 0.06, tone: 20000, glide: 0.05 },
+  { step: bar(40), wow: 3, flutter: 0.9, hiss: 0.3, tone: 5000, glide: 1.6 },
+  { step: bar(46), hiss: 0.8, tone: 20000, glide: 1.8 },
+  { step: bar(48), wow: 0.6, flutter: 0.3, hiss: 0.05, tone: 20000, glide: 0.05 },
   { step: bar(56), wow: 3, flutter: 1, hiss: 0.25, tone: 11000, glide: 2.5 },
   { step: bar(61), wow: 7, flutter: 2, hiss: 0.45, tone: 6500, glide: 3 },
 ];
@@ -342,7 +399,7 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 export function buildSummerTracks(): Track[] {
   const bars = harmony();
   const pad = buildPad(bars, padEnergy);
-  const lead = harmonise(buildMelody(), bars, pad, 3, 0.55);
+  const lead = [...harmonise(buildMelody(), bars, pad, 3, 0.55), ...harmonise(answers(bars), bars, pad, 2, 0.6, 'answer')];
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
     lead, pluck: buildPluck(bars, lead), pad, bass: buildBass(bars),
   };
