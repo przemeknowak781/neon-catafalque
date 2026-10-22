@@ -23,7 +23,7 @@ import {
 import { TARGETS, analyzeExpectation, degreeToMidi, mod, scoreMotif } from '../services/earwormAnalysis';
 import { BUILT_IN_SONGS } from '../songs';
 import { ANEMOIA_HOOK, anemoiaHarmony, midiOf } from '../songs/anemoia';
-import { SUMMER_CHORUS } from '../songs/summer';
+import { SUMMER_CHORUS, SUMMER_CHORUS_FULL } from '../songs/summer';
 import {
   ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
 } from '../services/arrangement';
@@ -911,6 +911,13 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   record('summer: bar 3 is bar 1 in sequence', 'Sloboda 1991', 1.0,
     shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[2]) && shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[4]) &&
     i1.every((x, i) => Math.sign(x) === Math.sign(i3[i]) && Math.abs(x - i3[i]) <= 2));
+
+  // The carved chorus keeps the skeleton: every onset of the plain chorus is
+  // in it, at the same pitch, and its tails leave the appoggiaturas intact.
+  const plain = new Map(SUMMER_CHORUS.flatMap((cells, b) => cells.map(([st, p]) => [b * 16 + st, midiOf(p)] as const)));
+  const full = new Map(SUMMER_CHORUS_FULL.flatMap((cells, b) => cells.map(([st, p]) => [b * 16 + st, midiOf(p)] as const)));
+  record('summer: the carved chorus keeps every note of the plain one', 'motif', 1.0,
+    [...plain].every(([st, m]) => full.get(st) === m) && full.size > plain.size);
 
   const all = SUMMER_CHORUS.flat().map(([, p]) => midiOf(p));
   const peakBar = SUMMER_CHORUS.findIndex((cells) => cells.some(([, p]) => midiOf(p) === Math.max(...all)));

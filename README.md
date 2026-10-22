@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · seven song forms · eight progressions · twenty-nine synth patches · two written songs<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 75 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 76 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   75 checks, 1944 generated songs
+...                                   76 checks, 1944 generated songs
 ```
 
 ---
@@ -229,11 +229,13 @@ pumping under the kick. The song is shaped against its own measurements:
 the first verse has no kick for four bars and a bass in quiet eighths, the
 two bars before every chorus drop the kit and the bass while the tape's
 hiss rises like a riser and its lowpass opens, the drop lands on the chorus
-downbeat, the second verse puts the arpeggio an octave up, and the second
-and third choruses answer every held note in the rest after it. Rendered,
+downbeat, the second verse puts the arpeggio an octave up, the second
+chorus answers every held note in the rest after it, and the third carves
+into the line itself: the same skeleton with tails that lead each bar into
+the next, climbing to the peak and falling from it. Rendered,
 the first verse sits 3.7 dB under the first chorus and 160 Hz darker in
 spectral centroid, where the flat version before it managed 0.8 dB. The last chorus
-is a semitone up, reached through F and B♭. Eight checks of its own in
+is a semitone up, reached through F and B♭. Nine checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 
 ## Holding a hook
@@ -271,7 +273,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 75 conformance checks
+npm run verify:earworm   # the 76 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

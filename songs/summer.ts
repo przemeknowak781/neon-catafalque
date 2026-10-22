@@ -70,15 +70,34 @@ export const SUMMER_CHORUS: readonly Bar[] = [
   [[0, 'E6', 6], [6, 'C#6', 6]],
 ];
 
-/** The verse: the same bars, low, two notes each, the rest left open. */
+/**
+ * The chorus carved: the same skeleton — pick-up, held note, appoggiatura —
+ * with the rests filled by tails that lead into the next bar. Bars 1, 3 and
+ * 5 keep one rhythm, so the sequence still reads; bar 5's tail climbs to E,
+ * bar 7 climbs through D to E, and bar 8 falls from the peak to A. The first
+ * chorus plays the skeleton, the second the skeleton with answers in the
+ * rests, the third this.
+ */
+export const SUMMER_CHORUS_FULL: readonly Bar[] = [
+  [[0, 'A5', 2], [2, 'D6', 6], [8, 'E6', 2], [10, 'D6', 2], [12, 'A5', 4]],
+  [[0, 'D6', 4], [4, 'C#6', 8], [12, 'E6', 2], [14, 'C#6', 2]],
+  [[0, 'F#5', 2], [2, 'B5', 6], [8, 'C#6', 2], [10, 'B5', 2], [12, 'F#5', 4]],
+  [[0, 'C6', 4], [4, 'B5', 8], [12, 'A5', 2], [14, 'G5', 2]],
+  [[0, 'A5', 2], [2, 'D6', 6], [8, 'C#6', 2], [10, 'D6', 2], [12, 'E6', 4]],
+  [[0, 'B5', 4], [4, 'A#5', 6], [10, 'C#6', 2], [12, 'E6', 2], [14, 'C#6', 2]],
+  [[0, 'G5', 2], [2, 'B5', 6], [8, 'D6', 4], [12, 'E6', 4]],
+  [[0, 'E6', 6], [6, 'C#6', 4], [10, 'B5', 2], [12, 'A5', 4]],
+];
+
+/** The verse: low, the first half spoken in two notes a bar, the second answering with three. */
 const VERSE: readonly Bar[] = [
   [[4, 'A4', 2], [6, 'D5', 6]],
   [[0, 'D5', 4], [4, 'C#5', 6]],
   [[4, 'F#4', 2], [6, 'B4', 6]],
   [[0, 'C5', 4], [4, 'B4', 8]],
-  [[4, 'A4', 2], [6, 'D5', 6]],
-  [[0, 'B4', 4], [4, 'A#4', 6]],
-  [[4, 'G4', 2], [6, 'B4', 6]],
+  [[4, 'A4', 2], [6, 'D5', 6], [12, 'E5', 2], [14, 'D5', 2]],
+  [[0, 'B4', 4], [4, 'A#4', 6], [12, 'C#5', 4]],
+  [[4, 'G4', 2], [6, 'B4', 6], [12, 'D5', 4]],
   [[0, 'E5', 4], [4, 'C#5', 8]],
 ];
 
@@ -174,9 +193,9 @@ function buildMelody(): NoteEvent[] {
   phrase(m, 28, PRE, 0.84);                 // PRE
   phrase(m, 32, SUMMER_CHORUS, 0.94);       // CHORUS 2
   phrase(m, 40, BRIDGE, 0.7);               // BRIDGE
-  phrase(m, 48, SUMMER_CHORUS, 0.97, 1);    // CHORUS 3, in E-flat
+  phrase(m, 48, SUMMER_CHORUS_FULL, 0.97, 1);  // CHORUS 3, in E-flat, carved
   // OUTRO: the first four bars once more, quietly, and the last two.
-  phrase(m, 56, SUMMER_CHORUS.slice(0, 4), 0.66, 1);
+  phrase(m, 56, SUMMER_CHORUS_FULL.slice(0, 4), 0.66, 1);
   phrase(m, 60, SUMMER_CHORUS.slice(4, 6), 0.6, 1);
   return m.notes;
 }
@@ -231,13 +250,13 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
 }
 
 /**
- * The second and third choruses answer every held note in the rest after it:
- * two chord tones falling into the next bar, single voices, quieter — a
- * call-and-response that the first chorus, heard once, does not have.
+ * The second chorus answers every held note in the rest after it: two chord
+ * tones falling into the next bar, quieter — a call-and-response the first
+ * chorus, heard once, does not have, and the third carves into the line.
  */
 function answers(bars: Chord[][]): NoteEvent[] {
   const a = builder('answer');
-  for (const [start, shift] of [[32, 0], [48, 1], [56, 1]] as const) {
+  for (const [start, shift] of [[32, 0]] as const) {
     for (let b = 0; b < 8; b++) {
       if (start + b >= 62) break;
       const cells = SUMMER_CHORUS[b];
