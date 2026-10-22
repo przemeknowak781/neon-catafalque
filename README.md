@@ -140,7 +140,7 @@ octaves.
 |---|---|---|
 | Instrument patches | 28 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
 | Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
-| Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (72) |
+| Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (64) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
 | Voice leading | 5 | Cantabile, Chorale, Angular, Drone, Soaring |
 
@@ -207,19 +207,18 @@ towards chill: extended chords everywhere and the energy held down. This one
 is aimed at nostalgia rather than calm, and the difference it bets on is
 arousal and line. Arousal predicted music-evoked nostalgia in Barrett et al.
 (2010), so it drives: 108 BPM, a sixteenth-note arpeggio, four on the floor
-in the choruses, a pad that ducks under the kick. And it sings: plain triads
-with the colour put into the melody, in the two devices Sloboda (*Psychology
-of Music* 19(2), 1991) found listeners linking to tears and chills,
-appoggiaturas and melodic sequences. The chorus is the canon progression over
-a falling bass (D, C♯, B, A, G, F♯), a major-key cousin of the descending
-tetrachord Rosand traced as the emblem of lament (*Musical Quarterly* 65(3),
-1979), turning to G minor over B♭, the borrowed iv, before the dominant. Its
-melody states a two-bar idea and its sequence on the way down, each long note
-arriving as an appoggiatura that falls a step into its chord, then climbs to
-the song's highest note in the sixth bar. It keeps what worked in Anemoia: the
-lead plays the melody in three-voice chords on a polyphonic patch, and the
-intro plays the chorus first, at half speed, as a memory. The last chorus is a
-semitone up, reached through F and B♭. Seven checks of its own in
+in the choruses, a pad that pumps under the kick. And it sings, in the two
+devices Sloboda (*Psychology of Music* 19(2), 1991) found listeners linking
+to tears and chills: appoggiaturas and melodic sequences. It starts on the
+verse. The chorus climbs IV, V, vi from the subdominant in root position under
+five-voice open voicings, rests on iii, IV and the tonic, and ends on the
+borrowed flat-VI and flat-VII, which pull towards a tonic that every chorus
+but the last turns away from; only the outro lands on it. Its melody states a
+two-bar idea and its sequence, each long note arriving as an appoggiatura
+that falls a step into its chord, then climbs to the song's highest note in
+the sixth bar. The lead plays it in three-voice chords on a supersaw, over a
+supersaw pad and a bass layered with a sub an octave below. The last chorus
+is a semitone up, reached through F and B♭. Seven checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 
 ## Holding a hook

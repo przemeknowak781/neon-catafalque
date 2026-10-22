@@ -872,15 +872,29 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   const tonicPc = mod(midiOf('D4'), 12);
   const [start] = song.analysis.chorusStarts[0];
 
-  const roots = [0, 1, 2, 3, 4, 5].map((i) => chordAtBarS(start + i).root);
-  record('summer: the chorus bass falls by step for six bars', 'harmony', 1.0,
-    roots.slice(1).every((r, i) => [1, 2].includes(mod(roots[i] - r, 12))));
+  // The chorus climbs from the subdominant: IV, V, vi, each in root position
+  // (the pad's lowest voice is the bass note's pitch class).
+  const rel = (i: number) => mod(chordAtBarS(start + i).root - tonicPc, 12);
+  const rootPosition = [0, 1, 2, 3, 4, 5, 6, 7].every((i) => {
+    const c = chordAtBarS(start + i);
+    return mod(Math.min(...c.pad) - c.root, 12) === 0;
+  });
+  record('summer: the chorus climbs IV - V - vi in root position', 'harmony', 1.0,
+    rel(0) === 5 && rel(1) === 7 && rel(2) === 9 && rootPosition);
 
-  // G minor over its B-flat: the subdominant with the key's sixth lowered.
-  const iv = chordAtBarS(start + 6);
-  record('summer: the chorus turns to the borrowed minor iv before its cadence', 'harmony', 1.0,
-    mod(iv.root - tonicPc, 12) === 8 && iv.tones.includes(mod(tonicPc + 5, 12)) &&
-    iv.tones.includes(mod(tonicPc + 8, 12)) && !iv.tones.includes(mod(tonicPc + 9, 12)));
+  // It ends on the borrowed flat-VI and flat-VII, both major.
+  const major = (i: number) => chordAtBarS(start + i).tones.includes(mod(chordAtBarS(start + i).root + 4, 12));
+  record('summer: every chorus ends on the borrowed flat-VI and flat-VII', 'harmony', 1.0,
+    song.analysis.chorusStarts.every(([s0, shift]) =>
+      mod(chordAtBarS(s0 + 6).root - tonicPc - shift, 12) === 8 &&
+      mod(chordAtBarS(s0 + 7).root - tonicPc - shift, 12) === 10) && major(6) && major(7));
+
+  // Only the outro completes it: flat-VI, flat-VII, then the tonic.
+  const lastBars = map.filter((h) => h.at === 0).slice(-4);
+  record('summer: only the outro lands flat-VI - flat-VII - I', 'harmony', 1.0,
+    mod(lastBars[0].root - tonicPc - 1, 12) === 8 && mod(lastBars[1].root - tonicPc - 1, 12) === 10 &&
+    mod(lastBars[2].root - tonicPc - 1, 12) === 0 &&
+    song.analysis.chorusStarts.slice(0, 2).every(([s0]) => mod(chordAtBarS(s0 + 8).root - tonicPc, 12) !== 0));
 
   // Bars 2, 4 and 6 open on a note foreign to the chord that falls a step
   // into it: the appoggiatura.
@@ -921,11 +935,6 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   record('summer: the last chorus is the first a semitone up', 'structure', 1.0,
     shift === 1 && first.size === last.size && [...first].every(([s, m]) => last.get(s) === m + 1));
 
-  const pluck = tracks.find((t) => t.id === 'pluck')!.notes!;
-  const memory = pluck.filter((n) => n.startStep < song.analysis.intro[1] * 16).map((n) => noteToMidi(n.note));
-  const chorusOpening = SUMMER_CHORUS.slice(0, 4).flat().map(([, p]) => midiOf(p));
-  record('summer: the intro plays the chorus opening before the lead does', 'structure', 1.0,
-    JSON.stringify(memory) === JSON.stringify(chorusOpening));
 }
 
 // Every written song: the structural checks a generated song gets, and the

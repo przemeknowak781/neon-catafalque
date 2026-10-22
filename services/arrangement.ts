@@ -110,9 +110,8 @@ export const ARRANGEMENT_PRESETS: readonly Arrangement[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'The form of the second built-in song: verses that climb through a four-bar pre-chorus, a bridge without the kit, a last chorus a semitone up.',
+    note: 'The form of the second built-in song: no intro, verses that climb through a four-bar pre-chorus, a bridge without the kit, a last chorus a semitone up.',
     sections: [
-      { kind: 'intro',  label: 'INTRO',    bars: 8, repeat: 0 },
       { kind: 'verse',  label: 'VERSE 1',  bars: 8, repeat: 0 },
       { kind: 'verse',  label: 'PRE',      bars: 4, repeat: 0 },
       { kind: 'chorus', label: 'CHORUS 1', bars: 8, repeat: 0 },

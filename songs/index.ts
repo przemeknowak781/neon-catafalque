@@ -64,7 +64,7 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Written by hand, in D with a last chorus in E-flat, 108 BPM. The canon progression over a falling bass that turns to the borrowed minor iv, a melody of sequences and appoggiaturas sung in three-voice chords, a sixteenth-note arpeggio, and the chorus heard first as a memory in the intro.',
+    note: 'Written by hand, in D with a last chorus in E-flat, 108 BPM, starting on the verse. A chorus that climbs IV - V - vi in root position and ends on the borrowed flat-VI and flat-VII, a melody of sequences and appoggiaturas sung in three-voice supersaw chords, a sub-layered bass and a sixteenth-note arpeggio.',
     bpm: SUMMER_BPM,
     totalSteps: SUMMER_STEPS,
     arrangement: 'The Summer We Never Had',
