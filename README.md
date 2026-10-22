@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · seven song forms · eight progressions · thirty-one synth patches · two written songs<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 76 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 83 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   76 checks, 1944 generated songs
+...                                   83 checks, 1944 generated songs
 ```
 
 ---
@@ -223,9 +223,13 @@ the song's highest note. The chord melody — a pick-up and one long note a bar,
 on appoggiaturas, the whole gesture stated three times in sequence — is the
 pad: struck as four-voice chords an octave down on a supersaw, with the
 second chorus answering in its rests and the third carved with tails. Over
-it a mono lead sings a second line, entering after the chords strike and
-tying across the barline, silent through the first verse, peaking on the
-F♯ of the second F♯7. A sixteenth-note arpeggio sits between the two, placed
+it a mono lead sings the hook, and this one is written to earworm.md and
+scored by the generator's own `scoreMotif` against the same targets as
+every generated candidate: an arch, 88% stepwise, one uncommon turning point
+per four bars (the leap up to E into the peak), a range of ten semitones,
+twenty notes in one rhythmic cell, a cadence on the third, and an A′ that
+keeps the rhythm and changes one note. It scores 0.95 and 0.93, where the
+generator's own median is about 0.9. Silent through the first verse. A sixteenth-note arpeggio sits between the two, placed
 clear of both, and the rhythm is a pulse: the kick on every beat, the open
 hat against it, a bass of held roots, short octaves and a ghost before each
 beat, layered with an octave sub. The song is shaped against its own measurements:
@@ -238,7 +242,7 @@ third's is carved: the same skeleton with tails that lead each bar into the
 next. Rendered,
 the first verse sits 3.7 dB under the first chorus and 160 Hz darker in
 spectral centroid, where the flat version before it managed 0.8 dB. The last chorus
-is a semitone up, reached through F and B♭. Nine checks of its own in
+is a semitone up, reached through F and B♭. Sixteen checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 
 ## Holding a hook
@@ -276,7 +280,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 76 conformance checks
+npm run verify:earworm   # the 83 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

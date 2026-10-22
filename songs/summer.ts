@@ -122,22 +122,25 @@ const BRIDGE: readonly Bar[] = [
 ];
 
 /**
- * The lead, written over the chord layer rather than being it. It enters
- * after the chords strike, on the "and" of beat two, and ties across the
- * barline, so it sings where the chords punctuate; it sits an octave above
- * them, and peaks on the F-sharp of the second F-sharp 7, the song's one
- * chord, in bar 6.
+ * The lead, written over the chord layer rather than being it, and written
+ * to earworm.md: an arch, 70-90% stepwise, one uncommon turning point per
+ * four bars (the leap up to E at the end of bar 2, into the peak), a range
+ * of ten semitones, twenty notes per four bars in one rhythmic cell, a
+ * cadence on the third. Scored by the generator's own scoreMotif at 0.95.
+ * A' keeps the rhythm and changes one note: the close rises to the fifth.
  */
-const LEAD_CHORUS: readonly Bar[] = [
-  [[6, 'F#5', 2], [8, 'A5', 2], [10, 'B5', 6]],
-  [[0, 'A#5', 6], [6, 'C#6', 2], [8, 'E6', 8]],
-  [[0, 'D6', 4], [4, 'C#6', 2], [6, 'B5', 8], [14, 'A5', 2]],
-  [[0, 'G5', 2], [2, 'A5', 2], [4, 'B5', 4], [8, 'D6', 8]],
-  [[6, 'A5', 2], [8, 'D6', 2], [10, 'E6', 4], [14, 'D6', 2]],
-  [[0, 'C#6', 6], [6, 'E6', 2], [8, 'F#6', 8]],
-  [[0, 'E6', 2], [2, 'D6', 2], [4, 'B5', 4], [8, 'G5', 2], [10, 'A5', 6]],
-  [[0, 'B5', 4], [4, 'A5', 4], [8, 'E5', 8]],
+const LEAD_A: readonly Bar[] = [
+  [[0, 'F#5', 2], [2, 'G5', 2], [4, 'A5', 4], [8, 'A5', 2], [10, 'B5', 2], [12, 'A5', 4]],
+  [[0, 'A#5', 4], [4, 'B5', 2], [6, 'C#6', 2], [8, 'C#6', 6], [14, 'E6', 2]],
+  [[0, 'D6', 4], [4, 'B5', 2], [6, 'A5', 2], [8, 'B5', 6], [14, 'A5', 2]],
+  [[0, 'G5', 4], [4, 'A5', 2], [6, 'G5', 2], [8, 'F#5', 8]],
 ];
+const LEAD_A2: readonly Bar[] = [
+  ...LEAD_A.slice(0, 3),
+  [[0, 'G5', 4], [4, 'A5', 2], [6, 'G5', 2], [8, 'A5', 8]],
+];
+export const LEAD_CHORUS: readonly Bar[] = [...LEAD_A, ...LEAD_A2];
+export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'D' };
 
 /** In the second verse the lead speaks low, in the gaps the chords leave. */
 const LEAD_VERSE: readonly Bar[] = [

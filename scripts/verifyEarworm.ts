@@ -23,7 +23,7 @@ import {
 import { TARGETS, analyzeExpectation, degreeToMidi, mod, scoreMotif } from '../services/earwormAnalysis';
 import { BUILT_IN_SONGS } from '../songs';
 import { ANEMOIA_HOOK, anemoiaHarmony, midiOf } from '../songs/anemoia';
-import { SUMMER_CHORUS, SUMMER_CHORUS_FULL } from '../songs/summer';
+import { LEAD_HOOK, SUMMER_CHORUS, SUMMER_CHORUS_FULL } from '../songs/summer';
 import {
   ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
 } from '../services/arrangement';
@@ -890,6 +890,52 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   const lastBar = map.filter((h) => h.at === 0).slice(-1)[0];
   record('summer: the outro lands on the tonic, a semitone up', 'structure', 1.0,
     mod(lastBar.root - tonicPc - 1, 12) === 0);
+
+  // The lead is the song's hook in earworm.md's sense, and is scored by the
+  // same function as every generated candidate, against the same targets.
+  {
+    const IONIAN = SCALE_INTERVALS.ionian;
+    const leadTonic = mod(midiOf(`${LEAD_HOOK.tonic}4`), 12);
+    const toMotif = (bars: typeof LEAD_HOOK.a) => {
+      const notes: { step: number; degree: number; alteration: number }[] = [];
+      bars.forEach((cells, b) => cells.forEach(([step, pitch]) => {
+        const rel = midiOf(pitch) - leadTonic - 24;
+        const octave = Math.floor(rel / 12);
+        const pc = mod(rel, 12);
+        const d = IONIAN.indexOf(pc);
+        notes.push({ step: b * 16 + step, degree: octave * 7 + (d >= 0 ? d : IONIAN.indexOf(pc - 1)), alteration: d >= 0 ? 0 : 1 });
+      }));
+      return notes;
+    };
+    const phrases = [toMotif(LEAD_HOOK.a), toMotif(LEAD_HOOK.answer)];
+    for (const notes of phrases) {
+      const onsets = Array.from({ length: 64 }, (_, i) => notes.some((n) => n.step === i));
+      const d = scoreMotif({
+        notes, scaleIntervals: IONIAN, modeName: 'ionian', onsets,
+        cellLength: 16, barsInPhrase: 4, targetContours: ['arch', 'descent'],
+      }).detail;
+      record('summer lead: common contour', '§2.1A', 1.0, d.contourClass === 'arch' || d.contourClass === 'descent');
+      record('summer lead: exactly 1 atypical turning point', '§2.1B', 1.0, d.atypicalTurns === TARGETS.atypicalTurnsPer4Bars, d.atypicalTurns);
+      record('summer lead: range, stepwise ratio and length in band', '§3.3 / §4.1', 1.0,
+        d.range >= TARGETS.rangeMin && d.range <= TARGETS.rangeMax &&
+        d.stepwiseRatio >= TARGETS.stepwiseMin && d.stepwiseRatio <= TARGETS.stepwiseMax &&
+        notes.length >= 12 && notes.length <= 22, d.range);
+      record('summer lead: information content, spikes and runs in band', '§2.2', 1.0,
+        d.meanIC >= TARGETS.meanICMin && d.meanIC <= TARGETS.meanICMax &&
+        d.spikes >= TARGETS.spikesMin && d.spikes <= TARGETS.spikesMax &&
+        d.longestHighICRun <= TARGETS.maxHighICRun, Math.round(d.meanIC * 100) / 100);
+      record('summer lead: one rhythmic cell, in mode, with modal colour', '§8A / §8D', 1.0,
+        d.rhythmSimilarity >= TARGETS.rhythmSimilarityMin &&
+        d.inModeRatio >= TARGETS.inModeMin && d.modalEmphasis >= TARGETS.modalEmphasisMin);
+      record('summer lead: cadences on degree 1, 3 or 5', '§3.3', 1.0,
+        CADENCE_DEGREES.includes(mod(notes[notes.length - 1].degree, 7)));
+    }
+    const [a, answer] = phrases;
+    const sameRhythm = a.length === answer.length && a.every((n, i) => n.step === answer[i].step);
+    const changed = a.filter((n, i) => n.degree !== answer[i]?.degree).length;
+    record("summer lead: A' keeps the rhythm and changes 1-2 notes", '§9', 1.0,
+      sameRhythm && changed >= 1 && changed <= 2, changed);
+  }
 
   // Bars 2, 4 and 6 open on a note foreign to the chord that falls a step
   // into it: the appoggiatura.
