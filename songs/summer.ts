@@ -104,16 +104,18 @@ const BRIDGE: readonly Bar[] = [
 
 // --- harmony --------------------------------------------------------------
 
-// Five-voice root-position voicings, the colour in the upper voices, kept
-// under the melody so the lead's chords have room.
-const D = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'F#4', 'C#5']);
-const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
-const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
+// Chorus voicings spread across three octaves: root and fifth low, the
+// triad in the middle, the colour (seventh, ninth) on top, kept under the
+// melody so the lead's chords have room above.
+const D = chord('Dmaj9', 'D2', ['D', 'F#', 'A', 'C#', 'E'], ['D2', 'A2', 'F#3', 'A3', 'E4', 'C#5']);
+const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'A#3', 'E4', 'C#5']);
+const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'D4', 'A4', 'C#5']);
 const G = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4', 'A4']);
-const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'E4', 'B4']);
+const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'B4', 'E5']);
 
-// Verse: the same chords, low and open.
-const vD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4']);
+// Verse: the same chords, two octaves lower and closer, so the chorus opens
+// the room above them.
+const vD = chord('D', 'D2', ['D', 'F#', 'A'], ['D2', 'A2', 'D3', 'F#3']);
 const vFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3']);
 const vBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B2', 'F#3', 'B3', 'D4']);
 const vG = chord('G', 'G1', ['G', 'B', 'D'], ['G2', 'D3', 'G3', 'B3']);
@@ -188,7 +190,9 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
   const p = builder('pluck');
   const sounding = (step: number) =>
     lead.filter((n) => n.startStep <= step && n.startStep + n.duration > step).map((n) => midiOf(n.note));
-  const ORDER = [1, 2, 3, 4, 3, 2, 3, 4];
+  // Up through the chord over two octaves and back: the arpeggio spans the
+  // room between the pad and the lead.
+  const ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, 2, 3];
   const arp = (from: number, to: number, velocity: (b: number) => number, every = 1) => {
     for (let b = from; b < to; b++) {
       for (let s = 0; s < STEPS_PER_BAR; s += every) {
@@ -200,8 +204,9 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
         const top = now.length ? Math.max(...now) : Infinity;
         const fits = (x: number) => x <= top && x > padTop && !now.some((y) => Math.abs(y - x) === 1) &&
           !pitches.some((y) => Math.abs(y - x) === 1);
-        const wanted = pitches[Math.min(pitches.length - 1, ORDER[(s / every) % ORDER.length])] + 12;
-        const candidates = [wanted, wanted - 12, ...pitches.map((x) => x + 12), ...pitches.map((x) => x + 24)];
+        const ladder = [...new Set([...pitches.map((x) => x + 12), ...pitches.map((x) => x + 24)])].sort((x, y) => x - y);
+        const wanted = ladder[Math.min(ladder.length - 1, ORDER[(s / every) % ORDER.length])];
+        const candidates = [wanted, wanted - 12, ...ladder];
         const m = candidates.find(fits) ?? wanted;
         const accent = s % 4 === 0 ? 1 : 0.78;
         p.add(step, m, 1, velocity(b) * accent);
@@ -225,33 +230,31 @@ const padEnergy = (b: number) =>
     : b < 32 ? 0.3 : b < 40 ? 0.34 : b < 48 ? 0.33 : b < 56 ? 0.35 : 0.32 - (b - 56) * 0.02;
 
 /**
- * Bass: the root an octave above where the chords are written, so its body
- * sits where a phone speaker can play it, with the patch's sub an octave
- * below carrying the weight. A motorik sixteenth-note line — root, root,
- * octave, root on every beat — that never stops except in the bridge.
+ * Bass: a pulse. The root on every beat, held, the octave on every "and",
+ * short, and a ghost sixteenth before each beat, so the line breathes with
+ * the sidechain rather than filling every slot. Written an octave above the
+ * chord roots; the patch's sub an octave below carries the weight.
  */
 function buildBass(bars: Chord[][]): NoteEvent[] {
   const bass = builder('bass');
   const root = (b: number, s = 0) => midiOf(chordAt(bars, bar(b) + s).root) + 12;
-  const ACCENT = [1, 0.62, 0.84, 0.62];
-  const roll = (b: number, v: number) => {
-    for (let s = 0; s < 16; s++) {
-      // Root, root, octave, root on every beat; the last sixteenth of the bar
-      // jumps to the fifth, a push into the next downbeat.
-      const up = s === 15 ? 7 : s % 4 === 2 ? 12 : 0;
-      bass.add(bar(b) + s, root(b, s) + up, 0.85, v * ACCENT[s % 4] * (s === 0 ? 1.06 : s === 15 ? 1.2 : 1));
+  const pulse = (b: number, v: number, ghosts = true) => {
+    for (let s = 0; s < 16; s += 4) {
+      bass.add(bar(b) + s, root(b, s), 2.6, v * (s === 0 ? 1.06 : 0.96));
+      bass.add(bar(b) + s + 2, root(b, s) + 12, 0.9, v * 0.7);
+      if (ghosts) bass.add(bar(b) + s + 3, root(b, s + 3) + (s === 12 ? 7 : 0), 0.7, v * (s === 12 ? 0.9 : 0.5));
     }
   };
-  for (let b = 0; b < 8; b++) roll(b, 0.66);
-  for (let b = 8; b < 12; b++) roll(b, 0.72 + (b - 8) * 0.03);
-  for (let b = 12; b < 20; b++) roll(b, 0.9);
-  for (let b = 20; b < 28; b++) roll(b, 0.7);
-  for (let b = 28; b < 32; b++) roll(b, 0.75 + (b - 28) * 0.03);
-  for (let b = 32; b < 40; b++) roll(b, 0.92);
+  for (let b = 0; b < 8; b++) pulse(b, 0.66, false);
+  for (let b = 8; b < 12; b++) pulse(b, 0.74 + (b - 8) * 0.03);
+  for (let b = 12; b < 20; b++) pulse(b, 0.92);
+  for (let b = 20; b < 28; b++) pulse(b, 0.7);
+  for (let b = 28; b < 32; b++) pulse(b, 0.76 + (b - 28) * 0.03);
+  for (let b = 32; b < 40; b++) pulse(b, 0.94);
   for (let b = 40; b < 46; b++) bass.add(bar(b), root(b), 16, 0.6);   // BRIDGE: held
-  for (let b = 46; b < 48; b++) roll(b, 0.7);
-  for (let b = 48; b < 56; b++) roll(b, 0.95);
-  for (let b = 56; b < 60; b++) roll(b, 0.74 - (b - 56) * 0.05);
+  for (let b = 46; b < 48; b++) pulse(b, 0.72);
+  for (let b = 48; b < 56; b++) pulse(b, 0.97);
+  for (let b = 56; b < 60; b++) pulse(b, 0.74 - (b - 56) * 0.05, false);
   for (let b = 60; b < 63; b++) bass.add(bar(b), root(b), 16, 0.5 - (b - 60) * 0.06);
   bass.add(bar(63), root(63), 16, 0.32);
   return bass.notes;
@@ -267,17 +270,17 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
   // Motorik: the kick on every beat from the first bar, the hats on every
   // sixteenth with the off-beat eighths leaned on.
   const verseBar = (b: number, v: number, sixteenths: boolean) => {
-    for (let s = 0; s < 16; s += 2) hit(kick, bar(b) + s, (s % 4 === 0 ? 0.86 : 0.36) * v);
+    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.88 * v);
     for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8 * v);
-    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.5 : 0.24) * v);
-    if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.16 * v);
+    // The off-beat eighth is the open hat, the pulse against the kick.
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.62 : 0.2) * v);
+    if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.14 * v);
   };
   const chorusBar = (b: number, v: number) => {
-    // Motorik proper: the kick on every eighth, the off-beats lighter.
-    for (let s = 0; s < 16; s += 2) hit(kick, bar(b) + s, (s % 4 === 0 ? 1 : 0.5) * v);
+    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 1 * v);
     for (const s of [4, 12]) hit(snare, bar(b) + s, 0.97 * v);
     hit(snare, bar(b) + 15, 0.3 * v);
-    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.62 : s % 2 === 0 ? 0.3 : 0.2) * v);
+    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.7 : s % 2 === 0 ? 0.26 : 0.18) * v);
   };
   /** The last bar of a build: snare on every eighth, then every sixteenth. */
   const build = (b: number) => {
@@ -326,10 +329,10 @@ export const SUMMER_TAPE: readonly TapeAutomation[] = [
 ];
 
 const TRACK_META: Record<TrackType, { name: string; color: string }> = {
-  lead: { name: 'BLADE CHORDS', color: 'bg-neon-purple' },
-  pluck: { name: 'COLD ARP', color: 'bg-teal-500' },
-  pad: { name: 'SOLINA VEIL', color: 'bg-blue-800' },
-  bass: { name: 'SOURCE BASS', color: 'bg-indigo-600' },
+  lead: { name: 'LONG EXPOSURE', color: 'bg-neon-purple' },
+  pluck: { name: 'NIGHT BUS', color: 'bg-teal-500' },
+  pad: { name: 'CASSETTE STRINGS', color: 'bg-blue-800' },
+  bass: { name: 'OVERPASS', color: 'bg-indigo-600' },
   fx: { name: 'FX', color: 'bg-neon-pink' },
   hihat: { name: 'HH', color: 'bg-yellow-400' },
   snare: { name: 'SD', color: 'bg-cyan-400' },

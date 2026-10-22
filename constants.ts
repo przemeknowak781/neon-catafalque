@@ -345,22 +345,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.52, delaySend: 0.3, phaserSend: 0,
       polyphony: 8,
     },
-    // The Summer We Never Had. Original. A modern chord lead, thinned: two
-    // detuned saw pairs rather than a full supersaw, played as four-voice
-    // block chords on eight voices. It strikes bright, falls to just over
-    // half and holds, and lets go quickly, so the rests the melody leaves are
-    // heard as rests rather than as reverb. No vibrato and no glide.
+    // The Summer We Never Had. Original. The chord lead: a five-voice
+    // supersaw, the pairs 18 cents apart, a slow-ish attack so chords bloom
+    // rather than hit, a filter that opens on the strike and settles bright,
+    // and a release long enough for one chord to melt into the next. Eight
+    // voices for four-note chords. No vibrato, no glide.
     'Long Exposure': {
       ...DEFAULT_LEAD_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 6,
-      unison: 2, unisonDetune: 9,
-      subLevel: 0, noiseLevel: 0.004,
-      cutoff: 2100, resonance: 1.2, filterEnvAmount: 0.26,
-      attack: 0.01, decay: 0.7, sustain: 0.5, release: 0.42,
-      filterAttack: 0.006, filterDecay: 0.4, filterSustain: 0.3, filterRelease: 0.35,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 9,
+      unison: 5, unisonDetune: 18,
+      subLevel: 0, noiseLevel: 0.005,
+      cutoff: 2600, resonance: 1.1, filterEnvAmount: 0.3,
+      attack: 0.04, decay: 0.9, sustain: 0.6, release: 0.6,
+      filterAttack: 0.03, filterDecay: 0.6, filterSustain: 0.35, filterRelease: 0.5,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
-      chorusMix: 0.1, drive: 0.12, pan: 0,
-      reverbSend: 0.3, delaySend: 0.18, phaserSend: 0,
+      chorusMix: 0.35, drive: 0.12, pan: 0,
+      reverbSend: 0.42, delaySend: 0.26, phaserSend: 0,
       polyphony: 8,
     },
     // Blade Chorus, the house lead, opened up: a five-voice chorused stack
@@ -451,22 +451,21 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       glide: 0, vibratoRate: 0, vibratoDepth: 0,
       chorusMix: 0.1, drive: 0.3, pan: 0, reverbSend: 0, delaySend: 0,
     },
-    // The Summer We Never Had. Original. A modern layered bass: a tight saw
-    // and square locked at one pitch for the body, a sine sub an octave below
-    // for the weight, and drive for the harmonics a phone speaker can
-    // reproduce when it cannot reproduce the sub. The song writes its roots
-    // an octave up for this patch, so the sub lands at 46-78 Hz, above the
-    // subsonic filter, instead of under it.
+    // The Summer We Never Had. Original. A meaty bass in three layers: a saw
+    // and a square locked at one pitch, an octave sub, and a steep 24 dB
+    // filter with a fast envelope that gives every note a front edge, then
+    // drive for the harmonics a small speaker can reproduce. The song writes
+    // its roots an octave up for this patch, so the sub sits at 46-78 Hz.
     'Overpass': {
       ...DEFAULT_BASS_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 0, drift: 0,
       unison: 1, unisonDetune: 0,
-      subLevel: 0.75, noiseLevel: 0.004,
-      cutoff: 640, resonance: 3, filterEnvAmount: 0.3,
-      attack: 0.003, decay: 0.22, sustain: 0.55, release: 0.12,
-      filterAttack: 0.003, filterDecay: 0.16, filterSustain: 0.15, filterRelease: 0.1,
+      subLevel: 0.85, noiseLevel: 0.004,
+      cutoff: 520, resonance: 4, filterEnvAmount: 0.42,
+      attack: 0.003, decay: 0.2, sustain: 0.5, release: 0.1,
+      filterAttack: 0.003, filterDecay: 0.14, filterSustain: 0.12, filterRelease: 0.1,
       glide: 0, vibratoRate: 0, vibratoDepth: 0,
-      chorusMix: 0, drive: 0.5, pan: 0, reverbSend: 0, delaySend: 0,
+      chorusMix: 0, drive: 0.55, pan: 0, reverbSend: 0, delaySend: 0,
     },
   },
 
@@ -555,22 +554,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       flangerSend: 0, phaserSend: 0.25,
       polyphony: 8,
     },
-    // The Summer We Never Had. Original. A wide supersaw pad: five detuned
-    // pairs, slow in and slow out, the filter breathing at a quarter of a
-    // hertz and the master sidechain making it pump with the kick. No pitch
-    // LFO, because the lead's chords sit right on top of it.
+    // The Summer We Never Had. Original. A wide supersaw pad, six detuned
+    // pairs, slow in and slow out, the filter breathing at a fifth of a hertz
+    // and the bus sidechain making it pump with the kick. No pitch LFO: the
+    // lead's chords sit right on top of it.
     'Cassette Strings': {
       ...DEFAULT_PAD_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 11,
-      unison: 5, unisonDetune: 20,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 12,
+      unison: 6, unisonDetune: 24,
       subLevel: 0, noiseLevel: 0.01,
-      cutoff: 1700, resonance: 1, filterEnvAmount: 0.08,
-      attack: 0.45, decay: 1.2, sustain: 0.9, release: 1.4,
-      filterAttack: 0.8, filterDecay: 1.4, filterSustain: 0.85, filterRelease: 1.2,
-      vibratoRate: 0.25, vibratoDepth: 0, lfoToFilter: 0.08,
-      chorusMix: 0.45, drive: 0.06, pan: 0,
+      cutoff: 1500, resonance: 1, filterEnvAmount: 0.1,
+      attack: 0.5, decay: 1.2, sustain: 0.9, release: 1.6,
+      filterAttack: 0.9, filterDecay: 1.4, filterSustain: 0.85, filterRelease: 1.2,
+      vibratoRate: 0.2, vibratoDepth: 0, lfoToFilter: 0.1,
+      chorusMix: 0.5, drive: 0.06, pan: 0,
       reverbSend: 0.55, delaySend: 0.05,
-      flangerSend: 0, phaserSend: 0,
+      flangerSend: 0, phaserSend: 0.3,
       polyphony: 8,
     },
   },
@@ -640,21 +639,21 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.6, delaySend: 0.42,
       polyphony: 6,
     },
-    // The Summer We Never Had. Original. A modern pluck for the sixteenth-note
-    // arpeggio, out in front: two saws a few cents apart through a resonant
-    // filter that snaps shut in a tenth of a second, centred and kept dry
-    // enough to stay forward, with the dotted-eighth delay behind it.
+    // The Summer We Never Had. Original. The arpeggio pluck: a square and a
+    // saw a few cents apart through a resonant filter that snaps shut in a
+    // tenth of a second, so every sixteenth is a point of tone, with the
+    // dotted-eighth delay turning the points into a pattern.
     'Night Bus': {
       ...DEFAULT_PLUCK_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 9,
+      osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 8,
       unison: 1, unisonDetune: 0,
       subLevel: 0, noiseLevel: 0.003,
-      cutoff: 1100, resonance: 5, filterEnvAmount: 0.55,
-      attack: 0.001, decay: 0.22, sustain: 0, release: 0.24,
-      filterAttack: 0.001, filterDecay: 0.1, filterSustain: 0.04, filterRelease: 0.15,
+      cutoff: 900, resonance: 6, filterEnvAmount: 0.6,
+      attack: 0.001, decay: 0.2, sustain: 0, release: 0.22,
+      filterAttack: 0.001, filterDecay: 0.09, filterSustain: 0.04, filterRelease: 0.12,
       vibratoRate: 0, vibratoDepth: 0,
-      chorusMix: 0.15, drive: 0.14, pan: 0,
-      reverbSend: 0.18, delaySend: 0.26,
+      chorusMix: 0.15, drive: 0.16, pan: 0,
+      reverbSend: 0.2, delaySend: 0.3,
       polyphony: 6,
     },
   },
@@ -732,15 +731,15 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'The second built-in song on the house patches: Blade Chorus opened up to eight voices for block chords, the Moog Source bass of Blue Monday for the motorik line, the Solina for the pad and Cold Arp for the sixteenths; the pad pumping under the kick, a trace of tape.',
-    lead: 'Blade Chords', bass: 'Source Bass', pad: 'Solina Veil', pluck: 'Cold Arp',
+    note: 'Original patches for the second built-in song: a supersaw chord lead, a six-voice supersaw pad pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
+    lead: 'Long Exposure', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
     fx: {
-      reverbMix: 0.42, reverbSize: 2.6, reverbDamp: 0.35, reverbPreDelay: 0.025,
+      reverbMix: 0.44, reverbSize: 2.8, reverbDamp: 0.35, reverbPreDelay: 0.025,
       delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.36, delayMix: 0.75,
       delayDamp: 3200, delayPingPong: true,
-      chorusMix: 0.85, phaserMix: 0.2, phaserRate: 0.18, phaserDepth: 0.35,
-      flangerMix: 0, sidechain: 0.55, sidechainRelease: 0.16,
-      width: 1.2, lowShelf: 0.5, airShelf: 2.5, glue: 0.5, masterDrive: 0.28,
+      chorusMix: 0.85, phaserMix: 0.25, phaserRate: 0.14, phaserDepth: 0.35,
+      flangerMix: 0, sidechain: 0.65, sidechainRelease: 0.17,
+      width: 1.15, lowShelf: 1, airShelf: 2.5, glue: 0.5, masterDrive: 0.26,
       tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 18000,
     },
   },

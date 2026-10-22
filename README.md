@@ -219,11 +219,13 @@ are a semitone up, the outro ending on the tonic. Its melody is a
 pick-up and one long note per bar with the rest of the bar left open, a
 gesture stated three times in sequence, the even bars opening on an
 appoggiatura that falls a step into the chord, the third statement reaching
-the song's highest note. The lead strikes it as four-voice chords on Blade Chords,
-the house Blade Chorus lead opened to eight voices, over the Solina pad, Cold
-Arp in sixteenths kept forward, and a motorik drive: the kick on every eighth
-from the first bar, and the Moog Source bass of *Blue Monday* rolling in
-sixteenths with a push to the fifth into every downbeat. The last chorus
+the song's highest note. The chorus voicings are spread over three octaves, root and fifth low, the
+triad in the middle, the colour on top; the lead strikes the melody above
+them as four-voice chords on a five-voice supersaw, a sixteenth-note
+arpeggio climbs two octaves between pad and lead, and the rhythm is a pulse:
+the kick on every beat, the open hat against it, a bass of held roots, short
+octaves and a ghost before each beat, layered with an octave sub, and the pad
+pumping under the kick. The last chorus
 is a semitone up, reached through F and B♭. Eight checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 
