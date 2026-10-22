@@ -202,52 +202,29 @@ and the Arts* 11(2), 2017), who found it, together with more common global
 contours, in earworm tunes against matched tunes and a pop corpus. That is a
 statistic of a whole tune; the spec turned it into a count per four bars.
 
-**The Summer We Never Had** is the second, written after Anemoia had drifted
-towards chill: extended chords everywhere and the energy held down. This one
-is aimed at nostalgia rather than calm, and the difference it bets on is
-arousal and line. Arousal predicted music-evoked nostalgia in Barrett et al.
-(2010), so it drives: 108 BPM, a sixteenth-note arpeggio, four on the floor
-in the choruses, a pad that pumps under the kick. And it sings, in the two
+**The Summer We Never Had** is the second, and it is built the way the
+simplest dance records are: one loop, one riff, a theme for the break,
+nothing else. The loop is eight bars on a secondary dominant, I, V/vi, vi,
+IV, I, V/vi, IV, V, the F♯7 in every second bar resolving to B minor the
+first time and deceptively to G the second. The riff is the lead hook,
+written to earworm.md and scored by the generator's own `scoreMotif`
+against the same targets as every generated candidate: an arch, 88%
+stepwise, one uncommon turning point per four bars, a range of ten
+semitones, twenty notes in one rhythmic cell, a cadence on the third, an A′
+that keeps the rhythm and changes one note; 0.95 and 0.93. It is stated
+twice in each riff section, note for note, and a check holds it to that.
+The theme is long notes climbing over the F♯7 held for four bars, and it is
+the break. Under the riff the pad strikes the chord melody of the earlier
+versions as four-voice supersaw chords an octave down; under the theme it
+sustains. A sixteenth-note arpeggio runs throughout, the kick on every
+beat from bar 5, the bass pulsing with an octave sub; one bar of build
+before each riff, the tape's hiss rising into it. No pre-chorus, no key
+change, no variation between statements beyond the second riff's answers
+in the rests. Arousal predicted music-evoked nostalgia in Barrett et al.
+(2010), and the appoggiaturas and sequences in the chord melody are the
 devices Sloboda (*Psychology of Music* 19(2), 1991) found listeners linking
-to tears and chills: appoggiaturas and melodic sequences. It starts on the
-verse. The whole song stands on one eight-bar progression built around a
-secondary dominant: I, V/vi, vi, IV; I, V/vi, IV, V. The F♯7 in every second
-bar is the song's one event, resolving to B minor the first time and
-deceptively to G the second; the verse plays the loop low and the chorus
-high, the bridge holds the F♯7 for four bars, and the last chorus and outro
-are a semitone up, the outro ending on the tonic. Its melody is a
-pick-up and one long note per bar with the rest of the bar left open, a
-gesture stated three times in sequence, the even bars opening on an
-appoggiatura that falls a step into the chord, the third statement reaching
-the song's highest note. The verses are the theme that began life as the bridge: long notes
-climbing C♯, E, F♯, A♯, B, D over the held F♯7 into B minor and G, over
-sustained chords and a held bass, the kit almost silent. The chord melody
-— a pick-up and one long note a bar, its even bars opening on
-appoggiaturas, the whole gesture stated three times in sequence — is the
-pad of the choruses: struck as four-voice chords an octave down on a
-supersaw, carved with tails from the first chorus on, the second chorus
-answering in its rests. Over
-it a mono lead sings the hook, and this one is written to earworm.md and
-scored by the generator's own `scoreMotif` against the same targets as
-every generated candidate: an arch, 88% stepwise, one uncommon turning point
-per four bars (the leap up to E into the peak), a range of ten semitones,
-twenty notes in one rhythmic cell, a cadence on the third, and an A′ that
-keeps the rhythm and changes one note. It scores 0.95 and 0.93, where the
-generator's own median is about 0.9.  A sixteenth-note arpeggio sits between the two, placed
-clear of both, and the rhythm is a pulse: the kick on every beat, the open
-hat against it, a bass of held roots, short octaves and a ghost before each
-beat, layered with an octave sub. The song is shaped against its own measurements:
-the first verse has no kick for four bars and a bass in quiet eighths, the
-two bars before every chorus drop the kit and the bass while the tape's
-hiss rises like a riser and its lowpass opens, the drop lands on the chorus
-downbeat, the second verse puts the arpeggio an octave up, the second
-chorus's chord layer answers every held note in the rest after it, and the
-third's is carved: the same skeleton with tails that lead each bar into the
-next. Rendered,
-the first verse sits 3.7 dB under the first chorus and 160 Hz darker in
-spectral centroid, where the flat version before it managed 0.8 dB. The last chorus
-is a semitone up, reached through F and B♭. Seventeen checks of its own in
-`verify:earworm`, and the shared song checks, which both songs pass.
+to tears and chills. Seventeen checks of its own in `verify:earworm`, and
+the shared song checks, which both songs pass.
 
 ## Holding a hook
 

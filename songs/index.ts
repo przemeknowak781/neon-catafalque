@@ -15,6 +15,8 @@ export interface SongAnalysis {
   harmony: () => { bar: number; at: number; name: string; root: number; tones: number[]; pad: number[] }[];
   /** The track that plays the chord melody in block chords. */
   chords: 'lead' | 'pad';
+  /** False for a song whose last chorus is, by design, the first again rather than higher. */
+  finalChorusLifts?: boolean;
 }
 
 /**
@@ -67,7 +69,7 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Written by hand, in D with a last chorus in E-flat, 108 BPM. One progression on a secondary dominant, a chord melody of sequences and appoggiaturas struck as supersaw chords for the pad, a mono lead singing over it, a sixteenth-note arpeggio between, a sub-layered bass, and breakdowns before every drop.',
+    note: 'Written by hand, in D, 108 BPM: one eight-bar loop on a secondary dominant, one riff written to earworm.md and stated twice per section note for note, a theme of long notes for the break, a chord melody struck as supersaw chords for the pad, a sixteenth-note arpeggio, a pulsing sub bass.',
     bpm: SUMMER_BPM,
     totalSteps: SUMMER_STEPS,
     arrangement: 'The Summer We Never Had',
@@ -78,10 +80,11 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
     analysis: {
       intro: SUMMER_SECTIONS.intro,
       bridge: SUMMER_SECTIONS.bridge,
-      choruses: [SUMMER_SECTIONS.chorus1, SUMMER_SECTIONS.chorus2, SUMMER_SECTIONS.chorus3],
+      choruses: [SUMMER_SECTIONS.riff1, SUMMER_SECTIONS.riff2],
       chorusStarts: SUMMER_CHORUS_STARTS,
       harmony: summerHarmony,
       chords: 'pad',
+      finalChorusLifts: false,
     },
   },
 ];

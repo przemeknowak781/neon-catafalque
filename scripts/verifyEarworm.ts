@@ -884,7 +884,7 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     song.analysis.chorusStarts.every(([s0]) => standsOnIt(s0)));
   // The theme (the verses and the bridge) holds the secondary dominant for
   // four bars before vi and IV.
-  const themeStarts = [0, 20, song.analysis.bridge[0]];
+  const themeStarts = [8, 32];
   record('summer: the theme holds the secondary dominant for four bars, then vi and IV', 'harmony', 1.0,
     themeStarts.every((t) => [0, 1, 2, 3].every((i) => rel(t + i) === 4 && major3(t + i)) && rel(t + 4) === 9 && rel(t + 5) === 5));
   record('summer: the secondary dominant resolves to vi, then deceptively to IV', 'harmony', 1.0,
@@ -893,8 +893,8 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   record('summer: the bridge holds the secondary dominant for four bars', 'harmony', 1.0,
     [0, 1, 2, 3].every((i) => rel(br + i) === 4 && major3(br + i)));
   const lastBar = map.filter((h) => h.at === 0).slice(-1)[0];
-  record('summer: the outro lands on the tonic, a semitone up', 'structure', 1.0,
-    mod(lastBar.root - tonicPc - 1, 12) === 0);
+  record('summer: the outro lands on the tonic', 'structure', 1.0,
+    mod(lastBar.root - tonicPc, 12) === 0);
 
   // The lead is the song's hook in earworm.md's sense, and is scored by the
   // same function as every generated candidate, against the same targets.
@@ -983,12 +983,14 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     }
     return by;
   };
-  const [lastStart, shift] = song.analysis.chorusStarts[2];
-  const first = tops(start), last = tops(lastStart);
-  // The last chorus contains the first a semitone up; it may add answers in
-  // the rests, which the first chorus does not have.
-  record('summer: the last chorus is the first a semitone up', 'structure', 1.0,
-    shift === 1 && [...first].every(([s, m]) => last.get(s) === m + 1));
+  // One riff: every statement of the hook is the first, note for note.
+  const [firstStart] = song.analysis.chorusStarts[0];
+  const first = tops(firstStart);
+  record('summer: every statement of the riff is the first, note for note', 'structure', 1.0,
+    song.analysis.chorusStarts.slice(1).every(([s0]) => {
+      const other = tops(s0);
+      return other.size === first.size && [...first].every(([st, m]) => other.get(st) === m);
+    }));
 
 }
 
@@ -1029,8 +1031,10 @@ for (const song of BUILT_IN_SONGS) {
     const ns = notesOf('lead').filter((n) => inBars(n.startStep, range));
     return ns.reduce((sum, n) => sum + noteToMidi(n.note), 0) / Math.max(1, ns.length);
   };
-  record('built-in song: the last chorus sits higher than the first', 'structure', 1.0,
-    meanLead(choruses[choruses.length - 1]) > meanLead(choruses[0]));
+  if (song.analysis.finalChorusLifts !== false) {
+    record('built-in song: the last chorus sits higher than the first', 'structure', 1.0,
+      meanLead(choruses[choruses.length - 1]) > meanLead(choruses[0]));
+  }
 
   const sounding: { track: string; midi: number }[][] = Array.from({ length: steps }, () => []);
   for (const t of tracks) for (const n of t.notes ?? []) {
