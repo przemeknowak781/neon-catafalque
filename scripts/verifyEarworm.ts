@@ -1023,11 +1023,12 @@ for (const song of BUILT_IN_SONGS) {
 
   // The melody's own onsets; a song may add answering figures on the lead
   // track under their own ids, and those are not the melody.
+  const chordNotes = notesOf(song.analysis.chords);
   const onsets = new Map<number, number>();
-  for (const n of leadNotes.filter((x) => x.id.startsWith('lead-'))) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
+  for (const n of chordNotes.filter((x) => x.id.startsWith(`${song.analysis.chords}-`))) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
   const chorusOnsets = [...onsets.entries()].filter(([s]) => choruses.some((c) => inBars(s, c)));
   const full = chorusOnsets.filter(([, k]) => k >= 3).length;
-  record('built-in song: the chorus melody is struck in three-voice chords', 'harmony', 1.0,
+  record('built-in song: the chord melody is struck in three-voice chords', 'harmony', 1.0,
     chorusOnsets.length > 0 && full / chorusOnsets.length >= 0.9, Math.round((100 * full) / Math.max(1, chorusOnsets.length)));
 }
 

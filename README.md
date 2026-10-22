@@ -5,7 +5,7 @@
 **A darkwave sequencer that generates hooks against a written specification — and proves it did.**
 
 <sub>
-Twelve scales · twelve keys · seven song forms · eight progressions · twenty-nine synth patches · two written songs<br>
+Twelve scales · twelve keys · seven song forms · eight progressions · thirty-one synth patches · two written songs<br>
 Web Audio synthesis · a tape stage · MIDI and WAV export · 76 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
@@ -70,7 +70,7 @@ something. The generator's own median is 3.31 bits.
 
 ## Sound
 
-Twenty-nine synth patches. Three reconstruct documented instruments and say so:
+Thirty-one synth patches. Three reconstruct documented instruments and say so:
 
 - **Vox Humana** — the Polymoog 280A factory preset Gary Numan bought the
   instrument for, and the string part on *Cars* (1979). Chorused, near-still
@@ -138,7 +138,7 @@ octaves.
 
 | bank | count | examples |
 |---|---|---|
-| Instrument patches | 29 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
+| Instrument patches | 31 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
 | Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
 | Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (64) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
@@ -219,20 +219,23 @@ are a semitone up, the outro ending on the tonic. Its melody is a
 pick-up and one long note per bar with the rest of the bar left open, a
 gesture stated three times in sequence, the even bars opening on an
 appoggiatura that falls a step into the chord, the third statement reaching
-the song's highest note. The chorus voicings are spread over three octaves, root and fifth low, the
-triad in the middle, the colour on top; the lead strikes the melody above
-them as four-voice chords on a five-voice supersaw, a sixteenth-note
-arpeggio climbs two octaves between pad and lead, and the rhythm is a pulse:
-the kick on every beat, the open hat against it, a bass of held roots, short
-octaves and a ghost before each beat, layered with an octave sub, and the pad
-pumping under the kick. The song is shaped against its own measurements:
+the song's highest note. The chord melody — a pick-up and one long note a bar, its even bars opening
+on appoggiaturas, the whole gesture stated three times in sequence — is the
+pad: struck as four-voice chords an octave down on a supersaw, with the
+second chorus answering in its rests and the third carved with tails. Over
+it a mono lead sings a second line, entering after the chords strike and
+tying across the barline, silent through the first verse, peaking on the
+F♯ of the second F♯7. A sixteenth-note arpeggio sits between the two, placed
+clear of both, and the rhythm is a pulse: the kick on every beat, the open
+hat against it, a bass of held roots, short octaves and a ghost before each
+beat, layered with an octave sub. The song is shaped against its own measurements:
 the first verse has no kick for four bars and a bass in quiet eighths, the
 two bars before every chorus drop the kit and the bass while the tape's
 hiss rises like a riser and its lowpass opens, the drop lands on the chorus
 downbeat, the second verse puts the arpeggio an octave up, the second
-chorus answers every held note in the rest after it, and the third carves
-into the line itself: the same skeleton with tails that lead each bar into
-the next, climbing to the peak and falling from it. Rendered,
+chorus's chord layer answers every held note in the rest after it, and the
+third's is carved: the same skeleton with tails that lead each bar into the
+next. Rendered,
 the first verse sits 3.7 dB under the first chorus and 160 Hz darker in
 spectral centroid, where the flat version before it managed 0.8 dB. The last chorus
 is a semitone up, reached through F and B♭. Nine checks of its own in

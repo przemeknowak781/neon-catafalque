@@ -1,7 +1,7 @@
 import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
-  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonise, harmonyMap,
+  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, engineName, harmonise, harmonyMap,
   lift, midiOf, phrase, type Bar, type Chord,
 } from "./score";
 
@@ -121,6 +121,44 @@ const BRIDGE: readonly Bar[] = [
   [[0, 'Bb5', 12]],
 ];
 
+/**
+ * The lead, written over the chord layer rather than being it. It enters
+ * after the chords strike, on the "and" of beat two, and ties across the
+ * barline, so it sings where the chords punctuate; it sits an octave above
+ * them, and peaks on the F-sharp of the second F-sharp 7, the song's one
+ * chord, in bar 6.
+ */
+const LEAD_CHORUS: readonly Bar[] = [
+  [[6, 'F#5', 2], [8, 'A5', 2], [10, 'B5', 6]],
+  [[0, 'A#5', 6], [6, 'C#6', 2], [8, 'E6', 8]],
+  [[0, 'D6', 4], [4, 'C#6', 2], [6, 'B5', 8], [14, 'A5', 2]],
+  [[0, 'G5', 2], [2, 'A5', 2], [4, 'B5', 4], [8, 'D6', 8]],
+  [[6, 'A5', 2], [8, 'D6', 2], [10, 'E6', 4], [14, 'D6', 2]],
+  [[0, 'C#6', 6], [6, 'E6', 2], [8, 'F#6', 8]],
+  [[0, 'E6', 2], [2, 'D6', 2], [4, 'B5', 4], [8, 'G5', 2], [10, 'A5', 6]],
+  [[0, 'B5', 4], [4, 'A5', 4], [8, 'E5', 8]],
+];
+
+/** In the second verse the lead speaks low, in the gaps the chords leave. */
+const LEAD_VERSE: readonly Bar[] = [
+  [[10, 'F#5', 2], [12, 'E5', 4]],
+  [[8, 'E5', 2], [10, 'C#5', 6]],
+  [[10, 'D5', 2], [12, 'F#5', 4]],
+  [[8, 'G5', 2], [10, 'B4', 6]],
+  [[10, 'F#5', 2], [12, 'A5', 4]],
+  [[8, 'A#5', 2], [10, 'C#6', 6]],
+  [[10, 'B5', 2], [12, 'D6', 4]],
+  [[0, 'C#6', 6], [8, 'A5', 8]],
+];
+
+/** The pre-chorus lead: one long note a bar, climbing with the bass. */
+const LEAD_PRE: readonly Bar[] = [
+  [[8, 'G5', 8]],
+  [[8, 'A#5', 8]],
+  [[8, 'B5', 8]],
+  [[0, 'D6', 8], [8, 'E6', 8]],
+];
+
 // --- harmony --------------------------------------------------------------
 
 // Chorus voicings spread across three octaves: root and fifth low, the
@@ -184,7 +222,7 @@ function harmony(): Chord[][] {
 
 // --- track builders -------------------------------------------------------
 
-function buildMelody(): NoteEvent[] {
+function buildChordMelody(): NoteEvent[] {
   const m = builder('melody');
   phrase(m, 0, VERSE, 0.6);                 // VERSE 1
   phrase(m, 8, PRE, 0.8);                   // PRE
@@ -192,7 +230,6 @@ function buildMelody(): NoteEvent[] {
   phrase(m, 20, VERSE, 0.64);               // VERSE 2
   phrase(m, 28, PRE, 0.84);                 // PRE
   phrase(m, 32, SUMMER_CHORUS, 0.94);       // CHORUS 2
-  phrase(m, 40, BRIDGE, 0.7);               // BRIDGE
   phrase(m, 48, SUMMER_CHORUS_FULL, 0.97, 1);  // CHORUS 3, in E-flat, carved
   // OUTRO: the first four bars once more, quietly, and the last two.
   phrase(m, 56, SUMMER_CHORUS_FULL.slice(0, 4), 0.66, 1);
@@ -200,15 +237,31 @@ function buildMelody(): NoteEvent[] {
   return m.notes;
 }
 
+function buildLead(): NoteEvent[] {
+  const l = builder('lead');
+  // Silent through the first verse: the chord layer carries the tune alone.
+  phrase(l, 8, LEAD_PRE, 0.8);
+  phrase(l, 12, LEAD_CHORUS, 0.9);
+  phrase(l, 20, LEAD_VERSE, 0.66);
+  phrase(l, 28, LEAD_PRE, 0.84);
+  phrase(l, 32, LEAD_CHORUS, 0.92);
+  phrase(l, 40, BRIDGE, 0.7);
+  phrase(l, 48, LEAD_CHORUS, 0.96, 1);
+  phrase(l, 56, LEAD_CHORUS.slice(0, 4), 0.66, 1);
+  return l.notes;
+}
+
 /**
  * The pluck: a sixteenth-note arpeggio an octave above the pad, up and down
  * through the chord. A note that would sit a semitone from the lead, or above
  * the melody, drops an octave.
  */
-function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
+function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): NoteEvent[] {
   const p = builder('pluck');
-  const sounding = (step: number) =>
-    lead.filter((n) => n.startStep <= step && n.startStep + n.duration > step).map((n) => midiOf(n.note));
+  const at = (ns: NoteEvent[], step: number) =>
+    ns.filter((n) => n.startStep <= step && n.startStep + n.duration > step).map((n) => midiOf(n.note));
+  const sounding = (step: number) => at(lead, step);
+  const CEILING = midiOf('A6');
   // Up through the chord over two octaves and back: the arpeggio spans the
   // room between the pad and the lead.
   const ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, 2, 3];
@@ -218,15 +271,16 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
         const step = bar(b) + s;
         const c = chordAt(bars, step);
         const pitches = c.pad.map(midiOf);
-        const padTop = Math.max(...pitches);
+        const padNow = at(padNotes, step);
+        const padTop = Math.max(...pitches, ...padNow);
         const now = sounding(step);
-        const top = now.length ? Math.max(...now) : Infinity;
+        const top = now.length ? Math.max(...now) : CEILING;
         const fits = (x: number) => x <= top && x > padTop && !now.some((y) => Math.abs(y - x) === 1) &&
-          !pitches.some((y) => Math.abs(y - x) === 1);
+          !pitches.some((y) => Math.abs(y - x) === 1) && !padNow.some((y) => Math.abs(y - x) === 1);
         const ladder = [...new Set([...pitches.map((x) => x + 12 + octave), ...pitches.map((x) => x + 24 + octave)])].sort((x, y) => x - y);
         const wanted = ladder[Math.min(ladder.length - 1, ORDER[(s / every) % ORDER.length])];
         const candidates = [wanted, wanted - 12, ...ladder];
-        const clear = (x: number) => x > padTop && !pitches.some((y) => Math.abs(y - x) === 1);
+        const clear = (x: number) => x > padTop && x <= CEILING && ![...pitches, ...padNow, ...now].some((y) => Math.abs(y - x) === 1);
         const m = candidates.find(fits) ?? candidates.find(clear);
         if (m === undefined) continue;
         const accent = s % 4 === 0 ? 1 : 0.78;
@@ -405,9 +459,9 @@ export const SUMMER_TAPE: readonly TapeAutomation[] = [
 ];
 
 const TRACK_META: Record<TrackType, { name: string; color: string }> = {
-  lead: { name: 'LONG EXPOSURE', color: 'bg-neon-purple' },
+  lead: { name: 'SIGNAL FLARE', color: 'bg-neon-purple' },
   pluck: { name: 'NIGHT BUS', color: 'bg-teal-500' },
-  pad: { name: 'CASSETTE STRINGS', color: 'bg-blue-800' },
+  pad: { name: 'LONG EXPOSURE', color: 'bg-blue-800' },
   bass: { name: 'OVERPASS', color: 'bg-indigo-600' },
   fx: { name: 'FX', color: 'bg-neon-pink' },
   hihat: { name: 'HH', color: 'bg-yellow-400' },
@@ -417,10 +471,19 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 
 export function buildSummerTracks(): Track[] {
   const bars = harmony();
-  const pad = buildPad(bars, padEnergy);
-  const lead = [...harmonise(buildMelody(), bars, pad, 3, 0.55), ...harmonise(answers(bars), bars, pad, 2, 0.6, 'answer')];
+  // The pad is the chord layer: the chord melody, an octave down and
+  // harmonised in four voices, the answers of the second chorus, and the
+  // sustained voicings where the chord melody is silent (the bridge).
+  const down = (ns: NoteEvent[]) => ns.map((n) => ({ ...n, note: engineName(midiOf(n.note) - 12) }));
+  const sustained = buildPad(bars, padEnergy).filter((n) => n.startStep >= bar(40) && n.startStep < bar(48));
+  const pad = [
+    ...harmonise(down(buildChordMelody()), bars, [], 3, 0.6, 'pad'),
+    ...harmonise(down(answers(bars)), bars, [], 2, 0.6, 'answer'),
+    ...sustained,
+  ];
+  const lead = buildLead();
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
-    lead, pluck: buildPluck(bars, lead), pad, bass: buildBass(bars),
+    lead, pluck: buildPluck(bars, lead, pad), pad, bass: buildBass(bars),
   };
   const drums = buildDrums();
   const order: TrackType[] = ['lead', 'pluck', 'pad', 'bass', 'fx', 'hihat', 'snare', 'kick'];

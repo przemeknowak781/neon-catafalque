@@ -13,6 +13,8 @@ export interface SongAnalysis {
   /** First bar of each chorus and its transposition in semitones. */
   chorusStarts: [number, number][];
   harmony: () => { bar: number; at: number; name: string; root: number; tones: number[]; pad: number[] }[];
+  /** The track that plays the chord melody in block chords. */
+  chords: 'lead' | 'pad';
 }
 
 /**
@@ -60,11 +62,12 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
       choruses: [ANEMOIA_HOOK.sections.chorus1, ANEMOIA_HOOK.sections.chorus2, ANEMOIA_HOOK.sections.chorus3],
       chorusStarts: ANEMOIA_HOOK.chorusStarts,
       harmony: anemoiaHarmony,
+      chords: 'lead',
     },
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Written by hand, in D with a last chorus in E-flat, 108 BPM, starting on the verse. A chorus that climbs IV - V - vi in root position and ends on the borrowed flat-VI and flat-VII, a melody of sequences and appoggiaturas sung in three-voice supersaw chords, a sub-layered bass and a sixteenth-note arpeggio.',
+    note: 'Written by hand, in D with a last chorus in E-flat, 108 BPM. One progression on a secondary dominant, a chord melody of sequences and appoggiaturas struck as supersaw chords for the pad, a mono lead singing over it, a sixteenth-note arpeggio between, a sub-layered bass, and breakdowns before every drop.',
     bpm: SUMMER_BPM,
     totalSteps: SUMMER_STEPS,
     arrangement: 'The Summer We Never Had',
@@ -78,6 +81,7 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
       choruses: [SUMMER_SECTIONS.chorus1, SUMMER_SECTIONS.chorus2, SUMMER_SECTIONS.chorus3],
       chorusStarts: SUMMER_CHORUS_STARTS,
       harmony: summerHarmony,
+      chords: 'pad',
     },
   },
 ];

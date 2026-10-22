@@ -350,6 +350,23 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
     // rather than hit, a filter that opens on the strike and settles bright,
     // and a release long enough for one chord to melt into the next. Eight
     // voices for four-note chords. No vibrato, no glide.
+    // The Summer We Never Had. Original. A singing mono lead: a saw and a
+    // square locked at one pitch with the drift off, so nothing beats; a
+    // short glide between notes, a vibrato of five cents that arrives a
+    // third of a second into a note, a bright filter with a little bite, and
+    // drive. One voice, so the line phrases.
+    'Signal Flare': {
+      ...DEFAULT_LEAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 0, drift: 0,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0.1, noiseLevel: 0.004,
+      cutoff: 2600, resonance: 2.5, filterEnvAmount: 0.3,
+      attack: 0.012, decay: 0.5, sustain: 0.7, release: 0.3,
+      filterAttack: 0.01, filterDecay: 0.4, filterSustain: 0.4, filterRelease: 0.3,
+      glide: 45, vibratoRate: 5.4, vibratoDepth: 5, vibratoDelay: 0.35, lfoToFilter: 0,
+      chorusMix: 0.15, drive: 0.28, pan: 0,
+      reverbSend: 0.38, delaySend: 0.34, phaserSend: 0,
+    },
     'Long Exposure': {
       ...DEFAULT_LEAD_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 9,
@@ -554,6 +571,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       flangerSend: 0, phaserSend: 0.25,
       polyphony: 8,
     },
+    // The Summer We Never Had. The chord lead of the earlier versions, moved
+    // to the back: the same five-voice supersaw, a little darker, playing the
+    // chord melody an octave down as the song's pad.
+    'Long Exposure': {
+      ...DEFAULT_PAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 9,
+      unison: 5, unisonDetune: 18,
+      subLevel: 0, noiseLevel: 0.005,
+      cutoff: 1900, resonance: 1.1, filterEnvAmount: 0.25,
+      attack: 0.05, decay: 0.9, sustain: 0.6, release: 0.7,
+      filterAttack: 0.03, filterDecay: 0.6, filterSustain: 0.35, filterRelease: 0.5,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
+      chorusMix: 0.35, drive: 0.12, pan: 0,
+      reverbSend: 0.42, delaySend: 0.26, phaserSend: 0,
+      polyphony: 8,
+    },
     // The Summer We Never Had. Original. A wide supersaw pad, six detuned
     // pairs, slow in and slow out, the filter breathing at a fifth of a hertz
     // and the bus sidechain making it pump with the kick. No pitch LFO: the
@@ -731,8 +764,8 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Original patches for the second built-in song: a supersaw chord lead, a six-voice supersaw pad pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
-    lead: 'Long Exposure', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
+    note: 'Original patches for the second built-in song: a singing mono lead, the supersaw chord layer behind it pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
+    lead: 'Signal Flare', bass: 'Overpass', pad: 'Long Exposure', pluck: 'Night Bus',
     fx: {
       reverbMix: 0.44, reverbSize: 2.8, reverbDamp: 0.35, reverbPreDelay: 0.025,
       delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.36, delayMix: 0.75,
