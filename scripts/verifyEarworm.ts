@@ -877,11 +877,16 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   const rel = (b: number) => mod(chordAtBarS(b).root - tonicPc, 12);
   const major3 = (b: number) => chordAtBarS(b).tones.includes(mod(chordAtBarS(b).root + 4, 12));
   const PROGRESSION = [0, 4, 9, 5, 0, 4, 5, 7];
-  const standsOnIt = (from: number) => PROGRESSION.every((r, i) => rel(from + i) === r) &&
-    [1, 5].every((i) => major3(from + i) && chordAtBarS(from + i).tones.includes(mod(tonicPc + 4 + 10, 12))) &&
+  const standsOnIt = (from: number) => PROGRESSION.every((r, i) => mod(chordAtBarS(from + i).root - chordAtBarS(from).root, 12) === r) &&
+    [1, 5].every((i) => major3(from + i) && chordAtBarS(from + i).tones.includes(mod(chordAtBarS(from + i).root + 10, 12))) &&
     [0, 1, 2, 3, 4, 5, 6, 7].every((i) => { const c = chordAtBarS(from + i); return mod(Math.min(...c.pad) - c.root, 12) === 0; });
-  record('summer: verse and chorus stand on I - V/vi - vi - IV, I - V/vi - IV - V', 'harmony', 1.0,
-    standsOnIt(song.analysis.intro[1]) && standsOnIt(start));
+  record('summer: every chorus stands on I - V/vi - vi - IV, I - V/vi - IV - V', 'harmony', 1.0,
+    song.analysis.chorusStarts.every(([s0]) => standsOnIt(s0)));
+  // The theme (the verses and the bridge) holds the secondary dominant for
+  // four bars before vi and IV.
+  const themeStarts = [0, 20, song.analysis.bridge[0]];
+  record('summer: the theme holds the secondary dominant for four bars, then vi and IV', 'harmony', 1.0,
+    themeStarts.every((t) => [0, 1, 2, 3].every((i) => rel(t + i) === 4 && major3(t + i)) && rel(t + 4) === 9 && rel(t + 5) === 5));
   record('summer: the secondary dominant resolves to vi, then deceptively to IV', 'harmony', 1.0,
     rel(start + 2) === 9 && rel(start + 6) === 5);
   const br = song.analysis.bridge[0];
