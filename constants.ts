@@ -363,14 +363,14 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.3, delaySend: 0.18, phaserSend: 0,
       polyphony: 8,
     },
-    // Blade Chorus, the house lead, opened up: the same seven-voice chorused
-    // stack with eight-note polyphony for block chords, a slightly calmer
+    // Blade Chorus, the house lead, opened up: a five-voice chorused stack
+    // (seven, four at a time, was mud) with eight-note polyphony for block chords, a slightly calmer
     // filter so four of it at once do not pile up resonance, and a shorter
     // release so written rests stay rests.
     'Blade Chords': {
       ...DEFAULT_LEAD_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 14,
-      unison: 7, unisonDetune: 32,
+      unison: 5, unisonDetune: 26,
       subLevel: 0.1, noiseLevel: 0.02,
       cutoff: 1900, resonance: 3.5, filterEnvAmount: 0.5,
       attack: 0.03, decay: 0.35, sustain: 0.45, release: 0.4,

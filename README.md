@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · seven song forms · eight progressions · twenty-nine synth patches · two written songs<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 74 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 75 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   74 checks, 1944 generated songs
+...                                   75 checks, 1944 generated songs
 ```
 
 ---
@@ -210,10 +210,12 @@ arousal and line. Arousal predicted music-evoked nostalgia in Barrett et al.
 in the choruses, a pad that pumps under the kick. And it sings, in the two
 devices Sloboda (*Psychology of Music* 19(2), 1991) found listeners linking
 to tears and chills: appoggiaturas and melodic sequences. It starts on the
-verse. The chorus climbs IVmaj9, Vadd9, vi9 from the subdominant in root
-position, pushes through F♯7 (V of vi) onto G6/9 and Dmaj7, and ends on the
-borrowed flat-VI and flat-VII, which pull towards a tonic that every chorus
-but the last turns away from; only the outro lands on it, on an E♭maj9. Its melody is a
+verse. The whole song stands on one eight-bar progression built around a
+secondary dominant: I, V/vi, vi, IV; I, V/vi, IV, V. The F♯7 in every second
+bar is the song's one event, resolving to B minor the first time and
+deceptively to G the second; the verse plays the loop low and the chorus
+high, the bridge holds the F♯7 for four bars, and the last chorus and outro
+are a semitone up, the outro ending on the tonic. Its melody is a
 pick-up and one long note per bar with the rest of the bar left open, a
 gesture stated three times in sequence, the even bars opening on an
 appoggiatura that falls a step into the chord, the third statement reaching
@@ -222,7 +224,7 @@ the house Blade Chorus lead opened to eight voices, over the Solina pad, Cold
 Arp in sixteenths kept forward, and a motorik drive: the kick on every eighth
 from the first bar, and the Moog Source bass of *Blue Monday* rolling in
 sixteenths with a push to the fifth into every downbeat. The last chorus
-is a semitone up, reached through F and B♭. Seven checks of its own in
+is a semitone up, reached through F and B♭. Eight checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 
 ## Holding a hook
@@ -260,7 +262,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 74 conformance checks
+npm run verify:earworm   # the 75 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

@@ -872,29 +872,24 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   const tonicPc = mod(midiOf('D4'), 12);
   const [start] = song.analysis.chorusStarts[0];
 
-  // The chorus climbs from the subdominant: IV, V, vi, each in root position
-  // (the pad's lowest voice is the bass note's pitch class).
-  const rel = (i: number) => mod(chordAtBarS(start + i).root - tonicPc, 12);
-  const rootPosition = [0, 1, 2, 3, 4, 5, 6, 7].every((i) => {
-    const c = chordAtBarS(start + i);
-    return mod(Math.min(...c.pad) - c.root, 12) === 0;
-  });
-  record('summer: the chorus climbs IV - V - vi in root position', 'harmony', 1.0,
-    rel(0) === 5 && rel(1) === 7 && rel(2) === 9 && rootPosition);
-
-  // It ends on the borrowed flat-VI and flat-VII, both major.
-  const major = (i: number) => chordAtBarS(start + i).tones.includes(mod(chordAtBarS(start + i).root + 4, 12));
-  record('summer: every chorus ends on the borrowed flat-VI and flat-VII', 'harmony', 1.0,
-    song.analysis.chorusStarts.every(([s0, shift]) =>
-      mod(chordAtBarS(s0 + 6).root - tonicPc - shift, 12) === 8 &&
-      mod(chordAtBarS(s0 + 7).root - tonicPc - shift, 12) === 10) && major(6) && major(7));
-
-  // Only the outro completes it: flat-VI, flat-VII, then the tonic.
-  const lastBars = map.filter((h) => h.at === 0).slice(-4);
-  record('summer: only the outro lands flat-VI - flat-VII - I', 'harmony', 1.0,
-    mod(lastBars[0].root - tonicPc - 1, 12) === 8 && mod(lastBars[1].root - tonicPc - 1, 12) === 10 &&
-    mod(lastBars[2].root - tonicPc - 1, 12) === 0 &&
-    song.analysis.chorusStarts.slice(0, 2).every(([s0]) => mod(chordAtBarS(s0 + 8).root - tonicPc, 12) !== 0));
+  // One progression, I - V/vi - vi - IV, I - V/vi - IV - V, in root position,
+  // under the verse and the chorus alike.
+  const rel = (b: number) => mod(chordAtBarS(b).root - tonicPc, 12);
+  const major3 = (b: number) => chordAtBarS(b).tones.includes(mod(chordAtBarS(b).root + 4, 12));
+  const PROGRESSION = [0, 4, 9, 5, 0, 4, 5, 7];
+  const standsOnIt = (from: number) => PROGRESSION.every((r, i) => rel(from + i) === r) &&
+    [1, 5].every((i) => major3(from + i) && chordAtBarS(from + i).tones.includes(mod(tonicPc + 4 + 10, 12))) &&
+    [0, 1, 2, 3, 4, 5, 6, 7].every((i) => { const c = chordAtBarS(from + i); return mod(Math.min(...c.pad) - c.root, 12) === 0; });
+  record('summer: verse and chorus stand on I - V/vi - vi - IV, I - V/vi - IV - V', 'harmony', 1.0,
+    standsOnIt(song.analysis.intro[1]) && standsOnIt(start));
+  record('summer: the secondary dominant resolves to vi, then deceptively to IV', 'harmony', 1.0,
+    rel(start + 2) === 9 && rel(start + 6) === 5);
+  const br = song.analysis.bridge[0];
+  record('summer: the bridge holds the secondary dominant for four bars', 'harmony', 1.0,
+    [0, 1, 2, 3].every((i) => rel(br + i) === 4 && major3(br + i)));
+  const lastBar = map.filter((h) => h.at === 0).slice(-1)[0];
+  record('summer: the outro lands on the tonic, a semitone up', 'structure', 1.0,
+    mod(lastBar.root - tonicPc - 1, 12) === 0);
 
   // Bars 2, 4 and 6 open on a note foreign to the chord that falls a step
   // into it: the appoggiatura.

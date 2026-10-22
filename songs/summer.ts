@@ -28,17 +28,14 @@ import {
  * last turns away from that tonic at the last moment; only the outro lands on
  * it.
  *
- * Third version, after another note: pull the arpeggio forward, a motorik
- * drive in the kit and the bass, a simpler melody with rests in it, more
- * harmony under it and less lead. So the kick runs four to the bar and the
- * bass in sixteenths from the first bar, the arpeggio plays sixteenths
- * throughout and louder, and the melody is now a pick-up and one long note
- * per bar, struck as a four-voice chord, with the rest of the bar left open.
- *
- * The second version's melody was the first's. Under the new chords its long notes
- * change colour — the first chorus bar's held D is now the fifth of G with a
- * major seventh and ninth under it — and the three appoggiaturas survive: D
- * over A, B over F-sharp minor, E over D, each falling a step into its chord.
+ * Fourth version, after another note: the harmony had become complicated
+ * and chaotic and, at the same time, dull. So the whole song now stands on
+ * one eight-bar progression built around the secondary dominant that worked,
+ * I - V/vi - vi - IV, I - V/vi - IV - V: F-sharp 7 in every second bar,
+ * resolving to B minor the first time and deceptively to G the second. The
+ * verse plays it low with two notes a bar, the chorus high with a pick-up and
+ * one long note a bar, struck as four-voice chords; the bridge holds the
+ * dominant for four bars; the last chorus and outro are a semitone up.
  *
  * Form, 64 bars at 108 BPM, about two minutes twenty:
  *   VERSE 1 8 · PRE 4 · CHORUS 1 8 · VERSE 2 8 · PRE 4 · CHORUS 2 8
@@ -56,37 +53,36 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * The chorus, third version: simpler and with air in it. Each bar is a
- * pick-up and one long note, then a rest; the odd bars climb to their long
- * note, the even bars open on an appoggiatura and fall a step into the chord.
- * Bars 1-2, 3-4 and 5-6 are the same gesture in sequence, the third reaching
- * the top of the song; bars 7-8 come down over the borrowed flat-VI and
- * flat-VII.
+ * Fourth version: one progression for the whole song, built on the secondary
+ * dominant that worked — I, V/vi, vi, IV; I, V/vi, IV, V. The F-sharp 7 in
+ * every second bar is the song's one event, resolving to B minor the first
+ * time and deceptively to G the second. Verse, pre-chorus, chorus and outro
+ * all stand on it; the bridge holds it.
  */
 export const SUMMER_CHORUS: readonly Bar[] = [
-  [[0, 'B5', 2], [2, 'D6', 8]],
+  [[0, 'A5', 2], [2, 'D6', 8]],
   [[0, 'D6', 4], [4, 'C#6', 8]],
   [[0, 'F#5', 2], [2, 'B5', 8]],
+  [[0, 'C6', 4], [4, 'B5', 8]],
+  [[0, 'A5', 2], [2, 'D6', 8]],
   [[0, 'B5', 4], [4, 'A#5', 8]],
-  [[0, 'B5', 2], [2, 'E6', 8]],
-  [[0, 'E6', 4], [4, 'D6', 8]],
-  [[0, 'D6', 4], [4, 'C6', 4], [8, 'Bb5', 6]],
-  [[0, 'G5', 4], [4, 'E5', 8]],
+  [[0, 'G5', 2], [2, 'B5', 8]],
+  [[0, 'E6', 6], [6, 'C#6', 6]],
 ];
 
-/** The verse: two notes a bar, entering after the beat, the rest of the bar left open. */
+/** The verse: the same bars, low, two notes each, the rest left open. */
 const VERSE: readonly Bar[] = [
-  [[4, 'F#4', 2], [6, 'B4', 6]],
-  [[0, 'D5', 4], [4, 'B4', 6]],
-  [[4, 'F#4', 2], [6, 'A4', 6]],
-  [[0, 'C#5', 4], [4, 'A4', 8]],
-  [[4, 'F#4', 2], [6, 'B4', 6]],
-  [[0, 'D5', 4], [4, 'B4', 6]],
   [[4, 'A4', 2], [6, 'D5', 6]],
+  [[0, 'D5', 4], [4, 'C#5', 6]],
+  [[4, 'F#4', 2], [6, 'B4', 6]],
+  [[0, 'C5', 4], [4, 'B4', 8]],
+  [[4, 'A4', 2], [6, 'D5', 6]],
+  [[0, 'B4', 4], [4, 'A#4', 6]],
+  [[4, 'G4', 2], [6, 'B4', 6]],
   [[0, 'E5', 4], [4, 'C#5', 8]],
 ];
 
-/** The pre-chorus: the same pick-up and long note, a step higher each bar, then the suspension. */
+/** The pre-chorus: the pick-up and long note a step higher each bar, then the suspension. */
 const PRE: readonly Bar[] = [
   [[4, 'B4', 2], [6, 'E5', 8]],
   [[4, 'C#5', 2], [6, 'F#5', 8]],
@@ -94,70 +90,60 @@ const PRE: readonly Bar[] = [
   [[0, 'A5', 6], [8, 'C#6', 6]],
 ];
 
-/** The bridge: four long notes and four rests. */
+/** The bridge: long notes over the held F-sharp 7, then the way out. */
 const BRIDGE: readonly Bar[] = [
-  [[0, 'D5', 12]],
+  [[0, 'C#5', 12]],
   [[0, 'E5', 12]],
-  [[0, 'F#5', 8], [8, 'A5', 6]],
+  [[0, 'F#5', 12]],
+  [[0, 'A#5', 12]],
   [[0, 'B5', 12]],
   [[0, 'D6', 12]],
-  [[0, 'C#6', 12]],
   [[0, 'C6', 8], [8, 'A5', 6]],
   [[0, 'Bb5', 12]],
 ];
 
 // --- harmony --------------------------------------------------------------
 
-// Chorus: root position throughout, the pad's lowest voice on the bass
-// note, the fifth above it, and the colours — ninths, major sevenths — in the
-// upper voices, kept an octave under the melody so the lead's chords have
-// room. Secondary dominants carry the motion: F-sharp 7 (V of vi) in bar 4
-// resolves deceptively onto G; E minor 9 (ii) leads into A7 and the tonic
-// with its major seventh; then the borrowed flat-VI and flat-VII.
-const cGmaj9 = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4', 'A4']);
-const cAadd9 = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'E4', 'B4']);
-const cBm9 = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
-const cFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
-const cG69 = chord('G6/9', 'G1', ['G', 'B', 'D', 'E', 'A'], ['G2', 'D3', 'B3', 'E4', 'A4']);
-const cDmaj7 = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'F#4', 'C#5']);
-const cBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'A4']);
-const cC = chord('Cadd9', 'C2', ['C', 'E', 'G', 'D'], ['C3', 'G3', 'D4', 'E4']);
+// Five-voice root-position voicings, the colour in the upper voices, kept
+// under the melody so the lead's chords have room.
+const D = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'F#4', 'C#5']);
+const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
+const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
+const G = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4', 'A4']);
+const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'E4', 'B4']);
 
-// Verse: B minor 9, E minor 9, G major 9 with the sixth, A sus into A7 — the
-// same colours as the chorus, low and open.
-const vBm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'D4']);
-const vG = chord('Em9', 'E1', ['E', 'G', 'B', 'D', 'F#'], ['E2', 'B2', 'G3', 'D4', 'F#4']);
-const vD = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4']);
-const vA = chord('A7sus4', 'A1', ['A', 'D', 'E', 'G', 'C#'], ['A2', 'E3', 'G3', 'D4', 'E4']);
+// Verse: the same chords, low and open.
+const vD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4']);
+const vFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3']);
+const vBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B2', 'F#3', 'B3', 'D4']);
+const vG = chord('G', 'G1', ['G', 'B', 'D'], ['G2', 'D3', 'G3', 'B3']);
+const vA = chord('A', 'A1', ['A', 'C#', 'E'], ['A2', 'E3', 'A3', 'C#4']);
 
-// Pre-chorus: the bass climbs E, F-sharp, G, A, with a dominant on F-sharp.
+// Pre-chorus: ii, V/vi, IV, V sus into V7.
 const pEm = chord('Em7', 'E1', ['E', 'G', 'B', 'D'], ['E3', 'B3', 'D4', 'G4']);
-const pFsm = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#3', 'C#4', 'E4', 'A#4']);
+const pFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#3', 'C#4', 'E4', 'A#4']);
 const pG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G3', 'D4', 'F#4', 'B4']);
 const pAsus = chord('Asus4', 'A1', ['A', 'D', 'E'], ['A2', 'E3', 'A3', 'D4', 'E4']);
 const pA7 = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'A3', 'C#4', 'E4'], 8);
 
-// Bridge: the flat side, B-flat and C, then home, then through F and B-flat
+// Bridge: the dominant held for four bars, B minor and G, then F and B-flat
 // into E-flat.
-const bBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'F4', 'A4']);
-const bC = chord('Cadd9', 'C2', ['C', 'E', 'G', 'D'], ['C3', 'G3', 'D4', 'E4']);
-const bD = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'C#4', 'F#4']);
+const bFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'A#3', 'E4']);
 const bBm = chord('Bm7', 'B1', ['B', 'D', 'F#', 'A'], ['B2', 'F#3', 'A3', 'D4', 'F#4']);
 const bG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G2', 'D3', 'F#3', 'B3', 'D4']);
-const bA = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'G3', 'C#4', 'E4']);
 const bF = chord('Fmaj7', 'F1', ['F', 'A', 'C', 'E'], ['F2', 'C3', 'A3', 'C4', 'E4']);
+const bBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'F4', 'A4']);
 
-const oEb = chord('Ebmaj9', 'Eb2', ['Eb', 'G', 'Bb', 'D', 'F'], ['Eb3', 'Bb3', 'D4', 'F4', 'G4']);
-
-/** The chorus progression: IVmaj9 - Vadd9 - vi9 - V7/vi - IV6/9 - Imaj7 - flat-VImaj7 - flat-VIIadd9. */
-const CHORUS = [cGmaj9, cAadd9, cBm9, cFs7, cG69, cDmaj7, cBb, cC];
+/** The progression: I - V/vi - vi - IV, I - V/vi - IV - V. */
+const CHORUS = [D, Fs7, Bm, G, D, Fs7, G, A];
+const VERSE_CHORDS = [vD, vFs7, vBm, vG, vD, vFs7, vG, vA];
 
 function harmony(): Chord[][] {
   const bars: Chord[][] = [];
   const push = (...chords: Chord[]) => bars.push(chords);
   const chorus = (shift = 0) => { for (const c of CHORUS) push(lift(c, shift)); };
-  const verse = () => { for (const c of [vBm, vG, vD, vA, vBm, vG, vD, vA]) push(c); };
-  const pre = () => { push(pEm); push(pFsm); push(pG); push(pAsus, pA7); };
+  const verse = () => { for (const c of VERSE_CHORDS) push(c); };
+  const pre = () => { push(pEm); push(pFs7); push(pG); push(pAsus, pA7); };
 
   verse();          // VERSE 1
   pre();            // PRE
@@ -165,11 +151,11 @@ function harmony(): Chord[][] {
   verse();          // VERSE 2
   pre();            // PRE
   chorus();         // CHORUS 2
-  for (const c of [bBb, bC, bD, bBm, bG, bA, bF, bBb]) push(c);  // BRIDGE
+  for (const c of [bFs7, bFs7, bFs7, bFs7, bBm, bG, bF, bBb]) push(c);  // BRIDGE
   chorus(1);        // CHORUS 3, in E-flat
-  // OUTRO — the climb once more, then flat-VI, flat-VII, and at last the tonic.
-  for (const c of [cGmaj9, cAadd9, cBm9, cFs7]) push(lift(c, 1));
-  push(lift(cBb, 1)); push(lift(cC, 1)); push(oEb); push(oEb);
+  // OUTRO — the progression once more, a tone up, ending on its tonic.
+  for (const c of CHORUS.slice(0, 7)) push(lift(c, 1));
+  push(lift(D, 1));
 
   if (bars.length !== BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${BARS}`);
   return bars;
@@ -187,9 +173,9 @@ function buildMelody(): NoteEvent[] {
   phrase(m, 32, SUMMER_CHORUS, 0.94);       // CHORUS 2
   phrase(m, 40, BRIDGE, 0.7);               // BRIDGE
   phrase(m, 48, SUMMER_CHORUS, 0.97, 1);    // CHORUS 3, in E-flat
-  // OUTRO: the first idea, then the flat-VI and flat-VII bars, quietly.
-  phrase(m, 56, SUMMER_CHORUS.slice(0, 2), 0.66, 1);
-  phrase(m, 60, SUMMER_CHORUS.slice(6, 8), 0.6, 1);
+  // OUTRO: the first four bars once more, quietly, and the last two.
+  phrase(m, 56, SUMMER_CHORUS.slice(0, 4), 0.66, 1);
+  phrase(m, 60, SUMMER_CHORUS.slice(4, 6), 0.6, 1);
   return m.notes;
 }
 
