@@ -213,11 +213,14 @@ to tears and chills: appoggiaturas and melodic sequences. It starts on the
 verse. The chorus climbs IV, V, vi from the subdominant in root position under
 five-voice open voicings, rests on iii, IV and the tonic, and ends on the
 borrowed flat-VI and flat-VII, which pull towards a tonic that every chorus
-but the last turns away from; only the outro lands on it. Its melody states a
-two-bar idea and its sequence, each long note arriving as an appoggiatura
-that falls a step into its chord, then climbs to the song's highest note in
-the sixth bar. The lead plays it in three-voice chords on a supersaw, over a
-supersaw pad and a bass layered with a sub an octave below. The last chorus
+but the last turns away from; only the outro lands on it. Its melody is a
+pick-up and one long note per bar with the rest of the bar left open, a
+gesture stated three times in sequence, the even bars opening on an
+appoggiatura that falls a step into the chord, the third statement reaching
+the song's highest note. The lead strikes it as four-voice chords on a thinned
+supersaw, over a supersaw pad, a sixteenth-note arpeggio kept forward, and a
+motorik drive: the kick on every beat from the first bar and a sixteenth-note
+bass layered with a sub an octave below. The last chorus
 is a semitone up, reached through F and B♭. Seven checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 

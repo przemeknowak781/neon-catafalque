@@ -28,7 +28,14 @@ import {
  * last turns away from that tonic at the last moment; only the outro lands on
  * it.
  *
- * The melody is the first version's. Under the new chords its long notes
+ * Third version, after another note: pull the arpeggio forward, a motorik
+ * drive in the kit and the bass, a simpler melody with rests in it, more
+ * harmony under it and less lead. So the kick runs four to the bar and the
+ * bass in sixteenths from the first bar, the arpeggio plays sixteenths
+ * throughout and louder, and the melody is now a pick-up and one long note
+ * per bar, struck as a four-voice chord, with the rest of the bar left open.
+ *
+ * The second version's melody was the first's. Under the new chords its long notes
  * change colour — the first chorus bar's held D is now the fifth of G with a
  * major seventh and ninth under it — and the three appoggiaturas survive: D
  * over A, B over F-sharp minor, E over D, each falling a step into its chord.
@@ -49,51 +56,54 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * The chorus. Bars 1-4 are an idea and its sequence a third lower; bars 5-6
- * the idea turned upward to the top of the song; bars 7-8 over the borrowed
- * flat-VI and flat-VII. Every even bar opens on an appoggiatura.
+ * The chorus, third version: simpler and with air in it. Each bar is a
+ * pick-up and one long note, then a rest; the odd bars climb to their long
+ * note, the even bars open on an appoggiatura and fall a step into the chord.
+ * Bars 1-2, 3-4 and 5-6 are the same gesture in sequence, the third reaching
+ * the top of the song; bars 7-8 come down over the borrowed flat-VI and
+ * flat-VII.
  */
 export const SUMMER_CHORUS: readonly Bar[] = [
-  [[0, 'F#5', 2], [2, 'A5', 2], [4, 'D6', 8], [12, 'C#6', 2], [14, 'B5', 2]],
-  [[0, 'D6', 6], [6, 'C#6', 10]],
-  [[0, 'D5', 2], [2, 'F#5', 2], [4, 'B5', 8], [12, 'A5', 2], [14, 'G5', 2]],
-  [[0, 'B5', 6], [6, 'A5', 10]],
-  [[0, 'G5', 2], [2, 'B5', 2], [4, 'E6', 8], [12, 'D6', 2], [14, 'B5', 2]],
-  [[0, 'E6', 6], [6, 'D6', 10]],
-  [[0, 'D6', 4], [4, 'Bb5', 4], [8, 'G5', 4], [12, 'A5', 4]],
-  [[0, 'A5', 8], [8, 'G5', 4], [12, 'E5', 4]],
+  [[0, 'B5', 2], [2, 'D6', 8]],
+  [[0, 'D6', 4], [4, 'C#6', 8]],
+  [[0, 'F#5', 2], [2, 'B5', 8]],
+  [[0, 'B5', 4], [4, 'A5', 8]],
+  [[0, 'B5', 2], [2, 'E6', 8]],
+  [[0, 'E6', 4], [4, 'D6', 8]],
+  [[0, 'D6', 4], [4, 'C6', 4], [8, 'Bb5', 6]],
+  [[0, 'G5', 4], [4, 'E5', 8]],
 ];
 
-/** The verse: low and spoken, over B minor, G, D, A. */
+/** The verse: two notes a bar, entering after the beat, the rest of the bar left open. */
 const VERSE: readonly Bar[] = [
-  [[2, 'F#4', 2], [4, 'B4', 2], [6, 'C#5', 2], [8, 'D5', 6], [14, 'C#5', 2]],
-  [[0, 'B4', 6], [6, 'A4', 2], [8, 'B4', 8]],
-  [[2, 'F#4', 2], [4, 'A4', 2], [6, 'B4', 2], [8, 'A4', 6], [14, 'F#4', 2]],
-  [[0, 'C#5', 6], [6, 'B4', 2], [8, 'A4', 8]],
-  [[2, 'F#4', 2], [4, 'B4', 2], [6, 'C#5', 2], [8, 'D5', 6], [14, 'C#5', 2]],
-  [[0, 'B4', 6], [6, 'A4', 2], [8, 'B4', 8]],
-  [[2, 'F#4', 2], [4, 'A4', 2], [6, 'D5', 2], [8, 'E5', 6], [14, 'D5', 2]],
-  [[0, 'C#5', 4], [4, 'E5', 4], [8, 'A4', 8]],
+  [[4, 'F#4', 2], [6, 'B4', 6]],
+  [[0, 'D5', 4], [4, 'B4', 6]],
+  [[4, 'F#4', 2], [6, 'A4', 6]],
+  [[0, 'C#5', 4], [4, 'A4', 8]],
+  [[4, 'F#4', 2], [6, 'B4', 6]],
+  [[0, 'D5', 4], [4, 'B4', 6]],
+  [[4, 'A4', 2], [6, 'D5', 6]],
+  [[0, 'E5', 4], [4, 'C#5', 8]],
 ];
 
-/** The pre-chorus: the same rising figure on E minor, F-sharp minor, G, then the suspension. */
+/** The pre-chorus: the same pick-up and long note, a step higher each bar, then the suspension. */
 const PRE: readonly Bar[] = [
-  [[0, 'B4', 4], [4, 'E5', 4], [8, 'G5', 8]],
-  [[0, 'C#5', 4], [4, 'F#5', 4], [8, 'A5', 8]],
-  [[0, 'D5', 4], [4, 'G5', 4], [8, 'B5', 8]],
-  [[0, 'D6', 8], [8, 'C#6', 4], [12, 'A5', 4]],
+  [[4, 'B4', 2], [6, 'E5', 8]],
+  [[4, 'C#5', 2], [6, 'F#5', 8]],
+  [[4, 'D5', 2], [6, 'G5', 8]],
+  [[0, 'A5', 6], [8, 'C#6', 6]],
 ];
 
-/** The bridge: long notes on the flat side, climbing. */
+/** The bridge: four long notes and four rests. */
 const BRIDGE: readonly Bar[] = [
-  [[0, 'D5', 8], [8, 'F5', 8]],
-  [[0, 'E5', 16]],
-  [[0, 'F#5', 8], [8, 'A5', 8]],
-  [[0, 'B5', 16]],
-  [[0, 'B5', 8], [8, 'D6', 8]],
-  [[0, 'C#6', 16]],
-  [[0, 'C6', 8], [8, 'A5', 8]],
-  [[0, 'D6', 8], [8, 'Bb5', 8]],
+  [[0, 'D5', 12]],
+  [[0, 'E5', 12]],
+  [[0, 'F#5', 8], [8, 'A5', 6]],
+  [[0, 'B5', 12]],
+  [[0, 'D6', 12]],
+  [[0, 'C#6', 12]],
+  [[0, 'C6', 8], [8, 'A5', 6]],
+  [[0, 'Bb5', 12]],
 ];
 
 // --- harmony --------------------------------------------------------------
@@ -117,9 +127,9 @@ const vD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4']);
 const vA = chord('A', 'A1', ['A', 'C#', 'E'], ['A2', 'E3', 'A3', 'C#4', 'E4']);
 
 // Pre-chorus: the bass climbs E, F-sharp, G, A.
-const pEm = chord('Em', 'E2', ['E', 'G', 'B'], ['E3', 'B3', 'E4', 'G4']);
-const pFsm = chord('F#m', 'F#2', ['F#', 'A', 'C#'], ['F#3', 'C#4', 'F#4', 'A4']);
-const pG = chord('G', 'G2', ['G', 'B', 'D'], ['G3', 'D4', 'G4', 'B4']);
+const pEm = chord('Em', 'E1', ['E', 'G', 'B'], ['E3', 'B3', 'E4', 'G4']);
+const pFsm = chord('F#m', 'F#1', ['F#', 'A', 'C#'], ['F#3', 'C#4', 'F#4', 'A4']);
+const pG = chord('G', 'G1', ['G', 'B', 'D'], ['G3', 'D4', 'G4', 'B4']);
 const pAsus = chord('Asus4', 'A1', ['A', 'D', 'E'], ['A2', 'E3', 'A3', 'D4', 'E4']);
 const pA7 = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'A3', 'C#4', 'E4'], 8);
 
@@ -204,15 +214,15 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
       }
     }
   };
-  arp(0, 8, () => 0.3, 2);            // VERSE 1: eighths
-  arp(8, 12, (b) => 0.36 + (b - 8) * 0.02);
-  arp(12, 20, () => 0.5);             // CHORUS 1
-  arp(20, 28, () => 0.32);            // VERSE 2
-  arp(28, 32, (b) => 0.38 + (b - 28) * 0.02);
-  arp(32, 40, () => 0.52);            // CHORUS 2
-  arp(40, 48, () => 0.34, 2);         // BRIDGE: eighths again
-  arp(48, 56, () => 0.55);            // CHORUS 3
-  arp(56, 64, (b) => 0.42 - (b - 56) * 0.035, 2);  // OUTRO, thinning
+  arp(0, 8, () => 0.56);              // VERSE 1: sixteenths from the start
+  arp(8, 12, (b) => 0.6 + (b - 8) * 0.03);
+  arp(12, 20, () => 0.74);            // CHORUS 1
+  arp(20, 28, () => 0.6);             // VERSE 2
+  arp(28, 32, (b) => 0.62 + (b - 28) * 0.03);
+  arp(32, 40, () => 0.76);            // CHORUS 2
+  arp(40, 48, () => 0.5, 2);          // BRIDGE: eighths
+  arp(48, 56, () => 0.8);             // CHORUS 3
+  arp(56, 64, (b) => 0.6 - (b - 56) * 0.05);  // OUTRO, thinning
   return p.notes;
 }
 
@@ -223,27 +233,28 @@ const padEnergy = (b: number) =>
 /**
  * Bass: the root an octave above where the chords are written, so its body
  * sits where a phone speaker can play it, with the patch's sub an octave
- * below carrying the weight. Eighths throughout, the downbeat of every bar
- * held longer and pushed.
+ * below carrying the weight. A motorik sixteenth-note line — root, root,
+ * octave, root on every beat — that never stops except in the bridge.
  */
 function buildBass(bars: Chord[][]): NoteEvent[] {
   const bass = builder('bass');
   const root = (b: number, s = 0) => midiOf(chordAt(bars, bar(b) + s).root) + 12;
-  const eighths = (b: number, v: number) => {
-    for (let s = 0; s < 16; s += 2) {
-      bass.add(bar(b) + s, root(b, s), s === 0 ? 3.6 : 1.6, v * (s === 0 ? 1.08 : s % 4 === 0 ? 0.92 : 0.76));
+  const ACCENT = [1, 0.62, 0.84, 0.62];
+  const roll = (b: number, v: number) => {
+    for (let s = 0; s < 16; s++) {
+      bass.add(bar(b) + s, root(b, s) + (s % 4 === 2 ? 12 : 0), 0.85, v * ACCENT[s % 4] * (s === 0 ? 1.06 : 1));
     }
   };
-  for (let b = 0; b < 8; b++) eighths(b, 0.6);
-  for (let b = 8; b < 12; b++) eighths(b, 0.7 + (b - 8) * 0.03);
-  for (let b = 12; b < 20; b++) eighths(b, 0.92);
-  for (let b = 20; b < 28; b++) eighths(b, 0.64);
-  for (let b = 28; b < 32; b++) eighths(b, 0.72 + (b - 28) * 0.03);
-  for (let b = 32; b < 40; b++) eighths(b, 0.94);
+  for (let b = 0; b < 8; b++) roll(b, 0.66);
+  for (let b = 8; b < 12; b++) roll(b, 0.72 + (b - 8) * 0.03);
+  for (let b = 12; b < 20; b++) roll(b, 0.9);
+  for (let b = 20; b < 28; b++) roll(b, 0.7);
+  for (let b = 28; b < 32; b++) roll(b, 0.75 + (b - 28) * 0.03);
+  for (let b = 32; b < 40; b++) roll(b, 0.92);
   for (let b = 40; b < 46; b++) bass.add(bar(b), root(b), 16, 0.6);   // BRIDGE: held
-  for (let b = 46; b < 48; b++) eighths(b, 0.72);
-  for (let b = 48; b < 56; b++) eighths(b, 0.97);
-  for (let b = 56; b < 60; b++) eighths(b, 0.72 - (b - 56) * 0.05);
+  for (let b = 46; b < 48; b++) roll(b, 0.7);
+  for (let b = 48; b < 56; b++) roll(b, 0.95);
+  for (let b = 56; b < 60; b++) roll(b, 0.74 - (b - 56) * 0.05);
   for (let b = 60; b < 63; b++) bass.add(bar(b), root(b), 16, 0.5 - (b - 60) * 0.06);
   bass.add(bar(63), root(63), 16, 0.32);
   return bass.notes;
@@ -256,16 +267,18 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
   const hit = (lane: SequencerStep[], step: number, velocity: number) => {
     lane[step] = { active: true, velocity: Math.round(velocity * 1000) / 1000 };
   };
+  // Motorik: the kick on every beat from the first bar, the hats on every
+  // sixteenth with the off-beat eighths leaned on.
   const verseBar = (b: number, v: number, sixteenths: boolean) => {
-    for (const s of [0, 6, 8]) hit(kick, bar(b) + s, (s === 6 ? 0.6 : 0.84) * v);
-    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.78 * v);
-    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.44 : 0.24) * v);
-    if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.13 * v);
+    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86 * v);
+    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8 * v);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.5 : 0.24) * v);
+    if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.16 * v);
   };
   const chorusBar = (b: number, v: number) => {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.95 * v);
-    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.95 * v);
-    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.52 : s % 2 === 0 ? 0.28 : 0.16) * v);
+    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 1 * v);
+    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.97 * v);
+    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.6 : s % 2 === 0 ? 0.3 : 0.2) * v);
   };
   /** The last bar of a build: snare on every eighth, then every sixteenth. */
   const build = (b: number) => {
@@ -274,16 +287,17 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
   };
   const pre = (from: number) => {
     for (let b = from; b < from + 4; b++) {
-      for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.8);
-      if (b < from + 3) for (const s of [4, 12]) hit(snare, bar(b) + s, 0.72);
+      for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.9);
+      if (b < from + 3) for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8);
+      for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, s % 4 === 2 ? 0.52 : 0.2);
     }
     build(from + 3);
   };
 
-  for (let b = 0; b < 8; b++) verseBar(b, b === 0 ? 0.7 : 0.78, false);
+  for (let b = 0; b < 8; b++) verseBar(b, 0.9, true);
   pre(8);
   for (let b = 12; b < 20; b++) chorusBar(b, 1);
-  for (let b = 20; b < 28; b++) verseBar(b, 0.86, true);
+  for (let b = 20; b < 28; b++) verseBar(b, 0.94, true);
   pre(28);
   for (let b = 32; b < 40; b++) chorusBar(b, 1.03);
   // BRIDGE: the kit drops out; hats come back for the last two bars, then a build.
@@ -326,7 +340,7 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 export function buildSummerTracks(): Track[] {
   const bars = harmony();
   const pad = buildPad(bars, padEnergy);
-  const lead = harmonise(buildMelody(), bars, pad);
+  const lead = harmonise(buildMelody(), bars, pad, 3, 0.55);
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
     lead, pluck: buildPluck(bars, lead), pad, bass: buildBass(bars),
   };

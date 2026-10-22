@@ -345,23 +345,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.52, delaySend: 0.3, phaserSend: 0,
       polyphony: 8,
     },
-    // The Summer We Never Had. Original. A modern chord lead: a supersaw in
-    // the Roland JP-8000 manner, four detuned saw pairs spread across the
-    // field, played as block chords on eight voices. It strikes bright, falls
-    // to just over half and holds, so the long notes sing, and its release
-    // overlaps the next chord. No vibrato and no glide: the movement is the
-    // detune, not the pitch.
+    // The Summer We Never Had. Original. A modern chord lead, thinned: two
+    // detuned saw pairs rather than a full supersaw, played as four-voice
+    // block chords on eight voices. It strikes bright, falls to just over
+    // half and holds, and lets go quickly, so the rests the melody leaves are
+    // heard as rests rather than as reverb. No vibrato and no glide.
     'Long Exposure': {
       ...DEFAULT_LEAD_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 7,
-      unison: 4, unisonDetune: 15,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 6,
+      unison: 2, unisonDetune: 9,
       subLevel: 0, noiseLevel: 0.004,
-      cutoff: 2300, resonance: 1.2, filterEnvAmount: 0.26,
-      attack: 0.01, decay: 0.8, sustain: 0.55, release: 0.7,
-      filterAttack: 0.006, filterDecay: 0.45, filterSustain: 0.3, filterRelease: 0.5,
+      cutoff: 2100, resonance: 1.2, filterEnvAmount: 0.26,
+      attack: 0.01, decay: 0.7, sustain: 0.5, release: 0.42,
+      filterAttack: 0.006, filterDecay: 0.4, filterSustain: 0.3, filterRelease: 0.35,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
-      chorusMix: 0.12, drive: 0.14, pan: 0,
-      reverbSend: 0.4, delaySend: 0.24, phaserSend: 0,
+      chorusMix: 0.1, drive: 0.12, pan: 0,
+      reverbSend: 0.3, delaySend: 0.18, phaserSend: 0,
       polyphony: 8,
     },
   },
@@ -625,20 +624,20 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       polyphony: 6,
     },
     // The Summer We Never Had. Original. A modern pluck for the sixteenth-note
-    // arpeggio: two saws a few cents apart through a resonant filter that
-    // snaps shut in a tenth of a second, so each note is a click of tone,
-    // with the dotted-eighth delay doing the rest.
+    // arpeggio, out in front: two saws a few cents apart through a resonant
+    // filter that snaps shut in a tenth of a second, centred and kept dry
+    // enough to stay forward, with the dotted-eighth delay behind it.
     'Night Bus': {
       ...DEFAULT_PLUCK_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 9,
       unison: 1, unisonDetune: 0,
       subLevel: 0, noiseLevel: 0.003,
-      cutoff: 700, resonance: 5, filterEnvAmount: 0.55,
-      attack: 0.001, decay: 0.22, sustain: 0, release: 0.28,
-      filterAttack: 0.001, filterDecay: 0.1, filterSustain: 0.03, filterRelease: 0.15,
+      cutoff: 1100, resonance: 5, filterEnvAmount: 0.55,
+      attack: 0.001, decay: 0.22, sustain: 0, release: 0.24,
+      filterAttack: 0.001, filterDecay: 0.1, filterSustain: 0.04, filterRelease: 0.15,
       vibratoRate: 0, vibratoDepth: 0,
-      chorusMix: 0.2, drive: 0.1, pan: 0.08,
-      reverbSend: 0.3, delaySend: 0.34,
+      chorusMix: 0.15, drive: 0.14, pan: 0,
+      reverbSend: 0.18, delaySend: 0.26,
       polyphony: 6,
     },
   },
