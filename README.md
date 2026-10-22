@@ -5,7 +5,7 @@
 **A darkwave sequencer that generates hooks against a written specification — and proves it did.**
 
 <sub>
-Twelve scales · twelve keys · seven song forms · eight progressions · twenty-eight synth patches · two written songs<br>
+Twelve scales · twelve keys · seven song forms · eight progressions · twenty-nine synth patches · two written songs<br>
 Web Audio synthesis · a tape stage · MIDI and WAV export · 74 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
@@ -70,7 +70,7 @@ something. The generator's own median is 3.31 bits.
 
 ## Sound
 
-Twenty-eight synth patches. Three reconstruct documented instruments and say so:
+Twenty-nine synth patches. Three reconstruct documented instruments and say so:
 
 - **Vox Humana** — the Polymoog 280A factory preset Gary Numan bought the
   instrument for, and the string part on *Cars* (1979). Chorused, near-still
@@ -138,7 +138,7 @@ octaves.
 
 | bank | count | examples |
 |---|---|---|
-| Instrument patches | 28 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
+| Instrument patches | 29 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
 | Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
 | Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (64) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
@@ -210,17 +210,18 @@ arousal and line. Arousal predicted music-evoked nostalgia in Barrett et al.
 in the choruses, a pad that pumps under the kick. And it sings, in the two
 devices Sloboda (*Psychology of Music* 19(2), 1991) found listeners linking
 to tears and chills: appoggiaturas and melodic sequences. It starts on the
-verse. The chorus climbs IV, V, vi from the subdominant in root position under
-five-voice open voicings, rests on iii, IV and the tonic, and ends on the
+verse. The chorus climbs IVmaj9, Vadd9, vi9 from the subdominant in root
+position, pushes through F♯7 (V of vi) onto G6/9 and Dmaj7, and ends on the
 borrowed flat-VI and flat-VII, which pull towards a tonic that every chorus
-but the last turns away from; only the outro lands on it. Its melody is a
+but the last turns away from; only the outro lands on it, on an E♭maj9. Its melody is a
 pick-up and one long note per bar with the rest of the bar left open, a
 gesture stated three times in sequence, the even bars opening on an
 appoggiatura that falls a step into the chord, the third statement reaching
-the song's highest note. The lead strikes it as four-voice chords on a thinned
-supersaw, over a supersaw pad, a sixteenth-note arpeggio kept forward, and a
-motorik drive: the kick on every beat from the first bar and a sixteenth-note
-bass layered with a sub an octave below. The last chorus
+the song's highest note. The lead strikes it as four-voice chords on Blade Chords,
+the house Blade Chorus lead opened to eight voices, over the Solina pad, Cold
+Arp in sixteenths kept forward, and a motorik drive: the kick on every eighth
+from the first bar, and the Moog Source bass of *Blue Monday* rolling in
+sixteenths with a push to the fifth into every downbeat. The last chorus
 is a semitone up, reached through F and B♭. Seven checks of its own in
 `verify:earworm`, and the shared song checks, which both songs pass.
 

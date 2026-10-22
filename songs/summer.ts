@@ -67,7 +67,7 @@ export const SUMMER_CHORUS: readonly Bar[] = [
   [[0, 'B5', 2], [2, 'D6', 8]],
   [[0, 'D6', 4], [4, 'C#6', 8]],
   [[0, 'F#5', 2], [2, 'B5', 8]],
-  [[0, 'B5', 4], [4, 'A5', 8]],
+  [[0, 'B5', 4], [4, 'A#5', 8]],
   [[0, 'B5', 2], [2, 'E6', 8]],
   [[0, 'E6', 4], [4, 'D6', 8]],
   [[0, 'D6', 4], [4, 'C6', 4], [8, 'Bb5', 6]],
@@ -108,45 +108,49 @@ const BRIDGE: readonly Bar[] = [
 
 // --- harmony --------------------------------------------------------------
 
-// Chorus: root position throughout, the bass doubled by the pad's lowest
-// voice, the fifth above it, and the upper voices kept an octave under the
-// melody so the lead's chords have room.
-const cGmaj7 = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G2', 'D3', 'B3', 'D4', 'G4']);
-const cA = chord('A', 'A1', ['A', 'C#', 'E'], ['A2', 'E3', 'A3', 'C#4', 'E4']);
-const cBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B2', 'F#3', 'B3', 'D4', 'F#4']);
-const cFsm = chord('F#m', 'F#1', ['F#', 'A', 'C#'], ['F#2', 'C#3', 'F#3', 'A3', 'C#4']);
-const cG = chord('G6', 'G1', ['G', 'B', 'D', 'E'], ['G2', 'D3', 'G3', 'B3', 'D4']);
-const cD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4', 'F#4', 'A4']);
-const cBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'Bb3', 'D4', 'F4']);
-const cC = chord('C', 'C2', ['C', 'E', 'G'], ['C3', 'G3', 'C4', 'E4', 'G4']);
+// Chorus: root position throughout, the pad's lowest voice on the bass
+// note, the fifth above it, and the colours — ninths, major sevenths — in the
+// upper voices, kept an octave under the melody so the lead's chords have
+// room. Secondary dominants carry the motion: F-sharp 7 (V of vi) in bar 4
+// resolves deceptively onto G; E minor 9 (ii) leads into A7 and the tonic
+// with its major seventh; then the borrowed flat-VI and flat-VII.
+const cGmaj9 = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4', 'A4']);
+const cAadd9 = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'E4', 'B4']);
+const cBm9 = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
+const cFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
+const cG69 = chord('G6/9', 'G1', ['G', 'B', 'D', 'E', 'A'], ['G2', 'D3', 'B3', 'E4', 'A4']);
+const cDmaj7 = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'F#4', 'C#5']);
+const cBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'A4']);
+const cC = chord('Cadd9', 'C2', ['C', 'E', 'G', 'D'], ['C3', 'G3', 'D4', 'E4']);
 
-// Verse: B minor, G, D, A, open and low.
-const vBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B2', 'F#3', 'B3', 'D4']);
-const vG = chord('G', 'G1', ['G', 'B', 'D'], ['G2', 'D3', 'G3', 'B3', 'D4']);
-const vD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4']);
-const vA = chord('A', 'A1', ['A', 'C#', 'E'], ['A2', 'E3', 'A3', 'C#4', 'E4']);
+// Verse: B minor 9, E minor 9, G major 9 with the sixth, A sus into A7 — the
+// same colours as the chorus, low and open.
+const vBm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'D4']);
+const vG = chord('Em9', 'E1', ['E', 'G', 'B', 'D', 'F#'], ['E2', 'B2', 'G3', 'D4', 'F#4']);
+const vD = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4']);
+const vA = chord('A7sus4', 'A1', ['A', 'D', 'E', 'G', 'C#'], ['A2', 'E3', 'G3', 'D4', 'E4']);
 
-// Pre-chorus: the bass climbs E, F-sharp, G, A.
-const pEm = chord('Em', 'E1', ['E', 'G', 'B'], ['E3', 'B3', 'E4', 'G4']);
-const pFsm = chord('F#m', 'F#1', ['F#', 'A', 'C#'], ['F#3', 'C#4', 'F#4', 'A4']);
-const pG = chord('G', 'G1', ['G', 'B', 'D'], ['G3', 'D4', 'G4', 'B4']);
+// Pre-chorus: the bass climbs E, F-sharp, G, A, with a dominant on F-sharp.
+const pEm = chord('Em7', 'E1', ['E', 'G', 'B', 'D'], ['E3', 'B3', 'D4', 'G4']);
+const pFsm = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#3', 'C#4', 'E4', 'A#4']);
+const pG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G3', 'D4', 'F#4', 'B4']);
 const pAsus = chord('Asus4', 'A1', ['A', 'D', 'E'], ['A2', 'E3', 'A3', 'D4', 'E4']);
 const pA7 = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'A3', 'C#4', 'E4'], 8);
 
 // Bridge: the flat side, B-flat and C, then home, then through F and B-flat
 // into E-flat.
-const bBb = chord('Bb', 'Bb1', ['Bb', 'D', 'F'], ['Bb2', 'F3', 'Bb3', 'D4', 'F4']);
-const bC = chord('C', 'C2', ['C', 'E', 'G'], ['C3', 'G3', 'C4', 'E4']);
-const bD = chord('D', 'D2', ['D', 'F#', 'A'], ['D3', 'A3', 'D4', 'F#4']);
-const bBm = chord('Bm', 'B1', ['B', 'D', 'F#'], ['B2', 'F#3', 'B3', 'D4', 'F#4']);
-const bG = chord('G', 'G1', ['G', 'B', 'D'], ['G2', 'D3', 'G3', 'B3', 'D4']);
-const bA = chord('A', 'A1', ['A', 'C#', 'E'], ['A2', 'E3', 'A3', 'C#4', 'E4']);
-const bF = chord('F', 'F1', ['F', 'A', 'C'], ['F2', 'C3', 'F3', 'A3', 'C4']);
+const bBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'F4', 'A4']);
+const bC = chord('Cadd9', 'C2', ['C', 'E', 'G', 'D'], ['C3', 'G3', 'D4', 'E4']);
+const bD = chord('Dmaj7', 'D2', ['D', 'F#', 'A', 'C#'], ['D3', 'A3', 'C#4', 'F#4']);
+const bBm = chord('Bm7', 'B1', ['B', 'D', 'F#', 'A'], ['B2', 'F#3', 'A3', 'D4', 'F#4']);
+const bG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G2', 'D3', 'F#3', 'B3', 'D4']);
+const bA = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'G3', 'C#4', 'E4']);
+const bF = chord('Fmaj7', 'F1', ['F', 'A', 'C', 'E'], ['F2', 'C3', 'A3', 'C4', 'E4']);
 
-const oEb = chord('Eb', 'Eb2', ['Eb', 'G', 'Bb'], ['Eb3', 'Bb3', 'Eb4', 'G4', 'Bb4']);
+const oEb = chord('Ebmaj9', 'Eb2', ['Eb', 'G', 'Bb', 'D', 'F'], ['Eb3', 'Bb3', 'D4', 'F4', 'G4']);
 
-/** The chorus progression: IV - V - vi - iii - IV - I - flat-VI - flat-VII. */
-const CHORUS = [cGmaj7, cA, cBm, cFsm, cG, cD, cBb, cC];
+/** The chorus progression: IVmaj9 - Vadd9 - vi9 - V7/vi - IV6/9 - Imaj7 - flat-VImaj7 - flat-VIIadd9. */
+const CHORUS = [cGmaj9, cAadd9, cBm9, cFs7, cG69, cDmaj7, cBb, cC];
 
 function harmony(): Chord[][] {
   const bars: Chord[][] = [];
@@ -164,7 +168,7 @@ function harmony(): Chord[][] {
   for (const c of [bBb, bC, bD, bBm, bG, bA, bF, bBb]) push(c);  // BRIDGE
   chorus(1);        // CHORUS 3, in E-flat
   // OUTRO — the climb once more, then flat-VI, flat-VII, and at last the tonic.
-  for (const c of [cGmaj7, cA, cBm, cFsm]) push(lift(c, 1));
+  for (const c of [cGmaj9, cAadd9, cBm9, cFs7]) push(lift(c, 1));
   push(lift(cBb, 1)); push(lift(cC, 1)); push(oEb); push(oEb);
 
   if (bars.length !== BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${BARS}`);
@@ -205,10 +209,14 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[]): NoteEvent[] {
         const step = bar(b) + s;
         const c = chordAt(bars, step);
         const pitches = c.pad.map(midiOf);
-        let m = pitches[Math.min(pitches.length - 1, ORDER[(s / every) % ORDER.length])] + 12;
+        const padTop = Math.max(...pitches);
         const now = sounding(step);
         const top = now.length ? Math.max(...now) : Infinity;
-        if (m > top || now.some((x) => Math.abs(x - m) === 1)) m -= 12;
+        const fits = (x: number) => x <= top && x > padTop && !now.some((y) => Math.abs(y - x) === 1) &&
+          !pitches.some((y) => Math.abs(y - x) === 1);
+        const wanted = pitches[Math.min(pitches.length - 1, ORDER[(s / every) % ORDER.length])] + 12;
+        const candidates = [wanted, wanted - 12, ...pitches.map((x) => x + 12), ...pitches.map((x) => x + 24)];
+        const m = candidates.find(fits) ?? wanted;
         const accent = s % 4 === 0 ? 1 : 0.78;
         p.add(step, m, 1, velocity(b) * accent);
       }
@@ -242,7 +250,10 @@ function buildBass(bars: Chord[][]): NoteEvent[] {
   const ACCENT = [1, 0.62, 0.84, 0.62];
   const roll = (b: number, v: number) => {
     for (let s = 0; s < 16; s++) {
-      bass.add(bar(b) + s, root(b, s) + (s % 4 === 2 ? 12 : 0), 0.85, v * ACCENT[s % 4] * (s === 0 ? 1.06 : 1));
+      // Root, root, octave, root on every beat; the last sixteenth of the bar
+      // jumps to the fifth, a push into the next downbeat.
+      const up = s === 15 ? 7 : s % 4 === 2 ? 12 : 0;
+      bass.add(bar(b) + s, root(b, s) + up, 0.85, v * ACCENT[s % 4] * (s === 0 ? 1.06 : s === 15 ? 1.2 : 1));
     }
   };
   for (let b = 0; b < 8; b++) roll(b, 0.66);
@@ -270,15 +281,17 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
   // Motorik: the kick on every beat from the first bar, the hats on every
   // sixteenth with the off-beat eighths leaned on.
   const verseBar = (b: number, v: number, sixteenths: boolean) => {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86 * v);
+    for (let s = 0; s < 16; s += 2) hit(kick, bar(b) + s, (s % 4 === 0 ? 0.86 : 0.36) * v);
     for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8 * v);
     for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.5 : 0.24) * v);
     if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.16 * v);
   };
   const chorusBar = (b: number, v: number) => {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 1 * v);
+    // Motorik proper: the kick on every eighth, the off-beats lighter.
+    for (let s = 0; s < 16; s += 2) hit(kick, bar(b) + s, (s % 4 === 0 ? 1 : 0.5) * v);
     for (const s of [4, 12]) hit(snare, bar(b) + s, 0.97 * v);
-    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.6 : s % 2 === 0 ? 0.3 : 0.2) * v);
+    hit(snare, bar(b) + 15, 0.3 * v);
+    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.62 : s % 2 === 0 ? 0.3 : 0.2) * v);
   };
   /** The last bar of a build: snare on every eighth, then every sixteenth. */
   const build = (b: number) => {
@@ -327,10 +340,10 @@ export const SUMMER_TAPE: readonly TapeAutomation[] = [
 ];
 
 const TRACK_META: Record<TrackType, { name: string; color: string }> = {
-  lead: { name: 'LONG EXPOSURE', color: 'bg-neon-purple' },
-  pluck: { name: 'NIGHT BUS', color: 'bg-teal-500' },
-  pad: { name: 'CASSETTE STRINGS', color: 'bg-blue-800' },
-  bass: { name: 'OVERPASS', color: 'bg-indigo-600' },
+  lead: { name: 'BLADE CHORDS', color: 'bg-neon-purple' },
+  pluck: { name: 'COLD ARP', color: 'bg-teal-500' },
+  pad: { name: 'SOLINA VEIL', color: 'bg-blue-800' },
+  bass: { name: 'SOURCE BASS', color: 'bg-indigo-600' },
   fx: { name: 'FX', color: 'bg-neon-pink' },
   hihat: { name: 'HH', color: 'bg-yellow-400' },
   snare: { name: 'SD', color: 'bg-cyan-400' },

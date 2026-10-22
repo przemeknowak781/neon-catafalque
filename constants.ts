@@ -363,6 +363,23 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.3, delaySend: 0.18, phaserSend: 0,
       polyphony: 8,
     },
+    // Blade Chorus, the house lead, opened up: the same seven-voice chorused
+    // stack with eight-note polyphony for block chords, a slightly calmer
+    // filter so four of it at once do not pile up resonance, and a shorter
+    // release so written rests stay rests.
+    'Blade Chords': {
+      ...DEFAULT_LEAD_PARAMS,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 14,
+      unison: 7, unisonDetune: 32,
+      subLevel: 0.1, noiseLevel: 0.02,
+      cutoff: 1900, resonance: 3.5, filterEnvAmount: 0.5,
+      attack: 0.03, decay: 0.35, sustain: 0.45, release: 0.4,
+      filterAttack: 0.05, filterDecay: 0.35, filterSustain: 0.4, filterRelease: 0.4,
+      chorusMix: 0.9, drive: 0.3, pan: 0,
+      reverbSend: 0.4, delaySend: 0.22,
+      phaserSend: 0.35,
+      polyphony: 8,
+    },
   },
 
   bass: {
@@ -715,15 +732,15 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Original patches for the second built-in song: a supersaw chord lead, a supersaw pad, a sub-layered driven bass and a resonant sixteenth-note pluck, the pad pumping under the kick, and only a trace of tape.',
-    lead: 'Long Exposure', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
+    note: 'The second built-in song on the house patches: Blade Chorus opened up to eight voices for block chords, the Moog Source bass of Blue Monday for the motorik line, the Solina for the pad and Cold Arp for the sixteenths; the pad pumping under the kick, a trace of tape.',
+    lead: 'Blade Chords', bass: 'Source Bass', pad: 'Solina Veil', pluck: 'Cold Arp',
     fx: {
-      reverbMix: 0.45, reverbSize: 2.6, reverbDamp: 0.35, reverbPreDelay: 0.025,
-      delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.34, delayMix: 0.75,
+      reverbMix: 0.42, reverbSize: 2.6, reverbDamp: 0.35, reverbPreDelay: 0.025,
+      delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.36, delayMix: 0.75,
       delayDamp: 3200, delayPingPong: true,
-      chorusMix: 0.8, phaserMix: 0, phaserRate: 0.2, phaserDepth: 0.3,
+      chorusMix: 0.85, phaserMix: 0.2, phaserRate: 0.18, phaserDepth: 0.35,
       flangerMix: 0, sidechain: 0.55, sidechainRelease: 0.16,
-      width: 1.1, lowShelf: 0.5, airShelf: 2, glue: 0.5, masterDrive: 0.26,
+      width: 1.2, lowShelf: 0.5, airShelf: 2.5, glue: 0.5, masterDrive: 0.28,
       tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 18000,
     },
   },
