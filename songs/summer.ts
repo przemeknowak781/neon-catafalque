@@ -2,7 +2,7 @@ import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from 
 import { MIX_LEVELS } from "../constants";
 import {
   STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonise, harmonyMap,
-  lift, midiOf, phrase, type Bar, type Chord,
+  midiOf, phrase, type Bar, type Chord,
 } from "./score";
 
 /**
@@ -18,26 +18,14 @@ import {
  * 19(2), 110-120) found the features listeners linked to tears and chills —
  * appoggiaturas, and melodic sequences.
  *
- * Second version, after a listening note: drop the intro, make the harmony
- * meatier and the progression more uplifting, lean harder on the bass, and
- * modernise the sounds. So the song starts on the verse; every chord is in
- * root position under five-voice open voicings; and the chorus no longer
- * falls — it climbs IV, V, vi from the subdominant, comes to rest on iii and
- * IV and the tonic, and ends on flat-VI and flat-VII, the rising major chords
- * borrowed from the minor that pull towards a tonic. Every chorus but the
- * last turns away from that tonic at the last moment; only the outro lands on
- * it.
+ * The major-key versions (D, a loop on the secondary dominant F-sharp 7)
+ * are in the history. After the note that no banger would come out of that
+ * melody and harmony, and that it could be darker and sadder, the song moved
+ * to F-sharp minor: a loop of i - VI - iv - VII and i - VI - iv - V7, an
+ * Andalusian descent under the theme, a lament for a hook. The drums, the
+ * bass pulse, the patches and the arc stayed.
  *
- * Fourth version, after another note: the harmony had become complicated
- * and chaotic and, at the same time, dull. So the whole song now stands on
- * one eight-bar progression built around the secondary dominant that worked,
- * I - V/vi - vi - IV, I - V/vi - IV - V: F-sharp 7 in every second bar,
- * resolving to B minor the first time and deceptively to G the second. The
- * verse plays it low with two notes a bar, the chorus high with a pick-up and
- * one long note a bar, struck as four-voice chords; the bridge holds the
- * dominant for four bars; the last chorus and outro are a semitone up.
- *
- * Form, 64 bars at 108 BPM, all in D:
+ * Form, 64 bars at 108 BPM, all in F-sharp minor:
  *   INTRO 8 (the hook on the pluck) · THEME 8 · HOOK x2 · THEME 8 (the break)
  *   · HOOK x2 · OUTRO 8
  */
@@ -49,94 +37,103 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * The hook, fourth version, written to earworm.md and scored by the
- * generator's own scoreMotif at 1.00 for A and A'. A fanfare head — the tonic
- * triad D, F-sharp, A, then the A struck twice more in a tresillo rhythm
- * (3+3+2, then two even notes) — rises to C-sharp over the F-sharp 7 and
- * rocks between C-sharp and D there, D being the chord's flat thirteenth,
- * the tension the secondary dominant is known by; then it steps down through
- * B minor to F-sharp and lands on A. Arch contour, 71% stepwise, range 12,
- * eighteen notes in one rhythmic cell, a cadence on the fifth. A' changes
- * one note so that it rests on A over the A chord.
+ * The hook, fifth version, after the note that no banger would come out of
+ * the major-key loop and that it could be darker and sadder. It is in F-sharp
+ * minor now, the aeolian mode earworm.md was written for, and it is a lament
+ * rather than a fanfare: it falls from A through G-sharp to F-sharp over the
+ * tonic, leaps a minor third back to A (the spec's one uncommon turning
+ * point) and climbs to E over D major, the lift the flat-six chord is known
+ * for, then comes down by step through B minor, the whole fourth bar a
+ * descending tetrachord from D, and settles on F-sharp, the tonic, held over
+ * E as its ninth. Scored by scoreMotif at 1.00 for A and A': arch, 88%
+ * stepwise, range 10, eighteen notes, one rhythmic cell (a dotted quarter,
+ * an eighth, a quarter and two eighths that lead into the next bar), D and E,
+ * the flat sixth and seventh, on six of them. A' changes the last bar only:
+ * over C-sharp 7 it rises to A, the dominant's flat thirteenth, and holds it,
+ * unresolved, into the tonic chord where it becomes the third.
  */
-const CELL: readonly (readonly [number, number])[] = [[0, 3], [3, 3], [6, 4], [10, 2], [12, 4]];
-const END: readonly (readonly [number, number])[] = [[0, 3], [3, 3], [6, 10]];
+const CELL: readonly (readonly [number, number])[] = [[0, 6], [6, 2], [8, 4], [12, 2], [14, 2]];
+const END: readonly (readonly [number, number])[] = [[0, 6], [6, 2], [8, 8]];
 const cells = (pitches: string[], rhythm: readonly (readonly [number, number])[]): Bar =>
   pitches.map((p, k) => [rhythm[k][0], p, rhythm[k][1]] as const);
 const LEAD_A: readonly Bar[] = [
-  cells(['D5', 'F#5', 'A5', 'A5', 'A5'], CELL),
-  cells(['C#6', 'D6', 'C#6', 'D6', 'C#6'], CELL),
-  cells(['B5', 'B5', 'A5', 'G5', 'F#5'], CELL),
-  cells(['G5', 'B5', 'A5'], END),
+  cells(['A5', 'B5', 'A5', 'G#5', 'F#5'], CELL),
+  cells(['A5', 'B5', 'D6', 'E6', 'D6'], CELL),
+  cells(['D6', 'C#6', 'B5', 'A5', 'G#5'], CELL),
+  cells(['F#5', 'G#5', 'F#5'], END),
 ];
 const LEAD_A2: readonly Bar[] = [
   ...LEAD_A.slice(0, 3),
-  cells(['A5', 'B5', 'A5'], END),
+  cells(['G#5', 'G#5', 'A5'], END),
 ];
 export const LEAD_CHORUS: readonly Bar[] = [...LEAD_A, ...LEAD_A2];
-export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'D' };
+export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'F#', mode: 'aeolian' as const };
 
 /**
- * The theme, in the hook's own two rhythms — the tresillo cell, and the
- * same cell ending on a held note — so verse and hook are one family. Four
- * bars circle the F-sharp 7 below the hook's register; then the hook's
- * fanfare head on B minor (D, F-sharp, B), a step down through G and E minor,
- * and E held across the suspension and its resolution into the hook.
+ * The theme, for the verse and the break, an octave under the hook and in
+ * its last bar's rhythm: a sequence of sighs over the descending bass. Each
+ * bar opens on a note leaned against the chord, falls a step onto a chord
+ * tone and drops a third, and each bar is the last a step lower: D over F-sharp
+ * minor, C-sharp over E, B over D, A over C-sharp 7 (its flat thirteenth).
+ * Appoggiaturas and descending sequences are the two melodic features Sloboda
+ * (1991) found most often at the moments listeners reported tears. The
+ * second time the last bar turns through the suspension to E-sharp, the
+ * leading tone, the one note outside the mode, pointing at the hook.
  */
 export const THEME: readonly Bar[] = [
-  cells(['C#5', 'E5', 'F#5'], END),
-  cells(['E5', 'C#5', 'A#4'], END),
-  cells(['C#5', 'E5', 'F#5', 'E5', 'C#5'], CELL),
-  cells(['A#4', 'C#5', 'F#5'], END),
-  cells(['D5', 'F#5', 'B5'], END),
-  cells(['B5', 'A5', 'G5'], END),
-  cells(['G5', 'F#5', 'E5', 'D5', 'B4'], CELL),
-  cells(['D5', 'E5', 'E5'], END),
+  cells(['D5', 'C#5', 'A4'], END),
+  cells(['C#5', 'B4', 'G#4'], END),
+  cells(['B4', 'A4', 'F#4'], END),
+  cells(['A4', 'G#4', 'E#4'], END),
+  cells(['D5', 'C#5', 'A4'], END),
+  cells(['C#5', 'B4', 'G#4'], END),
+  cells(['B4', 'A4', 'F#4'], END),
+  cells(['G#4', 'F#4', 'E#4'], END),
 ];
 
 // --- harmony --------------------------------------------------------------
 
-// Chorus voicings spread across three octaves: root and fifth low, the
-// triad in the middle, the colour (seventh, ninth) on top, kept under the
-// melody so the lead's chords have room above.
-const D = chord('Dadd9', 'D2', ['D', 'F#', 'A', 'E'], ['D3', 'A3', 'E4', 'F#4']);
-const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
-const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
-const G = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'A3', 'B3', 'F#4']);
-const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'B3', 'C#4', 'E4']);
+// The loop, voiced across three octaves: root and fifth low, the colour
+// (ninth, eleventh, sixth) on top, all under the lead's chords.
+const Fsm = chord('F#m9', 'F#1', ['F#', 'A', 'C#', 'E', 'G#'], ['F#2', 'C#3', 'A3', 'E4', 'G#4']);
+const D = chord('Dmaj9', 'D1', ['D', 'F#', 'A', 'C#', 'E'], ['D2', 'A2', 'F#3', 'C#4', 'E4']);
+const Bm = chord('Bm11', 'B0', ['B', 'D', 'F#', 'A', 'C#', 'E'], ['B2', 'F#3', 'A3', 'D4', 'E4']);
+const E = chord('E6/9', 'E1', ['E', 'G#', 'B', 'C#', 'F#'], ['E2', 'B2', 'G#3', 'C#4', 'F#4']);
+// The harmonic-minor dominant with its two tensions, the flat ninth and the
+// flat thirteenth, which the hook leans on.
+const Cs7 = chord('C#7b9b13', 'C#1', ['C#', 'E#', 'G#', 'B', 'D', 'A'], ['C#3', 'G#3', 'B3', 'E#4']);
 
-// Pre-chorus: ii, V/vi, IV, V sus into V7.
-const pEm = chord('Em7', 'E1', ['E', 'G', 'B', 'D'], ['E3', 'B3', 'D4', 'G4']);
-const pFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#3', 'C#4', 'E4', 'A#4']);
-const pG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G3', 'D4', 'F#4', 'B4']);
-const pAsus = chord('Asus4', 'A1', ['A', 'D', 'E'], ['A2', 'E3', 'A3', 'D4', 'E4']);
-const pA7 = chord('A7', 'A1', ['A', 'C#', 'E', 'G'], ['A2', 'E3', 'A3', 'C#4', 'E4'], 8);
+// The theme: the same chords voiced low, so the lead an octave down still
+// sits above them.
+const tFsm = chord('F#m', 'F#1', ['F#', 'A', 'C#', 'E'], ['F#2', 'C#3', 'A3']);
+const tE = chord('E6', 'E1', ['E', 'G#', 'B', 'C#'], ['E2', 'B2', 'G#3']);
+const tD = chord('Dmaj7', 'D1', ['D', 'F#', 'A', 'C#'], ['D2', 'A2', 'F#3']);
+const tCs7 = chord('C#7b13', 'C#1', ['C#', 'E#', 'G#', 'B', 'A'], ['C#2', 'G#2', 'B2', 'E#3']);
+const tCsus = chord('C#sus4', 'C#1', ['C#', 'F#', 'G#'], ['C#2', 'G#2', 'C#3', 'F#3']);
+const tCs7b = chord('C#7', 'C#1', ['C#', 'E#', 'G#', 'B'], ['C#2', 'G#2', 'B2', 'E#3'], 8);
 
-// Bridge: the dominant held for four bars, B minor and G, then F and B-flat
-// into E-flat.
-const bFs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'A#3', 'E4']);
-const bBm = chord('Bm7', 'B1', ['B', 'D', 'F#', 'A'], ['B2', 'F#3', 'A3', 'D4', 'F#4']);
-const bG = chord('Gmaj7', 'G1', ['G', 'B', 'D', 'F#'], ['G2', 'D3', 'B3', 'D4', 'F#4']);
-const bF = chord('Fmaj7', 'F1', ['F', 'A', 'C', 'E'], ['F2', 'C3', 'A3', 'C4', 'E4']);
-const bBb = chord('Bbmaj7', 'Bb1', ['Bb', 'D', 'F', 'A'], ['Bb2', 'F3', 'D4', 'F4', 'A4']);
-
-/** The progression: I - V/vi - vi - IV, I - V/vi - IV - V. */
-const CHORUS = [D, Fs7, Bm, G, D, Fs7, G, A];
-/** The theme's harmony: the dominant held for four bars, vi, IV, ii, V. */
-const THEME_CHORDS = [bFs7, bFs7, bFs7, bFs7, bBm, bG, pEm, pAsus];
+/**
+ * The loop: i - VI - iv - VII, i - VI - iv - V7. Once through the natural
+ * minor, its flat seventh, E, falling back to the tonic like a shrug; the
+ * second time the same bar turns to the harmonic minor's dominant, C-sharp 7
+ * with its leading tone, and the pull home is the strongest in the key.
+ */
+const CHORUS = [Fsm, D, Bm, E, Fsm, D, Bm, Cs7];
+/** The theme's harmony: the Andalusian descent, i - VII - VI - V, twice. */
+const THEME_CHORDS = [tFsm, tE, tD, tCs7, tFsm, tE, tD, tCsus];
 
 function harmony(): Chord[][] {
   const bars: Chord[][] = [];
   const push = (...chords: Chord[]) => bars.push(chords);
   const loop = () => { for (const c of CHORUS) push(c); };
-  const theme = () => { THEME_CHORDS.forEach((c, i) => (i === 7 ? push(c, pA7) : push(c))); };
+  const theme = () => { THEME_CHORDS.forEach((c, i) => (i === 7 ? push(c, tCs7b) : push(c))); };
 
   loop();           // INTRO: the loop, no lead
   theme();          // THEME 1
   loop(); loop();   // RIFF, twice
   theme();          // THEME 2 — the break
   loop(); loop();   // RIFF, twice
-  for (const c of CHORUS.slice(0, 7)) push(c); push(D);   // OUTRO: the loop once more, ending on the tonic
+  for (const c of CHORUS.slice(0, 7)) push(c); push(Fsm);   // OUTRO: the loop once more, iv to i at the end
 
   if (bars.length !== BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${BARS}`);
   return bars;
@@ -170,7 +167,7 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
   // Up through the chord over two octaves and back: the arpeggio spans the
   // room between the pad and the lead.
   const ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 6, 5, 4, 3, 2, 1, 2, 3];
-  const arp = (from: number, to: number, velocity: (b: number) => number, every = 1, octave = 0) => {
+  const arp = (from: number, to: number, velocity: (b: number) => number, every = 1, octave = 0, over = false) => {
     for (let b = from; b < to; b++) {
       for (let s = 0; s < STEPS_PER_BAR; s += every) {
         const step = bar(b) + s;
@@ -179,7 +176,8 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
         const padNow = at(padNotes, step);
         const padTop = Math.max(...pitches, ...padNow);
         const now = sounding(step);
-        const top = now.length ? Math.max(...now) : CEILING;
+        // Over a low theme the arpeggio may run above the lead.
+        const top = over || !now.length ? CEILING : Math.max(...now);
         const fits = (x: number) => x <= top && x > padTop && !now.some((y) => Math.abs(y - x) === 1) &&
           !pitches.some((y) => Math.abs(y - x) === 1) && !padNow.some((y) => Math.abs(y - x) === 1);
         const ladder = [...new Set([...pitches.map((x) => x + 12 + octave), ...pitches.map((x) => x + 24 + octave)])].sort((x, y) => x - y);
@@ -193,10 +191,13 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
       }
     }
   };
-  const SCALE = [0, 2, 4, 5, 7, 9, 11].map((x) => (x + 2) % 12);   // D major
-  const below = (m: number, degrees: number) => {
+  // F-sharp aeolian; over the dominant, the harmonic minor, so the second
+  // voice takes E-sharp there and never sounds E against the leading tone.
+  const AEOLIAN = [0, 2, 3, 5, 7, 8, 10].map((x) => (x + 6) % 12);
+  const HARMONIC = [0, 2, 3, 5, 7, 8, 11].map((x) => (x + 6) % 12);
+  const below = (m: number, degrees: number, scale: number[]) => {
     let x = m; let k = 0;
-    while (k < degrees) { x--; if (SCALE.includes(((x % 12) + 12) % 12)) k++; }
+    while (k < degrees) { x--; if (scale.includes(((x % 12) + 12) % 12)) k++; }
     return x;
   };
   const twin = (start: number, velocity: number) => {
@@ -206,7 +207,8 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
       const c = chordAt(bars, step);
       const tones = new Set(c.tones.map((t) => midiOf(`${t}4`) % 12));
       const strongBeat = st === 0 || st === 6 || st === 12;
-      const third = below(m, 2), sixth = below(m, 5);
+      const scale = c.tones.includes('E#') ? HARMONIC : AEOLIAN;
+      const third = below(m, 2, scale), sixth = below(m, 5, scale);
       const clashes = (x: number) => [...sounding(step), ...at(padNotes, step)].some((y) => Math.abs(y - x) === 1);
       const pick = [third, sixth].find((x) => (!strongBeat || tones.has(x % 12)) && !clashes(x));
       if (pick === undefined) return;
@@ -214,19 +216,19 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
     }));
   };
   // INTRO: the hook winds through gently — its first two bars, struck and
-  // quiet, on the two bars of the loop they belong to (D, F-sharp 7), twice,
+  // quiet, on the two bars of the loop they belong to (F-sharp minor, D), twice,
   // with the arpeggio in soft eighths between.
   phrase(p, 0, LEAD_CHORUS.slice(0, 2), 0.42, 0, true);
   arp(2, 4, () => 0.3, 2);
   phrase(p, 4, LEAD_CHORUS.slice(0, 2), 0.46, 0, true);
   arp(6, 8, () => 0.34, 2);
-  arp(8, 16, () => 0.62);             // THEME 1
+  arp(8, 16, () => 0.5, 1, 0, true);  // THEME 1, above the low lead
   // HOOK: the pluck becomes the second lead, a third under the melody
   // (a sixth where the third would not be a chord tone on a strong beat),
   // pulsing in sixteenths through each melody note.
   for (const start of [16, 24, 40, 48]) twin(start, 0.62);
   arp(32, 36, () => 0.44, 2);         // THEME 2: eighths, then sixteenths an octave up
-  arp(36, 40, (b) => 0.56 + (b - 36) * 0.06, 1, 12);
+  arp(36, 40, (b) => 0.5 + (b - 36) * 0.06, 1, 0, true);
   arp(56, 64, (b) => 0.64 - (b - 56) * 0.06);  // OUTRO, thinning
   return p.notes;
 }

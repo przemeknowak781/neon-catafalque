@@ -6,7 +6,7 @@
 
 <sub>
 Twelve scales · twelve keys · seven song forms · eight progressions · thirty-two synth patches · two written songs<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 83 conformance checks · runs entirely in the browser, no server and no account
+Web Audio synthesis · a tape stage · MIDI and WAV export · 84 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   83 checks, 1944 generated songs
+...                                   84 checks, 1944 generated songs
 ```
 
 ---
@@ -203,29 +203,34 @@ contours, in earworm tunes against matched tunes and a pop corpus. That is a
 statistic of a whole tune; the spec turned it into a count per four bars.
 
 **The Summer We Never Had** is the second, built the way the simplest
-dance records are: one loop, one hook, a theme for the break. The loop is
-eight bars on a secondary dominant, I, V/vi, vi, IV, I, V/vi, IV, V, the F♯7
-in every second bar resolving to B minor the first time and deceptively to G
-the second. The hook is a fanfare in a tresillo, three, three, four, two, four
-sixteenths: it climbs the tonic triad to A, rocks between C♯ and D over the
-F♯7 (the D its flat thirteenth, the one tension the bar leans on), comes
-down by step from B to F♯ and settles on the fifth, leaving the loop open.
-It is written to earworm.md and scored by the generator's own `scoreMotif`
-at 1.00 for both A and A′ (arch, 71% stepwise, a twelve-semitone range,
-eighteen notes in two rhythmic cells, a cadence on the fifth, A′ changing
-one bar's end). The intro lets its first two bars through twice, quietly on
-the pluck, with a soft arpeggio between; the theme for the break is written
-in the same two cells; in each riff section it is stated twice, note for
+dance records are: one loop, one hook, a theme for the break. It is in F♯
+minor, the aeolian mode earworm.md was written for. The loop is eight bars,
+i, VI, iv, VII, then i, VI, iv, V7: the first time the flat seventh, E,
+falls back to the tonic; the second time the same bar is C♯7, the harmonic
+minor's dominant with its flat ninth and flat thirteenth, and the pull home
+is the strongest in the key. The theme under the verse and the break is the
+Andalusian descent, i, VII, VI, V, twice, and its melody is a sequence of
+sighs an octave under the hook: each bar a note leaned against the chord,
+falling a step and then a third, each bar a step lower than the last, the
+two features Sloboda (1991) found most often where listeners reported
+tears. The hook is a lament: it falls from A to F♯ over the tonic, leaps a
+minor third back (the spec's one uncommon turning point), climbs to E over
+D major, comes down by step through B minor and settles on F♯ held over E.
+It is scored by the generator's own `scoreMotif` at 1.00 for both A and A′
+(arch, 88% stepwise, a ten-semitone range, eighteen notes in one rhythmic
+cell, a cadence on the tonic; A′ changes the last bar, rising to A over the
+C♯7 and holding it). The intro lets its first two bars through twice,
+quietly, on the pluck; in each riff section it is stated twice, note for
 note. The lead plays it as three-note chords on a polyphonic patch of a
 square and a saw an octave apart, with no vibrato, no glide, no unison and
 the modulation buses all but off: measured on held notes, a pitch spread of
 about 5 cents, where a three-copy unison version measured 27. In the riffs
-the pluck becomes a second lead, a diatonic third or sixth under the tune,
-chosen to be a chord tone on the strong beats and never a semitone from
-anything sounding, so the two lines move in parallel the way twin guitars
-do. Under them the pad sustains the loop low, the arpeggio runs through the
-theme, and the bass pulses over an octave sub.
-Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Sixteen
+the pluck becomes a second lead, a diatonic third or sixth under the tune
+(in the harmonic minor over the dominant, so it takes E♯ there), a chord
+tone on the strong beats and never a semitone from anything sounding. Under
+them the pad sustains the loop low, an arpeggio runs above the low theme,
+and the bass pulses over an octave sub.
+Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Seventeen
 checks of its own in `verify:earworm`, and the shared song checks, which
 both songs pass.
 
@@ -264,7 +269,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 83 conformance checks
+npm run verify:earworm   # the 84 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

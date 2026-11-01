@@ -69,14 +69,14 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Written by hand, in D, 108 BPM: one eight-bar loop on a secondary dominant, a fanfare hook in a tresillo written to earworm.md (scoreMotif 1.00) whose head drifts through the intro on the pluck, then three-note chords on a polyphonic lead with the pluck a third or a sixth under it, a theme in the hook\'s rhythm for the break, a pulsing sub bass.',
+    note: 'Written by hand, in F-sharp minor, 108 BPM: a loop of i - VI - iv - VII, i - VI - iv - V7, a lament for a hook written to earworm.md (scoreMotif 1.00) whose head drifts through the intro on the pluck, then three-note chords on a polyphonic lead with the pluck a third or a sixth under it, a theme of falling sighs over an Andalusian descent for the break, a pulsing sub bass.',
     bpm: SUMMER_BPM,
     totalSteps: SUMMER_STEPS,
     arrangement: 'The Summer We Never Had',
     soundPreset: 'The Summer We Never Had',
     automation: SUMMER_TAPE,
     build: buildSummerTracks,
-    generator: { key: 'D', mode: 'ionian', harmony: 'Auto' },
+    generator: { key: 'F#', mode: 'aeolian', harmony: 'Auto' },
     analysis: {
       intro: SUMMER_SECTIONS.intro,
       bridge: SUMMER_SECTIONS.bridge,

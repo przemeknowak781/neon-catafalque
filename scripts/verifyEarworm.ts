@@ -815,7 +815,7 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     const notes = toMotif(half);
     const onsets = Array.from({ length: 64 }, (_, i) => notes.some((n) => n.step === i));
     const d = scoreMotif({
-      notes, scaleIntervals: IONIAN, modeName: 'ionian', onsets,
+      notes, scaleIntervals: IONIAN, modeName: LEAD_HOOK.mode, onsets,
       cellLength: 16, barsInPhrase: 4, targetContours: ['arch', 'descent'],
     }).detail;
     record('built-in hook: each four bars in range and length, one rhythmic cell', '§3.3 / §8A', 1.0,
@@ -863,43 +863,51 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   }
 }
 
-// The Summer We Never Had: a falling bass, a borrowed iv, appoggiaturas and
-// sequences (Sloboda 1991), and the chorus a semitone up at the end.
+// The Summer We Never Had: a minor loop that turns to the harmonic-minor
+// dominant the second time, an Andalusian descent under the theme.
 {
   const song = BUILT_IN_SONGS.find((s) => s.name === 'The Summer We Never Had')!;
   const map = song.analysis.harmony();
   const chordAtBarS = (b: number) => map.find((h) => h.bar === b && h.at === 0) ?? map.find((h) => h.bar === b)!;
-  const tonicPc = mod(midiOf('D4'), 12);
-  const [start] = song.analysis.chorusStarts[0];
-
-  // One progression, I - V/vi - vi - IV, I - V/vi - IV - V, in root position,
-  // under the verse and the chorus alike.
+  const tonicPc = mod(midiOf('F#4'), 12);
   const rel = (b: number) => mod(chordAtBarS(b).root - tonicPc, 12);
-  const major3 = (b: number) => chordAtBarS(b).tones.includes(mod(chordAtBarS(b).root + 4, 12));
-  const PROGRESSION = [0, 4, 9, 5, 0, 4, 5, 7];
-  const standsOnIt = (from: number) => PROGRESSION.every((r, i) => mod(chordAtBarS(from + i).root - chordAtBarS(from).root, 12) === r) &&
-    [1, 5].every((i) => major3(from + i) && chordAtBarS(from + i).tones.includes(mod(chordAtBarS(from + i).root + 10, 12))) &&
-    [0, 1, 2, 3, 4, 5, 6, 7].every((i) => { const c = chordAtBarS(from + i); return mod(Math.min(...c.pad) - c.root, 12) === 0; });
-  record('summer: every chorus stands on I - V/vi - vi - IV, I - V/vi - IV - V', 'harmony', 1.0,
+  const has = (b: number, interval: number) => chordAtBarS(b).tones.includes(mod(chordAtBarS(b).root + interval, 12));
+  const minor3 = (b: number) => has(b, 3) && !has(b, 4);
+  const major3 = (b: number) => has(b, 4);
+
+  // i - VI - iv - VII, i - VI - iv - V7 under every statement of the hook.
+  const PROGRESSION = [0, 8, 5, 10, 0, 8, 5, 7];
+  const standsOnIt = (from: number) => PROGRESSION.every((r, i) => rel(from + i) === r) &&
+    [0, 2, 4, 6].every((i) => minor3(from + i)) && [1, 3, 5, 7].every((i) => major3(from + i));
+  record('summer: every chorus stands on i - VI - iv - VII, i - VI - iv - V7', 'harmony', 1.0,
     song.analysis.chorusStarts.every(([s0]) => standsOnIt(s0)));
-  // The theme (the verses and the bridge) holds the secondary dominant for
-  // four bars before vi and IV.
+  // The second time round the flat seventh becomes the dominant: the same
+  // bar of the loop, with the leading tone and a seventh.
+  record('summer: the loop turns to the harmonic-minor dominant the second time', 'harmony', 1.0,
+    song.analysis.chorusStarts.every(([s0]) => rel(s0 + 3) === 10 && rel(s0 + 7) === 7 &&
+      chordAtBarS(s0 + 7).tones.includes(mod(tonicPc - 1, 12)) && has(s0 + 7, 10)));
+  // The theme, verse and break, on the Andalusian descent, i - VII - VI - V, twice.
   const themeStarts = [8, 32];
-  record('summer: the theme holds the secondary dominant for four bars, then vi and IV', 'harmony', 1.0,
-    themeStarts.every((t) => [0, 1, 2, 3].every((i) => rel(t + i) === 4 && major3(t + i)) && rel(t + 4) === 9 && rel(t + 5) === 5));
-  record('summer: the secondary dominant resolves to vi, then deceptively to IV', 'harmony', 1.0,
-    rel(start + 2) === 9 && rel(start + 6) === 5);
+  record('summer: the theme stands on the Andalusian descent, twice', 'harmony', 1.0,
+    themeStarts.every((t) => [0, 4].every((h) => [0, 10, 8, 7].every((r, i) => rel(t + h + i) === r)) && minor3(t)));
   const br = song.analysis.bridge[0];
-  record('summer: the bridge holds the secondary dominant for four bars', 'harmony', 1.0,
-    [0, 1, 2, 3].every((i) => rel(br + i) === 4 && major3(br + i)));
+  record('summer: the bridge bass falls by step', 'harmony', 1.0,
+    [1, 2, 3].every((i) => [1, 2].includes(mod(chordAtBarS(br + i - 1).root - chordAtBarS(br + i).root, 12))));
   const lastBar = map.filter((h) => h.at === 0).slice(-1)[0];
-  record('summer: the outro lands on the tonic', 'structure', 1.0,
-    mod(lastBar.root - tonicPc, 12) === 0);
+  record('summer: the outro lands on the minor tonic', 'structure', 1.0,
+    mod(lastBar.root - tonicPc, 12) === 0 && lastBar.tones.includes(mod(tonicPc + 3, 12)));
+
+  // The theme is a sequence of sighs (Sloboda 1991): every bar but the last,
+  // which turns to the leading tone, falls a step and then a third, and each four-bar run starts a step lower each bar.
+  const firstNotes = THEME.map((cells) => midiOf(cells[0][1]));
+  const sighs = THEME.slice(0, 7).every((cells) => { const [x, y, z] = cells.map(([, p]) => midiOf(p)); return [1, 2].includes(x - y) && [3, 4].includes(y - z); });
+  const sequence = [1, 2, 3, 5, 6].every((i) => [1, 2].includes(firstNotes[i - 1] - firstNotes[i]));
+  record('summer: the theme falls in a sequence of sighs', 'motif', 1.0, sighs && sequence);
 
   // The lead is the song's hook in earworm.md's sense, and is scored by the
   // same function as every generated candidate, against the same targets.
   {
-    const IONIAN = SCALE_INTERVALS.ionian;
+    const IONIAN = SCALE_INTERVALS[LEAD_HOOK.mode];
     const leadTonic = mod(midiOf(`${LEAD_HOOK.tonic}4`), 12);
     const toMotif = (bars: typeof LEAD_HOOK.a) => {
       const notes: { step: number; degree: number; alteration: number }[] = [];
@@ -916,7 +924,7 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     for (const notes of phrases) {
       const onsets = Array.from({ length: 64 }, (_, i) => notes.some((n) => n.step === i));
       const d = scoreMotif({
-        notes, scaleIntervals: IONIAN, modeName: 'ionian', onsets,
+        notes, scaleIntervals: IONIAN, modeName: LEAD_HOOK.mode, onsets,
         cellLength: 16, barsInPhrase: 4, targetContours: ['arch', 'descent'],
       }).detail;
       record('summer lead: common contour', '§2.1A', 1.0, d.contourClass === 'arch' || d.contourClass === 'descent');
