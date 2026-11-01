@@ -958,11 +958,24 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     }
     return by;
   };
-  // The intro plays the hook itself, on the pluck, before the lead has it.
+  // The hook winds through the intro: its first two bars on the pluck, twice,
+  // on the bars of the loop they belong to, before the lead has it.
   const pluckNotes = tracks.find((t) => t.id === 'pluck')!.notes!;
-  const intro = pluckNotes.filter((n) => n.startStep < song.analysis.intro[1] * 16).map((n) => noteToMidi(n.note));
-  record('summer: the intro plays the hook before the lead does', 'structure', 1.0,
-    JSON.stringify(intro) === JSON.stringify(LEAD_CHORUS.flat().map(([, p]) => midiOf(p))));
+  const head = LEAD_CHORUS.slice(0, 2).flat().map(([, p]) => midiOf(p));
+  const inBarsP = (a: number, b: number) => pluckNotes.filter((n) => n.startStep >= a * 16 && n.startStep < b * 16).map((n) => noteToMidi(n.note));
+  record('summer: the intro plays the hook\'s head twice before the lead does', 'structure', 1.0,
+    JSON.stringify(inBarsP(0, 2)) === JSON.stringify(head) && JSON.stringify(inBarsP(4, 6)) === JSON.stringify(head));
+
+  // The two leads harmonise: under every hook note the pluck sounds a third
+  // or a sixth below the melody.
+  const melodyTop = (step: number) => Math.max(...leadAt(step));
+  function leadAt(step: number) {
+    return tracks.find((t) => t.id === 'lead')!.notes!.filter((n) => n.startStep <= step && n.startStep + n.duration > step).map((n) => noteToMidi(n.note));
+  }
+  const hookPluck = pluckNotes.filter((n) => song.analysis.choruses.some(([a, b]) => n.startStep >= a * 16 && n.startStep < b * 16));
+  const inThirdsOrSixths = hookPluck.filter((n) => [3, 4, 8, 9].includes(melodyTop(n.startStep) - noteToMidi(n.note))).length;
+  record('summer: the pluck harmonises the hook in thirds and sixths', 'harmony', 1.0,
+    hookPluck.length > 0 && inThirdsOrSixths / hookPluck.length >= 0.95, Math.round((100 * inThirdsOrSixths) / Math.max(1, hookPluck.length)));
 
   // One riff: every statement of the hook is the first, note for note.
   const [firstStart] = song.analysis.chorusStarts[0];

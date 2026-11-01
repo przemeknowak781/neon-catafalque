@@ -49,45 +49,49 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * The hook, third version, written to earworm.md and scored by the
- * generator's own scoreMotif: a fanfare. It climbs the tonic triad in a
- * dotted march rhythm (D, F-sharp, A, then B), stands on C-sharp over the
- * F-sharp 7, reaches the top D on the downbeat of bar 3 and comes down by
- * step, with one leap, B down to F-sharp, as the spec's single uncommon
- * turning point. Arch contour, 79% stepwise, a twelve-semitone range,
- * fifteen notes in one rhythmic cell, a cadence on the tonic; scoreMotif
- * 1.00. A' keeps the rhythm and changes two notes so that its last bar
- * stands on E over the A chord and settles on D.
+ * The hook, fourth version, written to earworm.md and scored by the
+ * generator's own scoreMotif at 1.00 for A and A'. A fanfare head — the tonic
+ * triad D, F-sharp, A, then the A struck twice more in a tresillo rhythm
+ * (3+3+2, then two even notes) — rises to C-sharp over the F-sharp 7 and
+ * rocks between C-sharp and D there, D being the chord's flat thirteenth,
+ * the tension the secondary dominant is known by; then it steps down through
+ * B minor to F-sharp and lands on A. Arch contour, 71% stepwise, range 12,
+ * eighteen notes in one rhythmic cell, a cadence on the fifth. A' changes
+ * one note so that it rests on A over the A chord.
  */
+const CELL: readonly (readonly [number, number])[] = [[0, 3], [3, 3], [6, 4], [10, 2], [12, 4]];
+const END: readonly (readonly [number, number])[] = [[0, 3], [3, 3], [6, 10]];
+const cells = (pitches: string[], rhythm: readonly (readonly [number, number])[]): Bar =>
+  pitches.map((p, k) => [rhythm[k][0], p, rhythm[k][1]] as const);
 const LEAD_A: readonly Bar[] = [
-  [[0, 'D5', 6], [6, 'F#5', 2], [8, 'A5', 4], [12, 'B5', 4]],
-  [[0, 'C#6', 6], [6, 'B5', 2], [8, 'C#6', 8]],
-  [[0, 'D6', 6], [6, 'C#6', 2], [8, 'B5', 4], [12, 'F#5', 4]],
-  [[0, 'G5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'D5', 4]],
+  cells(['D5', 'F#5', 'A5', 'A5', 'A5'], CELL),
+  cells(['C#6', 'D6', 'C#6', 'D6', 'C#6'], CELL),
+  cells(['B5', 'B5', 'A5', 'G5', 'F#5'], CELL),
+  cells(['G5', 'B5', 'A5'], END),
 ];
 const LEAD_A2: readonly Bar[] = [
-  ...LEAD_A.slice(0, 2),
-  [[0, 'D6', 6], [6, 'C#6', 2], [8, 'B5', 4], [12, 'A5', 4]],
-  [[0, 'E5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'D5', 4]],
+  ...LEAD_A.slice(0, 3),
+  cells(['A5', 'B5', 'A5'], END),
 ];
 export const LEAD_CHORUS: readonly Bar[] = [...LEAD_A, ...LEAD_A2];
 export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'D' };
 
 /**
- * The theme, in the hook's own rhythm (dotted quarter, eighth, then a half
- * or two quarters), so the verse and the hook are one family: four bars
- * circling the F-sharp 7 below the hook's register, then the hook's head on
- * B minor, a descent through G and E minor, and the suspension into A.
+ * The theme, in the hook's own two rhythms — the tresillo cell, and the
+ * same cell ending on a held note — so verse and hook are one family. Four
+ * bars circle the F-sharp 7 below the hook's register; then the hook's
+ * fanfare head on B minor (D, F-sharp, B), a step down through G and E minor,
+ * and E held across the suspension and its resolution into the hook.
  */
 export const THEME: readonly Bar[] = [
-  [[0, 'A#4', 6], [6, 'B4', 2], [8, 'C#5', 8]],
-  [[0, 'E5', 6], [6, 'C#5', 2], [8, 'A#4', 8]],
-  [[0, 'A#4', 6], [6, 'B4', 2], [8, 'C#5', 4], [12, 'E5', 4]],
-  [[0, 'F#5', 6], [6, 'E5', 2], [8, 'F#5', 8]],
-  [[0, 'D5', 6], [6, 'F#5', 2], [8, 'B5', 4], [12, 'A5', 4]],
-  [[0, 'B5', 6], [6, 'A5', 2], [8, 'G5', 8]],
-  [[0, 'G5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'B4', 4]],
-  [[0, 'D5', 6], [6, 'E5', 2], [8, 'C#5', 8]],
+  cells(['C#5', 'E5', 'F#5'], END),
+  cells(['E5', 'C#5', 'A#4'], END),
+  cells(['C#5', 'E5', 'F#5', 'E5', 'C#5'], CELL),
+  cells(['A#4', 'C#5', 'F#5'], END),
+  cells(['D5', 'F#5', 'B5'], END),
+  cells(['B5', 'A5', 'G5'], END),
+  cells(['G5', 'F#5', 'E5', 'D5', 'B4'], CELL),
+  cells(['D5', 'E5', 'E5'], END),
 ];
 
 // --- harmony --------------------------------------------------------------
@@ -189,14 +193,40 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
       }
     }
   };
-  // INTRO: the hook itself, struck, the melody the whole song is built on,
-  // heard first as a memory; the arpeggio starts with the theme.
-  phrase(p, 0, LEAD_CHORUS, 0.6, 0, true);
-  arp(8, 16, () => 0.62);
-  arp(16, 32, () => 0.8);             // RIFF
+  const SCALE = [0, 2, 4, 5, 7, 9, 11].map((x) => (x + 2) % 12);   // D major
+  const below = (m: number, degrees: number) => {
+    let x = m; let k = 0;
+    while (k < degrees) { x--; if (SCALE.includes(((x % 12) + 12) % 12)) k++; }
+    return x;
+  };
+  const twin = (start: number, velocity: number) => {
+    LEAD_CHORUS.forEach((cellsOfBar, b) => cellsOfBar.forEach(([st, pitch, len]) => {
+      const step = bar(start + b) + st;
+      const m = midiOf(pitch);
+      const c = chordAt(bars, step);
+      const tones = new Set(c.tones.map((t) => midiOf(`${t}4`) % 12));
+      const strongBeat = st === 0 || st === 6 || st === 12;
+      const third = below(m, 2), sixth = below(m, 5);
+      const clashes = (x: number) => [...sounding(step), ...at(padNotes, step)].some((y) => Math.abs(y - x) === 1);
+      const pick = [third, sixth].find((x) => (!strongBeat || tones.has(x % 12)) && !clashes(x));
+      if (pick === undefined) return;
+      for (let k = 0; k < len; k++) p.add(step + k, pick, 1, velocity * (k === 0 ? 1 : 0.62));
+    }));
+  };
+  // INTRO: the hook winds through gently — its first two bars, struck and
+  // quiet, on the two bars of the loop they belong to (D, F-sharp 7), twice,
+  // with the arpeggio in soft eighths between.
+  phrase(p, 0, LEAD_CHORUS.slice(0, 2), 0.42, 0, true);
+  arp(2, 4, () => 0.3, 2);
+  phrase(p, 4, LEAD_CHORUS.slice(0, 2), 0.46, 0, true);
+  arp(6, 8, () => 0.34, 2);
+  arp(8, 16, () => 0.62);             // THEME 1
+  // HOOK: the pluck becomes the second lead, a third under the melody
+  // (a sixth where the third would not be a chord tone on a strong beat),
+  // pulsing in sixteenths through each melody note.
+  for (const start of [16, 24, 40, 48]) twin(start, 0.62);
   arp(32, 36, () => 0.44, 2);         // THEME 2: eighths, then sixteenths an octave up
   arp(36, 40, (b) => 0.56 + (b - 36) * 0.06, 1, 12);
-  arp(40, 56, () => 0.84);            // RIFF
   arp(56, 64, (b) => 0.64 - (b - 56) * 0.06);  // OUTRO, thinning
   return p.notes;
 }
