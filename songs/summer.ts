@@ -1,7 +1,7 @@
 import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
-  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, engineName, harmonise, harmonyMap,
+  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonise, harmonyMap,
   lift, midiOf, phrase, type Bar, type Chord,
 } from "./score";
 
@@ -37,13 +37,9 @@ import {
  * one long note a bar, struck as four-voice chords; the bridge holds the
  * dominant for four bars; the last chorus and outro are a semitone up.
  *
- * Form, 64 bars at 108 BPM, about two minutes twenty:
- *   VERSE 1 8 · PRE 4 · CHORUS 1 8 · VERSE 2 8 · PRE 4 · CHORUS 2 8
- *   · BRIDGE 8 · CHORUS 3 8 (up a semitone) · OUTRO 8
- *
- * Key: D major; the bridge goes to the flat side (B-flat, C) and reaches
- * E-flat through F and B-flat, so the last chorus and the outro are a
- * semitone up.
+ * Form, 64 bars at 108 BPM, all in D:
+ *   INTRO 8 (the hook on the pluck) · THEME 8 · HOOK x2 · THEME 8 (the break)
+ *   · HOOK x2 · OUTRO 8
  */
 
 export const SUMMER_BPM = 108;
@@ -53,100 +49,45 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * Fourth version: one progression for the whole song, built on the secondary
- * dominant that worked — I, V/vi, vi, IV; I, V/vi, IV, V. The F-sharp 7 in
- * every second bar is the song's one event, resolving to B minor the first
- * time and deceptively to G the second. Verse, pre-chorus, chorus and outro
- * all stand on it; the bridge holds it.
- */
-export const SUMMER_CHORUS: readonly Bar[] = [
-  [[0, 'A5', 2], [2, 'D6', 8]],
-  [[0, 'D6', 4], [4, 'C#6', 8]],
-  [[0, 'F#5', 2], [2, 'B5', 8]],
-  [[0, 'C6', 4], [4, 'B5', 8]],
-  [[0, 'A5', 2], [2, 'D6', 8]],
-  [[0, 'B5', 4], [4, 'A#5', 8]],
-  [[0, 'G5', 2], [2, 'B5', 8]],
-  [[0, 'E6', 6], [6, 'C#6', 6]],
-];
-
-/**
- * The chorus carved: the same skeleton — pick-up, held note, appoggiatura —
- * with the rests filled by tails that lead into the next bar. Bars 1, 3 and
- * 5 keep one rhythm, so the sequence still reads; bar 5's tail climbs to E,
- * bar 7 climbs through D to E, and bar 8 falls from the peak to A. The first
- * chorus plays the skeleton, the second the skeleton with answers in the
- * rests, the third this.
- */
-export const SUMMER_CHORUS_FULL: readonly Bar[] = [
-  [[0, 'A5', 2], [2, 'D6', 6], [8, 'E6', 2], [10, 'D6', 2], [12, 'A5', 4]],
-  [[0, 'D6', 4], [4, 'C#6', 8], [12, 'E6', 2], [14, 'C#6', 2]],
-  [[0, 'F#5', 2], [2, 'B5', 6], [8, 'C#6', 2], [10, 'B5', 2], [12, 'F#5', 4]],
-  [[0, 'C6', 4], [4, 'B5', 8], [12, 'A5', 2], [14, 'G5', 2]],
-  [[0, 'A5', 2], [2, 'D6', 6], [8, 'C#6', 2], [10, 'D6', 2], [12, 'E6', 4]],
-  [[0, 'B5', 4], [4, 'A#5', 6], [10, 'C#6', 2], [12, 'E6', 2], [14, 'C#6', 2]],
-  [[0, 'G5', 2], [2, 'B5', 6], [8, 'D6', 4], [12, 'E6', 4]],
-  [[0, 'E6', 6], [6, 'C#6', 4], [10, 'B5', 2], [12, 'A5', 4]],
-];
-
-/** The pre-chorus: the pick-up and long note a step higher each bar, then the suspension. */
-const PRE: readonly Bar[] = [
-  [[4, 'B4', 2], [6, 'E5', 8]],
-  [[4, 'C#5', 2], [6, 'F#5', 8]],
-  [[4, 'D5', 2], [6, 'G5', 8]],
-  [[0, 'A5', 6], [8, 'C#6', 6]],
-];
-
-/**
- * The theme: the bridge's long notes over the held F-sharp 7, now the song's
- * verse. Six bars climb C-sharp, E, F-sharp, A-sharp, B, D over the dominant
- * into B minor and G; the last two turn home through E minor and A.
- */
-const THEME: readonly Bar[] = [
-  [[0, 'C#5', 12]],
-  [[0, 'E5', 12]],
-  [[0, 'F#5', 12]],
-  [[0, 'A#5', 12]],
-  [[0, 'B5', 12]],
-  [[0, 'D6', 12]],
-  [[0, 'B5', 8], [8, 'G5', 6]],
-  [[0, 'E6', 8], [8, 'C#6', 6]],
-];
-
-/** The bridge: the theme, with its last two bars turning to F and B-flat, the way out to E-flat. */
-const BRIDGE: readonly Bar[] = [
-  ...THEME.slice(0, 6),
-  [[0, 'C6', 8], [8, 'A5', 6]],
-  [[0, 'Bb5', 12]],
-];
-
-/**
- * The lead, written over the chord layer rather than being it, and written
- * to earworm.md: an arch, 70-90% stepwise, one uncommon turning point per
- * four bars (the leap up to E at the end of bar 2, into the peak), a range
- * of ten semitones, twenty notes per four bars in one rhythmic cell, a
- * cadence on the third. Scored by the generator's own scoreMotif at 0.95.
- * A' keeps the rhythm and changes one note: the close rises to the fifth.
+ * The hook, third version, written to earworm.md and scored by the
+ * generator's own scoreMotif: a fanfare. It climbs the tonic triad in a
+ * dotted march rhythm (D, F-sharp, A, then B), stands on C-sharp over the
+ * F-sharp 7, reaches the top D on the downbeat of bar 3 and comes down by
+ * step, with one leap, B down to F-sharp, as the spec's single uncommon
+ * turning point. Arch contour, 79% stepwise, a twelve-semitone range,
+ * fifteen notes in one rhythmic cell, a cadence on the tonic; scoreMotif
+ * 1.00. A' keeps the rhythm and changes two notes so that its last bar
+ * stands on E over the A chord and settles on D.
  */
 const LEAD_A: readonly Bar[] = [
-  [[0, 'F#5', 2], [2, 'G5', 2], [4, 'A5', 4], [8, 'A5', 2], [10, 'B5', 2], [12, 'A5', 4]],
-  [[0, 'A#5', 4], [4, 'B5', 2], [6, 'C#6', 2], [8, 'C#6', 6], [14, 'E6', 2]],
-  [[0, 'D6', 4], [4, 'B5', 2], [6, 'A5', 2], [8, 'B5', 6], [14, 'A5', 2]],
-  [[0, 'G5', 4], [4, 'A5', 2], [6, 'G5', 2], [8, 'F#5', 8]],
+  [[0, 'D5', 6], [6, 'F#5', 2], [8, 'A5', 4], [12, 'B5', 4]],
+  [[0, 'C#6', 6], [6, 'B5', 2], [8, 'C#6', 8]],
+  [[0, 'D6', 6], [6, 'C#6', 2], [8, 'B5', 4], [12, 'F#5', 4]],
+  [[0, 'G5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'D5', 4]],
 ];
 const LEAD_A2: readonly Bar[] = [
-  ...LEAD_A.slice(0, 3),
-  [[0, 'G5', 4], [4, 'A5', 2], [6, 'G5', 2], [8, 'A5', 8]],
+  ...LEAD_A.slice(0, 2),
+  [[0, 'D6', 6], [6, 'C#6', 2], [8, 'B5', 4], [12, 'A5', 4]],
+  [[0, 'E5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'D5', 4]],
 ];
 export const LEAD_CHORUS: readonly Bar[] = [...LEAD_A, ...LEAD_A2];
 export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'D' };
 
-/** The pre-chorus lead: one long note a bar, climbing with the bass. */
-const LEAD_PRE: readonly Bar[] = [
-  [[8, 'G5', 8]],
-  [[8, 'A#5', 8]],
-  [[8, 'B5', 8]],
-  [[0, 'D6', 8], [8, 'E6', 8]],
+/**
+ * The theme, in the hook's own rhythm (dotted quarter, eighth, then a half
+ * or two quarters), so the verse and the hook are one family: four bars
+ * circling the F-sharp 7 below the hook's register, then the hook's head on
+ * B minor, a descent through G and E minor, and the suspension into A.
+ */
+export const THEME: readonly Bar[] = [
+  [[0, 'A#4', 6], [6, 'B4', 2], [8, 'C#5', 8]],
+  [[0, 'E5', 6], [6, 'C#5', 2], [8, 'A#4', 8]],
+  [[0, 'A#4', 6], [6, 'B4', 2], [8, 'C#5', 4], [12, 'E5', 4]],
+  [[0, 'F#5', 6], [6, 'E5', 2], [8, 'F#5', 8]],
+  [[0, 'D5', 6], [6, 'F#5', 2], [8, 'B5', 4], [12, 'A5', 4]],
+  [[0, 'B5', 6], [6, 'A5', 2], [8, 'G5', 8]],
+  [[0, 'G5', 6], [6, 'F#5', 2], [8, 'E5', 4], [12, 'B4', 4]],
+  [[0, 'D5', 6], [6, 'E5', 2], [8, 'C#5', 8]],
 ];
 
 // --- harmony --------------------------------------------------------------
@@ -154,11 +95,11 @@ const LEAD_PRE: readonly Bar[] = [
 // Chorus voicings spread across three octaves: root and fifth low, the
 // triad in the middle, the colour (seventh, ninth) on top, kept under the
 // melody so the lead's chords have room above.
-const D = chord('Dmaj9', 'D2', ['D', 'F#', 'A', 'C#', 'E'], ['D2', 'A2', 'F#3', 'A3', 'E4', 'C#5']);
-const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'A#3', 'E4', 'C#5']);
-const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'D4', 'A4', 'C#5']);
-const G = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'B3', 'F#4', 'A4']);
-const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'C#4', 'B4', 'E5']);
+const D = chord('Dadd9', 'D2', ['D', 'F#', 'A', 'E'], ['D3', 'A3', 'E4', 'F#4']);
+const Fs7 = chord('F#7', 'F#1', ['F#', 'A#', 'C#', 'E'], ['F#2', 'C#3', 'E3', 'A#3', 'C#4']);
+const Bm = chord('Bm9', 'B1', ['B', 'D', 'F#', 'A', 'C#'], ['B2', 'F#3', 'A3', 'C#4', 'D4']);
+const G = chord('Gmaj9', 'G1', ['G', 'B', 'D', 'F#', 'A'], ['G2', 'D3', 'A3', 'B3', 'F#4']);
+const A = chord('Aadd9', 'A1', ['A', 'C#', 'E', 'B'], ['A2', 'E3', 'B3', 'C#4', 'E4']);
 
 // Pre-chorus: ii, V/vi, IV, V sus into V7.
 const pEm = chord('Em7', 'E1', ['E', 'G', 'B', 'D'], ['E3', 'B3', 'D4', 'G4']);
@@ -199,21 +140,16 @@ function harmony(): Chord[][] {
 
 // --- track builders -------------------------------------------------------
 
-function buildChordMelody(): NoteEvent[] {
-  const m = builder('melody');
-  for (const start of [16, 24, 40, 48]) phrase(m, start, SUMMER_CHORUS_FULL, 0.92);
-  phrase(m, 56, SUMMER_CHORUS_FULL.slice(0, 4), 0.7);
-  return m.notes;
-}
-
-function buildLead(): NoteEvent[] {
-  const l = builder('lead');
-  phrase(l, 8, THEME, 0.68);                // THEME 1
-  for (const start of [16, 24]) phrase(l, start, LEAD_CHORUS, 0.9);   // the riff, twice
-  phrase(l, 32, THEME, 0.7);                // THEME 2
-  for (const start of [40, 48]) phrase(l, start, LEAD_CHORUS, 0.94);  // the riff, twice
-  phrase(l, 56, LEAD_CHORUS.slice(0, 4), 0.66);                       // OUTRO: once more, quietly
-  return l.notes;
+function buildLead(bars: Chord[][], pad: NoteEvent[]): NoteEvent[] {
+  const l = builder('melody');
+  phrase(l, 8, THEME, 0.7);                 // THEME 1
+  for (const start of [16, 24]) phrase(l, start, LEAD_CHORUS, 0.92);  // the hook, twice
+  phrase(l, 32, THEME, 0.72);               // THEME 2
+  for (const start of [40, 48]) phrase(l, start, LEAD_CHORUS, 0.95);  // the hook, twice
+  phrase(l, 56, LEAD_CHORUS.slice(0, 4), 0.68);                       // OUTRO: once more, quietly
+  // Polyphonic: every melody note struck as a chord of three, the two
+  // voices under it chord tones above the pad, never a semitone from it.
+  return harmonise(l.notes, bars, pad, 2, 0.62);
 }
 
 /**
@@ -253,38 +189,16 @@ function buildPluck(bars: Chord[][], lead: NoteEvent[], padNotes: NoteEvent[]): 
       }
     }
   };
-  arp(0, 4, () => 0.5, 2);            // INTRO: eighths, then sixteenths
-  arp(4, 16, () => 0.66);
+  // INTRO: the hook itself, struck, the melody the whole song is built on,
+  // heard first as a memory; the arpeggio starts with the theme.
+  phrase(p, 0, LEAD_CHORUS, 0.6, 0, true);
+  arp(8, 16, () => 0.62);
   arp(16, 32, () => 0.8);             // RIFF
   arp(32, 36, () => 0.44, 2);         // THEME 2: eighths, then sixteenths an octave up
   arp(36, 40, (b) => 0.56 + (b - 36) * 0.06, 1, 12);
   arp(40, 56, () => 0.84);            // RIFF
   arp(56, 64, (b) => 0.64 - (b - 56) * 0.06);  // OUTRO, thinning
   return p.notes;
-}
-
-/**
- * The second chorus answers every held note in the rest after it: two chord
- * tones falling into the next bar, quieter — a call-and-response the first
- * chorus, heard once, does not have, and the third carves into the line.
- */
-function answers(bars: Chord[][]): NoteEvent[] {
-  const a = builder('answer');
-  for (const [start, shift] of [[48, 0]] as const) {
-    for (let b = 0; b < 8; b++) {
-      if (start + b >= 62) break;
-      const cells = SUMMER_CHORUS[b];
-      const held = midiOf(cells[cells.length - 1][1]) + shift;
-      const c = chordAt(bars, bar(start + b));
-      const top = Math.max(...c.pad.map(midiOf));
-      const tones = c.tones.flatMap((t) => [midiOf(`${t}5`), midiOf(`${t}6`)])
-        .filter((m) => m < held - 1 && m > top + 2).sort((x, y) => y - x);
-      if (tones.length < 2) continue;
-      a.add(bar(start + b) + 12, tones[0], 2, 0.5);
-      a.add(bar(start + b) + 14, tones[1], 2, 0.46);
-    }
-  }
-  return a.notes;
 }
 
 const padEnergy = (b: number) =>
@@ -405,9 +319,9 @@ export const SUMMER_TAPE: readonly TapeAutomation[] = [
 ];
 
 const TRACK_META: Record<TrackType, { name: string; color: string }> = {
-  lead: { name: 'SIGNAL FLARE', color: 'bg-neon-purple' },
+  lead: { name: 'PRISM BRASS', color: 'bg-neon-purple' },
   pluck: { name: 'NIGHT BUS', color: 'bg-teal-500' },
-  pad: { name: 'LONG EXPOSURE', color: 'bg-blue-800' },
+  pad: { name: 'CASSETTE STRINGS', color: 'bg-blue-800' },
   bass: { name: 'OVERPASS', color: 'bg-indigo-600' },
   fx: { name: 'FX', color: 'bg-neon-pink' },
   hihat: { name: 'HH', color: 'bg-yellow-400' },
@@ -417,18 +331,9 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
 
 export function buildSummerTracks(): Track[] {
   const bars = harmony();
-  // The pad is the chord layer: the chord melody, an octave down and
-  // harmonised in four voices, the answers of the second chorus, and the
-  // sustained voicings where the chord melody is silent (the bridge).
-  const down = (ns: NoteEvent[]) => ns.map((n) => ({ ...n, note: engineName(midiOf(n.note) - 12) }));
-  const sustainedIn = (n: NoteEvent) => [[0, 16], [32, 40], [60, 64]].some(([a, b]) => n.startStep >= bar(a) && n.startStep < bar(b));
-  const sustained = buildPad(bars, padEnergy).filter(sustainedIn);
-  const pad = [
-    ...harmonise(down(buildChordMelody()), bars, [], 3, 0.6, 'pad'),
-    ...harmonise(down(answers(bars)), bars, [], 2, 0.6, 'answer'),
-    ...sustained,
-  ];
-  const lead = buildLead();
+  // The pad sustains the progression, low, under the lead's chords.
+  const pad = buildPad(bars, padEnergy);
+  const lead = buildLead(bars, pad);
   const notes: Partial<Record<TrackType, NoteEvent[]>> = {
     lead, pluck: buildPluck(bars, lead, pad), pad, bass: buildBass(bars),
   };

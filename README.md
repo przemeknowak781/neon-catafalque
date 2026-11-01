@@ -5,8 +5,8 @@
 **A darkwave sequencer that generates hooks against a written specification — and proves it did.**
 
 <sub>
-Twelve scales · twelve keys · seven song forms · eight progressions · thirty-one synth patches · two written songs<br>
-Web Audio synthesis · a tape stage · MIDI and WAV export · 84 conformance checks · runs entirely in the browser, no server and no account
+Twelve scales · twelve keys · seven song forms · eight progressions · thirty-two synth patches · two written songs<br>
+Web Audio synthesis · a tape stage · MIDI and WAV export · 82 conformance checks · runs entirely in the browser, no server and no account
 </sub>
 
 </div>
@@ -28,7 +28,7 @@ PASS     99.7%    90%  §2.1B / §8B    exactly 1 atypical turning point per 4 b
 PASS     88.8%    85%  §3.3 / §4.1    stepwise ratio 0.7-0.9
 PASS     99.8%    85%  §2.2 / §8C     mean information content 1.5-4 bits
 PASS     92.4%    85%  §6             lead agrees with the chord on beats 1 and 3
-...                                   84 checks, 1944 generated songs
+...                                   82 checks, 1944 generated songs
 ```
 
 ---
@@ -70,7 +70,7 @@ something. The generator's own median is 3.31 bits.
 
 ## Sound
 
-Thirty-one synth patches. Three reconstruct documented instruments and say so:
+Thirty-two synth patches. Three reconstruct documented instruments and say so:
 
 - **Vox Humana** — the Polymoog 280A factory preset Gary Numan bought the
   instrument for, and the string part on *Cars* (1979). Chorused, near-still
@@ -138,7 +138,7 @@ octaves.
 
 | bank | count | examples |
 |---|---|---|
-| Instrument patches | 31 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
+| Instrument patches | 32 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
 | Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
 | Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (64) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
@@ -202,29 +202,27 @@ and the Arts* 11(2), 2017), who found it, together with more common global
 contours, in earworm tunes against matched tunes and a pop corpus. That is a
 statistic of a whole tune; the spec turned it into a count per four bars.
 
-**The Summer We Never Had** is the second, and it is built the way the
-simplest dance records are: one loop, one riff, a theme for the break,
-nothing else. The loop is eight bars on a secondary dominant, I, V/vi, vi,
-IV, I, V/vi, IV, V, the F♯7 in every second bar resolving to B minor the
-first time and deceptively to G the second. The riff is the lead hook,
-written to earworm.md and scored by the generator's own `scoreMotif`
-against the same targets as every generated candidate: an arch, 88%
-stepwise, one uncommon turning point per four bars, a range of ten
-semitones, twenty notes in one rhythmic cell, a cadence on the third, an A′
-that keeps the rhythm and changes one note; 0.95 and 0.93. It is stated
-twice in each riff section, note for note, and a check holds it to that.
-The theme is long notes climbing over the F♯7 held for four bars, and it is
-the break. Under the riff the pad strikes the chord melody of the earlier
-versions as four-voice supersaw chords an octave down; under the theme it
-sustains. A sixteenth-note arpeggio runs throughout, the kick on every
-beat from bar 5, the bass pulsing with an octave sub; one bar of build
-before each riff, the tape's hiss rising into it. No pre-chorus, no key
-change, no variation between statements beyond the second riff's answers
-in the rests. Arousal predicted music-evoked nostalgia in Barrett et al.
-(2010), and the appoggiaturas and sequences in the chord melody are the
-devices Sloboda (*Psychology of Music* 19(2), 1991) found listeners linking
-to tears and chills. Seventeen checks of its own in `verify:earworm`, and
-the shared song checks, which both songs pass.
+**The Summer We Never Had** is the second, built the way the simplest
+dance records are: one loop, one hook, a theme for the break. The loop is
+eight bars on a secondary dominant, I, V/vi, vi, IV, I, V/vi, IV, V, the F♯7
+in every second bar resolving to B minor the first time and deceptively to G
+the second. The hook is a fanfare: it climbs the tonic triad in a dotted
+march rhythm, stands on C♯ over the F♯7, reaches the top D on the downbeat
+of the third bar and comes down by step, with one leap as the spec's single
+uncommon turning point. It is written to earworm.md and scored by the
+generator's own `scoreMotif` at 1.00 for both A and A′ (arch, 79% stepwise,
+a twelve-semitone range, fifteen notes in one rhythmic cell, a cadence on
+the tonic, A′ changing two notes). The intro plays it on the pluck before
+anyone has heard it; the theme is in its rhythm; it is stated twice in each
+riff section, note for note. The lead plays it as three-note chords on a
+polyphonic patch of a square and a saw an octave apart, with no vibrato, no
+glide, no unison and the modulation buses all but off: measured on held
+notes, a pitch spread of about 5 cents, where a three-copy unison version
+measured 27. Under it the pad sustains the loop low, a sixteenth-note
+arpeggio runs from the theme on, and the bass pulses over an octave sub.
+Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Fifteen
+checks of its own in `verify:earworm`, and the shared song checks, which
+both songs pass.
 
 ## Holding a hook
 
@@ -261,7 +259,7 @@ generator and every export work without one.
 
 ```bash
 npm run build            # production bundle
-npm run verify:earworm   # the 84 conformance checks
+npm run verify:earworm   # the 82 conformance checks
 npm run typecheck
 npm run mix              # render a song headlessly and measure it
 ```

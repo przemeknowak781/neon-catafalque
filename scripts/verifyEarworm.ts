@@ -23,7 +23,7 @@ import {
 import { TARGETS, analyzeExpectation, degreeToMidi, mod, scoreMotif } from '../services/earwormAnalysis';
 import { BUILT_IN_SONGS } from '../songs';
 import { ANEMOIA_HOOK, anemoiaHarmony, midiOf } from '../songs/anemoia';
-import { LEAD_HOOK, SUMMER_CHORUS, SUMMER_CHORUS_FULL } from '../songs/summer';
+import { LEAD_CHORUS, LEAD_HOOK, THEME } from '../songs/summer';
 import {
   ARRANGEMENT_PRESETS, SONG_STEPS, arrangementByName, layersFor, sectionAtBar,
 } from '../services/arrangement';
@@ -942,37 +942,12 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
       sameRhythm && changed >= 1 && changed <= 2, changed);
   }
 
-  // Bars 2, 4 and 6 open on a note foreign to the chord that falls a step
-  // into it: the appoggiatura.
-  const appoggiaturas = [1, 3, 5].filter((b) => {
-    const [first, second] = SUMMER_CHORUS[b];
-    const c = chordAtBarS(start + b);
-    const a = midiOf(first[1]), r = midiOf(second[1]);
-    return first[2] >= 4 && !c.tones.includes(mod(a, 12)) && c.tones.includes(mod(r, 12)) && [1, 2].includes(a - r);
-  }).length;
-  record('summer: three appoggiaturas, each falling a step into its chord', 'Sloboda 1991', 1.0,
-    appoggiaturas === 3, appoggiaturas);
-
-  // Bars 1 and 3 state one idea, the second a diatonic third lower: a sequence.
-  const shape = (cells: typeof SUMMER_CHORUS[number]) =>
-    cells.map(([step, , length]) => `${step}:${length}`).join(',');
-  const intervals = (cells: typeof SUMMER_CHORUS[number]) =>
-    cells.slice(1).map(([, p], i) => midiOf(p) - midiOf(cells[i][1]));
-  const i1 = intervals(SUMMER_CHORUS[0]), i3 = intervals(SUMMER_CHORUS[2]);
-  record('summer: bar 3 is bar 1 in sequence', 'Sloboda 1991', 1.0,
-    shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[2]) && shape(SUMMER_CHORUS[0]) === shape(SUMMER_CHORUS[4]) &&
-    i1.every((x, i) => Math.sign(x) === Math.sign(i3[i]) && Math.abs(x - i3[i]) <= 2));
-
-  // The carved chorus keeps the skeleton: every onset of the plain chorus is
-  // in it, at the same pitch, and its tails leave the appoggiaturas intact.
-  const plain = new Map(SUMMER_CHORUS.flatMap((cells, b) => cells.map(([st, p]) => [b * 16 + st, midiOf(p)] as const)));
-  const full = new Map(SUMMER_CHORUS_FULL.flatMap((cells, b) => cells.map(([st, p]) => [b * 16 + st, midiOf(p)] as const)));
-  record('summer: the carved chorus keeps every note of the plain one', 'motif', 1.0,
-    [...plain].every(([st, m]) => full.get(st) === m) && full.size > plain.size);
-
-  const all = SUMMER_CHORUS.flat().map(([, p]) => midiOf(p));
-  const peakBar = SUMMER_CHORUS.findIndex((cells) => cells.some(([, p]) => midiOf(p) === Math.max(...all)));
-  record('summer: the chorus peaks in its second half', 'structure', 1.0, peakBar >= 4, peakBar + 1);
+  // The theme is in the hook's rhythm: at least six of its eight bars use a
+  // bar pattern (onsets and lengths) that the hook uses.
+  const pattern = (cells: (typeof THEME)[number]) => cells.map(([st, , l]) => `${st}:${l}`).join(',');
+  const hookPatterns = new Set(LEAD_CHORUS.map(pattern));
+  const shared = THEME.filter((cells) => hookPatterns.has(pattern(cells))).length;
+  record('summer: the theme is in the hook\'s rhythm', 'motif', 1.0, shared >= 6, shared);
 
   const tracks = song.build();
   const lead = tracks.find((t) => t.id === 'lead')!.notes!;
@@ -983,6 +958,12 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     }
     return by;
   };
+  // The intro plays the hook itself, on the pluck, before the lead has it.
+  const pluckNotes = tracks.find((t) => t.id === 'pluck')!.notes!;
+  const intro = pluckNotes.filter((n) => n.startStep < song.analysis.intro[1] * 16).map((n) => noteToMidi(n.note));
+  record('summer: the intro plays the hook before the lead does', 'structure', 1.0,
+    JSON.stringify(intro) === JSON.stringify(LEAD_CHORUS.flat().map(([, p]) => midiOf(p))));
+
   // One riff: every statement of the hook is the first, note for note.
   const [firstStart] = song.analysis.chorusStarts[0];
   const first = tops(firstStart);

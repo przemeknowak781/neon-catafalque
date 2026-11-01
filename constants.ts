@@ -350,6 +350,32 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
     // rather than hit, a filter that opens on the strike and settles bright,
     // and a release long enough for one chord to melt into the next. Eight
     // voices for four-note chords. No vibrato, no glide.
+    // The Summer We Never Had. Original. A polyphonic brass-section lead,
+    // after a listening note that the mono lead wailed. A square and a saw an
+    // octave above it: the square has only odd harmonics and the octave saw
+    // only even ones relative to the note, so the two never share a partial
+    // and cannot beat. A first version stacked three unison copies a few cents
+    // apart for width, and measured as wobble: 27 cents of pitch spread and
+    // over 50% amplitude modulation on held notes, the same wail by another
+    // route. So one copy, the drift off, and the width from the three-note
+    // voicing and the delay instead; the chorus and phaser buses, which
+    // modulate pitch and phase, are all but off. A filter that opens on the
+    // strike and settles, a little drive. No vibrato and no
+    // glide at all: the song plays its hook as three-note chords, and a chord
+    // that bends is a chord out of tune.
+    'Prism Brass': {
+      ...DEFAULT_LEAD_PARAMS,
+      osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 1200, drift: 0,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0.08, noiseLevel: 0.004,
+      cutoff: 1900, resonance: 2.2, filterEnvAmount: 0.36,
+      attack: 0.018, decay: 0.6, sustain: 0.55, release: 0.38,
+      filterAttack: 0.02, filterDecay: 0.45, filterSustain: 0.32, filterRelease: 0.3,
+      glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
+      chorusMix: 0.1, drive: 0.22, pan: 0,
+      reverbSend: 0.36, delaySend: 0.22, phaserSend: 0,
+      polyphony: 8,
+    },
     // The Summer We Never Had. Original. A singing mono lead: a saw and a
     // square locked at one pitch with the drift off, so nothing beats; a
     // short glide between notes, a vibrato of five cents that arrives a
@@ -764,8 +790,8 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Original patches for the second built-in song: a singing mono lead, the supersaw chord layer behind it pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
-    lead: 'Signal Flare', bass: 'Overpass', pad: 'Long Exposure', pluck: 'Night Bus',
+    note: 'Original patches for the second built-in song: a polyphonic brass-section lead playing the hook in three-note chords, a supersaw pad pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
+    lead: 'Prism Brass', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
     fx: {
       reverbMix: 0.44, reverbSize: 2.8, reverbDamp: 0.35, reverbPreDelay: 0.025,
       delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.36, delayMix: 0.75,
