@@ -139,6 +139,36 @@ export interface GlobalFXParams {
   tapeHiss?: number;
   /** Bandwidth of the tape in Hz: a lowpass on the whole mix. 0 means off. */
   tapeTone?: number;
+
+  // --- More mastering, all flat or stock by default.
+  /** Peaking band at 320 Hz, in dB: the boxy low-mid of a dense synth mix. */
+  lowMid?: number;
+  /** Peaking band at 3.2 kHz, in dB. */
+  presence?: number;
+  /** Everything below this frequency, in Hz, summed to mono. 10 = off. */
+  bassMono?: number;
+  /** Limiter threshold in dB, -12 to 0. Default -3. */
+  limiterThreshold?: number;
+  /** Gain into the master chain, before the bus compressor and limiter, 0.1-2. Default 1. */
+  masterTrim?: number;
+
+  // --- Drum voicing per song. Absent fields keep the stock kit.
+  /** Kick pitch at the strike, in Hz (falls to 48). Default 165. */
+  kickPitch?: number;
+  /** Kick body decay in seconds. Default 0.34. */
+  kickDecay?: number;
+  /** Kick click level, 0-1. Default 0.3. */
+  kickClick?: number;
+  /** How long the snare's reverb is let through before the gate shuts, in s. Default 0.11. */
+  snareGate?: number;
+  /** Snare send into the plate, 0-1.5. Default 0.9. */
+  snareVerb?: number;
+  /** A layered clap under the snare, 0-1. Default 0. */
+  snareClap?: number;
+  /** Snare shell tuning multiplier. Default 1. */
+  snareTone?: number;
+  /** Hi-hat decay in seconds. Default 0.07. */
+  hatDecay?: number;
 }
 
 /**

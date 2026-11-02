@@ -31,7 +31,10 @@ import {
  */
 
 export const SUMMER_BPM = 108;
-const BARS = 56;
+/** The song as written, and the one bar of rise put in front of it. */
+const CORE_BARS = 56;
+const INTRO_BARS = 1;
+const BARS = CORE_BARS + INTRO_BARS;
 export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 
 // --- the melody -----------------------------------------------------------
@@ -156,7 +159,7 @@ function harmony(): Chord[][] {
   for (const c of LOOP.slice(1, 7)) push(...c);
   push(Fsm);
 
-  if (bars.length !== BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${BARS}`);
+  if (bars.length !== CORE_BARS) throw new Error(`Harmony has ${bars.length} bars, expected ${CORE_BARS}`);
   return bars;
 }
 
@@ -261,33 +264,32 @@ const padEnergy = (b: number) =>
   b < 8 ? 0.26 : b < 24 ? 0.34 : b < 32 ? 0.26 : b < 48 ? 0.36 : 0.3 - (b - 48) * 0.025;
 
 /**
- * Bass: a pulse. The root on every beat, held, the octave on every "and",
- * short, and a ghost sixteenth before each beat, so the line breathes with
- * the sidechain rather than filling every slot. Written an octave above the
- * chord roots; the patch's sub an octave below carries the weight.
+ * Bass: a sequencer's line. Straight eighths on the root, every one the same
+ * length and short, the beat a little louder than the off-beat, and the last
+ * eighth of the bar an octave up, the one figure in it. The root follows the
+ * chord under each eighth, so the line walks down with the falling bass.
+ * Written an octave above the chord roots; the patch's sub sits an octave
+ * below.
  */
 function buildBass(bars: Chord[][]): NoteEvent[] {
   const bass = builder('bass');
   const root = (b: number, s = 0) => midiOf(chordAt(bars, bar(b) + s).root) + 12;
-  const pulse = (b: number, v: number, ghosts = true) => {
-    for (let s = 0; s < 16; s += 4) {
-      bass.add(bar(b) + s, root(b, s), 2.6, v * (s === 0 ? 1.06 : 0.96));
-      bass.add(bar(b) + s + 2, root(b, s) + 12, 0.9, v * 0.7);
-      // The last ghost leaps to the fifth, if the chord has that fifth: over
-      // D with C-sharp in the bass it does not, and the ghost stays on C-sharp.
-      const c = chordAt(bars, bar(b) + s + 3);
-      const fifth = c.tones.map(pcOf).includes((midiOf(c.root) + 7) % 12) ? 7 : 0;
-      if (ghosts) bass.add(bar(b) + s + 3, root(b, s + 3) + (s === 12 ? fifth : 0), 0.7, v * (s === 12 ? 0.9 : 0.5));
+  const pulse = (b: number, v: number, lift = true) => {
+    for (let s = 0; s < 16; s += 2) {
+      const up = lift && s === 14 ? 12 : 0;
+      bass.add(bar(b) + s, root(b, s) + up, 1.7, v * (s % 4 === 0 ? 1 : 0.82));
     }
   };
-  // THEME 1 held; the pulse through the riffs; held again for the break,
-  // back for its second half; fading at the end.
-  for (let b = 0; b < 8; b++) bass.add(bar(b), root(b), 16, 0.56);
-  for (let b = 8; b < 24; b++) pulse(b, 0.94);
-  for (let b = 24; b < 28; b++) bass.add(bar(b), root(b), 16, 0.54);
-  for (let b = 28; b < 32; b++) pulse(b, 0.72 + (b - 28) * 0.05);
-  for (let b = 32; b < 48; b++) pulse(b, 0.97);
-  for (let b = 48; b < 52; b++) pulse(b, 0.76 - (b - 48) * 0.06, false);
+  // THEME 1: held while only the hats play, then the eighths, rising; the
+  // riffs at full tilt; held again for the break, back for its second half;
+  // fading at the end.
+  for (let b = 0; b < 4; b++) bass.add(bar(b), root(b), 16, 0.5);
+  for (let b = 4; b < 8; b++) pulse(b, 0.66 + (b - 4) * 0.05, false);
+  for (let b = 8; b < 24; b++) pulse(b, 0.92);
+  for (let b = 24; b < 28; b++) bass.add(bar(b), root(b), 16, 0.5);
+  for (let b = 28; b < 32; b++) pulse(b, 0.7 + (b - 28) * 0.05, false);
+  for (let b = 32; b < 48; b++) pulse(b, 0.95);
+  for (let b = 48; b < 52; b++) pulse(b, 0.78 - (b - 48) * 0.06, false);
   for (let b = 52; b < 55; b++) { bass.add(bar(b), root(b), 8, 0.5 - (b - 52) * 0.06); bass.add(bar(b) + 8, root(b, 8), 8, 0.46 - (b - 52) * 0.06); }
   bass.add(bar(55), root(55), 16, 0.32);
   return bass.notes;
@@ -295,25 +297,23 @@ function buildBass(bars: Chord[][]): NoteEvent[] {
 
 function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]> {
   const blank = (): SequencerStep[] =>
-    Array.from({ length: SUMMER_STEPS }, () => ({ active: false, velocity: 0 }));
+    Array.from({ length: CORE_BARS * STEPS_PER_BAR }, () => ({ active: false, velocity: 0 }));
   const kick = blank(), snare = blank(), hihat = blank(), fx = blank();
   const hit = (lane: SequencerStep[], step: number, velocity: number) => {
     lane[step] = { active: true, velocity: Math.round(velocity * 1000) / 1000 };
   };
-  // Motorik: the kick on every beat from the first bar, the hats on every
-  // sixteenth with the off-beat eighths leaned on.
-  const verseBar = (b: number, v: number, sixteenths: boolean) => {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.88 * v);
-    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.8 * v);
-    // The off-beat eighth is the open hat, the pulse against the kick.
-    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.62 : 0.2) * v);
-    if (sixteenths) for (let s = 1; s < 16; s += 2) hit(hihat, bar(b) + s, 0.14 * v);
+  // Motorik, the same bar over and over: the kick on every beat, the snare
+  // on two and four into its gated room with the clap under it, and closed
+  // hats on every eighth, the off-beat leaned on. No sixteenths and no fills
+  // inside a section: the drive is that nothing changes.
+  const verseBar = (b: number, v: number) => {
+    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86 * v);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.6 : 0.3) * v);
   };
   const chorusBar = (b: number, v: number) => {
     for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 1 * v);
-    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.97 * v);
-    hit(snare, bar(b) + 15, 0.3 * v);
-    for (let s = 0; s < 16; s++) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.7 : s % 2 === 0 ? 0.26 : 0.18) * v);
+    for (const s of [4, 12]) hit(snare, bar(b) + s, 0.95 * v);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.72 : 0.38) * v);
   };
   /** The last bar of a build: snare on every eighth, then every sixteenth. */
   const build = (b: number) => {
@@ -331,23 +331,17 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
 
   // THEME 1: the off-beat hat alone, the kick from its fifth bar, one bar
   // of build before the riff. THEME 2: the kit out for four bars, then back.
-  for (let b = 0; b < 4; b++) for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.42 + b * 0.03);
-  for (let b = 4; b < 7; b++) {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86);
-    for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.52);
-  }
+  for (let b = 0; b < 4; b++) for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.44 : 0.2) + b * 0.03);
+  for (let b = 4; b < 7; b++) verseBar(b, 1);
   build(7);
   for (let b = 8; b < 24; b++) chorusBar(b, 1);
-  for (let b = 28; b < 31; b++) {
-    for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86);
-    for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.5);
-  }
+  for (let b = 28; b < 31; b++) verseBar(b, 1);
   build(31);
   for (let b = 32; b < 48; b++) chorusBar(b, 1.04);
   for (let b = 48; b < 52; b++) chorusBar(b, 0.9 - (b - 48) * 0.1);
   for (let b = 52; b < 56; b++) {
     hit(kick, bar(b), 0.5 - (b - 52) * 0.1);
-    for (let s = 2; s < 16; s += 4) hit(hihat, bar(b) + s, 0.3 - (b - 52) * 0.06);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.3 : 0.14) - (b - 52) * 0.05);
   }
   for (const [b, v] of [[8, 0.9], [24, 0.5], [32, 1], [48, 0.45]] as const) {
     hit(fx, bar(b), v);
@@ -361,7 +355,7 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
  * two bars before each drop a hiss that rises like a riser, the choruses
  * wide open and clean, the bridge dark again.
  */
-export const SUMMER_TAPE: readonly TapeAutomation[] = [
+const CORE_TAPE: readonly TapeAutomation[] = [
   { step: bar(0), wow: 2, flutter: 0.6, hiss: 0.18, tone: 11000, glide: 0.05 },
   { step: bar(6), hiss: 0.7, tone: 20000, glide: 1.6 },
   { step: bar(8), wow: 0.8, flutter: 0.3, hiss: 0.06, tone: 20000, glide: 0.05 },
@@ -383,15 +377,69 @@ const TRACK_META: Record<TrackType, { name: string; color: string }> = {
   kick: { name: 'BD', color: 'bg-red-500' },
 };
 
+// --- the rise ---------------------------------------------------------------
+
+/**
+ * One bar in front of the song, rising out of silence: the dominant of the
+ * key, C-sharp sus4, its voices entering one by one on the pad, the sus4
+ * falling to the leading tone on the last beat; the arpeggio coming in in
+ * eighths and doubling to sixteenths, from almost nothing; a snare roll over
+ * the second half; and the whole mix opening from a 900 Hz lowpass with the
+ * tape hiss swelling under it, cut off at the barline where the theme begins.
+ */
+const RISE_SUS = chord('C#sus4', 'C#1', ['C#', 'F#', 'G#'], ['C#2', 'G#2', 'C#3', 'F#3']);
+const RISE_DOM = chord('C#7', 'C#1', ['C#', 'E#', 'G#', 'B'], ['C#2', 'G#2', 'C#3', 'E#3'], 12);
+
+function buildRise(): { notes: Partial<Record<TrackType, NoteEvent[]>>; snare: SequencerStep[] } {
+  const pad = builder('pad-rise');
+  pad.add(0, 'C#2', 16, 0.16);
+  pad.add(4, 'G#2', 12, 0.18);
+  pad.add(8, 'C#3', 8, 0.2);
+  pad.add(10, 'F#3', 2, 0.21);
+  pad.add(12, 'E#3', 4, 0.22);
+  const pluck = builder('pluck-rise');
+  const SUS = ['C#4', 'F#4', 'G#4', 'C#5', 'F#5', 'G#5', 'C#6', 'G#5'];
+  const DOM = ['C#4', 'E#4', 'G#4', 'B4'];
+  for (let s = 0; s < 8; s += 2) pluck.add(s, SUS[s / 2], 1, 0.06 + s * 0.02);
+  for (let s = 8; s < 16; s++) pluck.add(s, s < 12 ? SUS[s - 4] : DOM[s - 12] .replace('4', '5'), 1, 0.2 + (s - 8) * 0.03);
+  const snare: SequencerStep[] = Array.from({ length: STEPS_PER_BAR }, () => ({ active: false, velocity: 0 }));
+  for (let s = 8; s < 16; s++) snare[s] = { active: true, velocity: Math.round((0.1 + (s - 8) * 0.035) * 1000) / 1000 };
+  return { notes: { pad: pad.notes, pluck: pluck.notes }, snare };
+}
+
+const RISE_TAPE: readonly TapeAutomation[] = [
+  { step: 0, wow: 2, flutter: 0.6, hiss: 0, tone: 900, glide: 0.05 },
+  { step: 1, hiss: 0.34, tone: 15000, glide: 0.75 },
+];
+
+/** The tape: the rise, then the song's own moves a bar later. */
+export const SUMMER_TAPE: readonly TapeAutomation[] = [
+  ...RISE_TAPE,
+  ...CORE_TAPE.map((t) => ({ ...t, step: t.step + bar(INTRO_BARS) })),
+];
+
 export function buildSummerTracks(): Track[] {
   const bars = harmony();
   // The pad sustains the progression, low, under the lead's chords.
   const pad = buildPad(bars, padEnergy);
   const lead = buildLead(bars, pad);
-  const notes: Partial<Record<TrackType, NoteEvent[]>> = {
+  const core: Partial<Record<TrackType, NoteEvent[]>> = {
     lead, pluck: buildPluck(bars, lead, pad), pad, bass: buildBass(bars),
   };
   const drums = buildDrums();
+  const rise = buildRise();
+  const shift = bar(INTRO_BARS);
+  const notes: Partial<Record<TrackType, NoteEvent[]>> = {};
+  for (const id of Object.keys(core) as TrackType[]) {
+    notes[id] = [...(rise.notes[id] ?? []), ...core[id]!.map((n) => ({ ...n, startStep: n.startStep + shift }))];
+  }
+  const silent = (): SequencerStep[] => Array.from({ length: shift }, () => ({ active: false, velocity: 0 }));
+  const steps: Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]> = {
+    kick: [...silent(), ...drums.kick],
+    snare: [...rise.snare, ...drums.snare],
+    hihat: [...silent(), ...drums.hihat],
+    fx: [...silent(), ...drums.fx],
+  };
   const order: TrackType[] = ['lead', 'pluck', 'pad', 'bass', 'fx', 'hihat', 'snare', 'kick'];
   return order.map((id) => ({
     id,
@@ -400,15 +448,17 @@ export function buildSummerTracks(): Track[] {
     isCollapsed: id === 'pad',
     isMuted: false,
     isSoloed: false,
-    ...(id in notes ? { notes: notes[id] } : { steps: drums[id as keyof typeof drums] }),
+    ...(id in notes ? { notes: notes[id] } : { steps: steps[id as keyof typeof steps] }),
   }));
 }
 
+const shifted = (r: [number, number]): [number, number] => [r[0] + INTRO_BARS, r[1] + INTRO_BARS];
 export const SUMMER_SECTIONS: Record<string, [number, number]> = {
-  /** No intro: the song starts on the theme. */
-  intro: [0, 0], theme1: [0, 8], riff1: [8, 24], theme2: [24, 32], riff2: [32, 48], outro: [48, 56],
+  /** One bar of rise. */
+  intro: [0, INTRO_BARS],
+  theme1: shifted([0, 8]), riff1: shifted([8, 24]), theme2: shifted([24, 32]), riff2: shifted([32, 48]), outro: shifted([48, 56]),
   /** The break: the first bars of the second theme, where the kit is out. */
-  bridge: [24, 28],
+  bridge: shifted([24, 28]),
 };
-export const SUMMER_CHORUS_STARTS: [number, number][] = [[8, 0], [16, 0], [32, 0], [40, 0]];
-export const summerHarmony = () => harmonyMap(harmony());
+export const SUMMER_CHORUS_STARTS: [number, number][] = [8, 16, 32, 40].map((b) => [b + INTRO_BARS, 0]);
+export const summerHarmony = () => harmonyMap([[RISE_SUS, RISE_DOM], ...harmony()]);

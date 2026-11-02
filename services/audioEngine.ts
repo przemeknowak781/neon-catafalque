@@ -103,7 +103,24 @@ export class AudioEngine {
   lowShelf: BiquadFilterNode;
   airShelf: BiquadFilterNode;
   widthSide: GainNode;
+  /** Highpass on the side signal: everything below it is mono. */
+  private sideHighpass!: BiquadFilterNode;
+  /** Gain into the master chain, from GlobalFXParams.masterTrim. */
+  masterTrim!: GainNode;
+  /** Peaking bands for the master: the low-mid box and the presence. */
+  lowMid!: BiquadFilterNode;
+  presence!: BiquadFilterNode;
   masterDrive: WaveShaperNode;
+  /**
+   * A gated reverb of its own for the snare, built only when a song sets
+   * snareGate: a dense impulse that holds level and is then cut off, the
+   * shape of the AMS RMX16's NonLin programme rather than a plate with its
+   * send gated, which still rings for the plate's full length.
+   */
+  private gatedVerb: ConvolverNode | null = null;
+  private gatedVerbHold = 0;
+  /** Per-song drum voicing, from GlobalFXParams; absent fields keep the stock kit. */
+  private kit: Pick<GlobalFXParams, 'kickPitch' | 'kickDecay' | 'kickClick' | 'snareGate' | 'snareVerb' | 'snareClap' | 'snareTone' | 'hatDecay'> = {};
   /**
    * Tape stage, between the master saturation and the width stage. The mix
    * either bypasses it entirely (dry at unity, wet at zero, which is exact)
@@ -232,10 +249,33 @@ export class AudioEngine {
     this.masterDrive.curve = this.makeSaturationCurve(1.2);
     this.masterDrive.oversample = '2x';
 
-    this.duckGain.connect(this.subsonic);
+    // Two peaking bands, flat (and so transparent) unless a song asks: the
+    // low-mid region where a dense synth mix turns boxy, and the presence
+    // region where a snare and a lead speak.
+    this.lowMid = this.ctx.createBiquadFilter();
+    this.lowMid.type = 'peaking';
+    this.lowMid.frequency.value = 320;
+    this.lowMid.Q.value = 0.9;
+    this.lowMid.gain.value = 0;
+    this.presence = this.ctx.createBiquadFilter();
+    this.presence.type = 'peaking';
+    this.presence.frequency.value = 3200;
+    this.presence.Q.value = 0.8;
+    this.presence.gain.value = 0;
+
+    // Input trim: how hard the mix is driven into the master chain. The
+    // final safety saturator has a small-signal gain of about 1.7, so the
+    // level of a master is set here, before the bus compressor and limiter,
+    // not by the volume fader after them.
+    this.masterTrim = this.ctx.createGain();
+    this.masterTrim.gain.value = 1;
+    this.duckGain.connect(this.masterTrim);
+    this.masterTrim.connect(this.subsonic);
     this.subsonic.connect(this.glue);
     this.glue.connect(this.lowShelf);
-    this.lowShelf.connect(this.airShelf);
+    this.lowShelf.connect(this.lowMid);
+    this.lowMid.connect(this.presence);
+    this.presence.connect(this.airShelf);
     this.airShelf.connect(this.masterDrive);
 
     // Tape, then width. The tape sits after the saturation because that is
@@ -363,12 +403,20 @@ export class AudioEngine {
 
     this.widthSide = side;
 
+    // Bass in mono: a highpass on the side signal. At 10 Hz, the default, it
+    // passes everything that can be heard.
+    this.sideHighpass = this.ctx.createBiquadFilter();
+    this.sideHighpass.type = 'highpass';
+    this.sideHighpass.frequency.value = 10;
+    this.sideHighpass.Q.value = 0.707;
+    side.connect(this.sideHighpass);
+
     const outL = this.ctx.createGain();
     const outR = this.ctx.createGain();
     const sideInverted = half(-1);
-    side.connect(sideInverted);
+    this.sideHighpass.connect(sideInverted);
 
-    mid.connect(outL); side.connect(outL);
+    mid.connect(outL); this.sideHighpass.connect(outL);
     mid.connect(outR); sideInverted.connect(outR);
 
     const merger = this.ctx.createChannelMerger(2);
@@ -824,6 +872,41 @@ export class AudioEngine {
     set(this.glue.ratio, 1 + glueAmount * 3);
     const drive = params.masterDrive ?? 0.2;
     this.masterDrive.curve = this.makeSaturationCurve(1 + drive * 2.5);
+    set(this.lowMid.gain, Math.max(-9, Math.min(6, params.lowMid ?? 0)));
+    set(this.presence.gain, Math.max(-6, Math.min(6, params.presence ?? 0)));
+    set(this.sideHighpass.frequency, Math.max(10, Math.min(250, params.bassMono ?? 10)));
+    // The ceiling, and how hard the mix meets it.
+    set(this.limiter.threshold, Math.max(-12, Math.min(0, params.limiterThreshold ?? -3)));
+    set(this.masterTrim.gain, Math.max(0.1, Math.min(2, params.masterTrim ?? 1)));
+    if (params.snareGate !== undefined && Math.abs(params.snareGate - this.gatedVerbHold) > 0.005) {
+      this.gatedVerbHold = params.snareGate;
+      if (!this.gatedVerb) {
+        this.gatedVerb = this.ctx.createConvolver();
+        this.gatedVerb.normalize = false;
+        this.gatedVerb.connect(this.dryGain);
+      }
+      const sr = this.ctx.sampleRate;
+      const hold = Math.max(0.05, Math.min(0.6, params.snareGate));
+      const n = Math.floor((hold + 0.03) * sr);
+      const ir = this.ctx.createBuffer(2, n, sr);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = ir.getChannelData(ch);
+        let lp = 0;
+        for (let i = 0; i < n; i++) {
+          const time = i / sr;
+          // A short build, a level hold with a slight sag, then the cut.
+          const env = Math.min(1, time / 0.006) * (time < hold ? 1 - 0.35 * (time / hold) : Math.max(0, 1 - (time - hold) / 0.03) * 0.65);
+          lp += 0.45 * ((Math.random() * 2 - 1) - lp);   // a little darker than white
+          d[i] = lp * env * 0.11;
+        }
+      }
+      this.gatedVerb.buffer = ir;
+    }
+    this.kit = {
+      kickPitch: params.kickPitch, kickDecay: params.kickDecay, kickClick: params.kickClick,
+      snareGate: params.snareGate, snareVerb: params.snareVerb, snareClap: params.snareClap,
+      snareTone: params.snareTone, hatDecay: params.hatDecay,
+    };
 
     // Tape. Off unless something asks for it, and off means bypassed.
     const nyquist = this.ctx.sampleRate / 2;
@@ -1211,10 +1294,11 @@ export class AudioEngine {
     if (type === 'kick') {
       const body = this.ctx.createOscillator();
       const bodyGain = this.ctx.createGain();
-      body.frequency.setValueAtTime(165, t);
+      const kickDecay = this.kit.kickDecay ?? 0.34;
+      body.frequency.setValueAtTime(this.kit.kickPitch ?? 165, t);
       body.frequency.exponentialRampToValueAtTime(48, t + 0.09);
       bodyGain.gain.setValueAtTime(level * 0.8, t);
-      bodyGain.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, t + kickDecay);
 
       // The click is what makes a kick audible on small speakers.
       const click = this.ctx.createBufferSource();
@@ -1223,7 +1307,7 @@ export class AudioEngine {
       clickFilter.type = 'highpass';
       clickFilter.frequency.value = 2600;
       const clickGain = this.ctx.createGain();
-      clickGain.gain.setValueAtTime(level * 0.3, t);
+      clickGain.gain.setValueAtTime(level * (this.kit.kickClick ?? 0.3), t);
       clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
 
       const shaper = this.ctx.createWaveShaper();
@@ -1232,7 +1316,7 @@ export class AudioEngine {
       click.connect(clickFilter); clickFilter.connect(clickGain); clickGain.connect(shaper);
       shaper.connect(this.dryGain);
 
-      body.start(t); body.stop(t + 0.4);
+      body.start(t); body.stop(t + Math.max(0.4, kickDecay + 0.06));
       click.start(t); click.stop(t + 0.04);
       this.detachWhenDone(body, [shaper]);
 
@@ -1258,10 +1342,11 @@ export class AudioEngine {
       noise.start(t); noise.stop(t + 0.2);
 
       // Tuned shell underneath, which is what stops it sounding like static.
+      const tune = this.kit.snareTone ?? 1;
       for (const [freq, gainValue, decay] of [[185, 0.4, 0.09], [331, 0.24, 0.06]] as const) {
         const shell = this.ctx.createOscillator();
         shell.type = 'triangle';
-        shell.frequency.setValueAtTime(freq, t);
+        shell.frequency.setValueAtTime(freq * tune, t);
         shell.frequency.exponentialRampToValueAtTime(freq * 0.78, t + decay);
         const shellGain = this.ctx.createGain();
         shellGain.gain.setValueAtTime(gainValue, t);
@@ -1272,20 +1357,53 @@ export class AudioEngine {
 
       // §4 gated verb: a healthy send that is cut off short, rather than a
       // tail left to ring. The gate is what makes it read as eighties.
+      // A clap under the snare, the way the drum machines of the decade
+      // layered them: three quick noise bursts and a short tail.
+      const clap = this.kit.snareClap ?? 0;
+      let clapSource: AudioBufferSourceNode | null = null;
+      if (clap > 0) {
+        clapSource = this.ctx.createBufferSource();
+        clapSource.buffer = this.noiseBuffer;
+        const clapBand = this.ctx.createBiquadFilter();
+        clapBand.type = 'bandpass';
+        clapBand.frequency.value = 1150;
+        clapBand.Q.value = 1.4;
+        const clapGain = this.ctx.createGain();
+        clapGain.gain.setValueAtTime(0, t);
+        for (const offset of [0, 0.011, 0.022]) {
+          clapGain.gain.setValueAtTime(clap * 0.9, t + offset);
+          clapGain.gain.exponentialRampToValueAtTime(clap * 0.12, t + offset + 0.009);
+        }
+        clapGain.gain.setValueAtTime(clap * 0.5, t + 0.031);
+        clapGain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        clapSource.connect(clapBand); clapBand.connect(clapGain); clapGain.connect(out);
+        clapSource.start(t); clapSource.stop(t + 0.18);
+      }
+
+      const hold = this.kit.snareGate ?? 0.11;
+      const verb = this.kit.snareVerb ?? 0.9;
       const gate = this.ctx.createGain();
-      gate.gain.setValueAtTime(0.9, t);
-      gate.gain.setValueAtTime(0.9, t + 0.11);
-      gate.gain.linearRampToValueAtTime(0.0001, t + 0.14);
-      out.connect(gate);
-      gate.connect(this.reverbBus);
+      if (this.gatedVerb && this.kit.snareGate !== undefined) {
+        // The song's own gated room: the send is open, the room cuts itself.
+        gate.gain.value = verb;
+        out.connect(gate);
+        gate.connect(this.gatedVerb);
+      } else {
+        gate.gain.setValueAtTime(verb, t);
+        gate.gain.setValueAtTime(verb, t + hold);
+        gate.gain.linearRampToValueAtTime(0.0001, t + hold + 0.03);
+        out.connect(gate);
+        gate.connect(this.reverbBus);
+      }
       // The noise is the last of the snare's sources to stop.
       this.detachWhenDone(noise, [panner, gate]);
 
     } else if (type === 'hihat') {
       // Six inharmonic squares through a highpass: the classic metallic hat.
       const out = this.ctx.createGain();
+      const hatDecay = this.kit.hatDecay ?? 0.07;
       out.gain.setValueAtTime(level * 1.5, t);
-      out.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+      out.gain.exponentialRampToValueAtTime(0.001, t + hatDecay);
       const highpass = this.ctx.createBiquadFilter();
       highpass.type = 'highpass';
       highpass.frequency.value = 7800;
@@ -1309,7 +1427,7 @@ export class AudioEngine {
       }
       bandpass.connect(highpass); highpass.connect(out);
       out.connect(panner); panner.connect(this.dryGain);
-      oscillators.forEach((osc) => { osc.start(t); osc.stop(t + 0.07); });
+      oscillators.forEach((osc) => { osc.start(t); osc.stop(t + hatDecay); });
       this.detachWhenDone(oscillators[0], [panner]);
 
     } else if (type === 'fx') {

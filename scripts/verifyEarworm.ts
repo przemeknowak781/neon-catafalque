@@ -887,7 +887,7 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     song.analysis.chorusStarts.every(([s0]) => rel(s0 + 3) === 10 && rel(s0 + 7) === 7 &&
       chordAtBarS(s0 + 7).tones.includes(mod(tonicPc - 1, 12)) && has(s0 + 7, 10)));
   // The theme, verse and break, on the Andalusian descent, i - VII - VI - V, twice.
-  const themeStarts = [0, 24];
+  const themeStarts = [1, 25];
   record('summer: the theme stands on the Andalusian descent, twice', 'harmony', 1.0,
     themeStarts.every((t) => [0, 4].every((h) => [0, 10, 8, 7].every((r, i) => rel(t + h + i) === r)) && minor3(t)));
   const br = song.analysis.bridge[0];
@@ -986,7 +986,7 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   const head = LEAD_CHORUS[0].map(([, p]) => midiOf(p));
   const inBarsP = (a: number, b: number) => pluckNotes.filter((n) => n.startStep >= a * 16 && n.startStep < b * 16).map((n) => noteToMidi(n.note));
   record('summer: the theme foreshadows the hook\'s first bar on the pluck, twice', 'structure', 1.0,
-    JSON.stringify(inBarsP(0, 1)) === JSON.stringify(head) && JSON.stringify(inBarsP(4, 5)) === JSON.stringify(head));
+    JSON.stringify(inBarsP(1, 2)) === JSON.stringify(head) && JSON.stringify(inBarsP(5, 6)) === JSON.stringify(head));
 
   // The two leads harmonise: under every hook note the pluck sounds a third
   // or a sixth below the melody.

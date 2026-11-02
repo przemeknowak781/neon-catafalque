@@ -345,35 +345,26 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.52, delaySend: 0.3, phaserSend: 0,
       polyphony: 8,
     },
-    // The Summer We Never Had. Original. The chord lead: a five-voice
-    // supersaw, the pairs 18 cents apart, a slow-ish attack so chords bloom
-    // rather than hit, a filter that opens on the strike and settles bright,
-    // and a release long enough for one chord to melt into the next. Eight
-    // voices for four-note chords. No vibrato, no glide.
-    // The Summer We Never Had. Original. A polyphonic brass-section lead,
-    // after a listening note that the mono lead wailed. A square and a saw an
-    // octave above it: the square has only odd harmonics and the octave saw
-    // only even ones relative to the note, so the two never share a partial
-    // and cannot beat. A first version stacked three unison copies a few cents
-    // apart for width, and measured as wobble: 27 cents of pitch spread and
-    // over 50% amplitude modulation on held notes, the same wail by another
-    // route. So one copy, the drift off, and the width from the three-note
-    // voicing and the delay instead; the chorus and phaser buses, which
-    // modulate pitch and phase, are all but off. A filter that opens on the
-    // strike and settles, a little drive. No vibrato and no
-    // glide at all: the song plays its hook as three-note chords, and a chord
-    // that bends is a chord out of tune.
+    // The Summer We Never Had. Original. A polyphonic brass lead in the manner
+    // of an early-eighties polysynth brass patch: a square and a saw an octave
+    // above it (no shared partials, so no beating; a three-copy unison version
+    // measured 27 cents of pitch wobble and was dropped), the drift off, no
+    // vibrato, no glide, since the hook is played as three-note chords. What
+    // makes it brass is the filter: closed at rest and swelling open over the
+    // first 60 ms of each note before settling, the "blat" of a section.
+    // A plate and a dotted-eighth echo behind it, as the records of the
+    // decade had.
     'Prism Brass': {
       ...DEFAULT_LEAD_PARAMS,
       osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 1200, drift: 0,
       unison: 1, unisonDetune: 0,
-      subLevel: 0.08, noiseLevel: 0.004,
-      cutoff: 1900, resonance: 2.2, filterEnvAmount: 0.36,
-      attack: 0.018, decay: 0.6, sustain: 0.55, release: 0.38,
-      filterAttack: 0.02, filterDecay: 0.45, filterSustain: 0.32, filterRelease: 0.3,
+      subLevel: 0.06, noiseLevel: 0.004,
+      cutoff: 1250, resonance: 1.6, filterEnvAmount: 0.52,
+      attack: 0.02, decay: 0.7, sustain: 0.6, release: 0.4,
+      filterAttack: 0.06, filterDecay: 0.5, filterSustain: 0.3, filterRelease: 0.32,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
-      chorusMix: 0.1, drive: 0.22, pan: 0,
-      reverbSend: 0.36, delaySend: 0.22, phaserSend: 0,
+      chorusMix: 0.12, drive: 0.18, pan: 0,
+      reverbSend: 0.44, delaySend: 0.28, phaserSend: 0,
       polyphony: 8,
     },
     // The Summer We Never Had. Original. A singing mono lead: a saw and a
@@ -494,21 +485,22 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       glide: 0, vibratoRate: 0, vibratoDepth: 0,
       chorusMix: 0.1, drive: 0.3, pan: 0, reverbSend: 0, delaySend: 0,
     },
-    // The Summer We Never Had. Original. A meaty bass in three layers: a saw
-    // and a square locked at one pitch, an octave sub, and a steep 24 dB
-    // filter with a fast envelope that gives every note a front edge, then
-    // drive for the harmonics a small speaker can reproduce. The song writes
-    // its roots an octave up for this patch, so the sub sits at 46-78 Hz.
+    // The Summer We Never Had. Original. A sequenced darkwave bass: a saw and a
+    // square at one pitch through a resonant 24 dB filter that snaps shut in a
+    // tenth of a second, so a run of straight eighths on one note reads as a
+    // machine rather than a player; drive for the harmonics a small speaker
+    // can reproduce; the octave sub kept moderate, as a record of the time
+    // would have had it, not the modern sub-bass of the earlier version.
     'Overpass': {
       ...DEFAULT_BASS_PARAMS,
       osc1Wave: 'sawtooth', osc2Wave: 'square', detune: 0, drift: 0,
       unison: 1, unisonDetune: 0,
-      subLevel: 0.85, noiseLevel: 0.004,
-      cutoff: 520, resonance: 4, filterEnvAmount: 0.42,
-      attack: 0.003, decay: 0.2, sustain: 0.5, release: 0.1,
-      filterAttack: 0.003, filterDecay: 0.14, filterSustain: 0.12, filterRelease: 0.1,
+      subLevel: 0.4, noiseLevel: 0.004,
+      cutoff: 360, resonance: 5.5, filterEnvAmount: 0.58,
+      attack: 0.002, decay: 0.16, sustain: 0.35, release: 0.06,
+      filterAttack: 0.002, filterDecay: 0.11, filterSustain: 0.06, filterRelease: 0.07,
       glide: 0, vibratoRate: 0, vibratoDepth: 0,
-      chorusMix: 0, drive: 0.55, pan: 0, reverbSend: 0, delaySend: 0,
+      chorusMix: 0, drive: 0.4, pan: 0, reverbSend: 0, delaySend: 0,
     },
   },
 
@@ -613,22 +605,23 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.42, delaySend: 0.26, phaserSend: 0,
       polyphony: 8,
     },
-    // The Summer We Never Had. Original. A wide supersaw pad, six detuned
-    // pairs, slow in and slow out, the filter breathing at a fifth of a hertz
-    // and the bus sidechain making it pump with the kick. No pitch LFO: the
-    // lead's chords sit right on top of it.
+    // The Summer We Never Had. Original. A string machine rather than a
+    // supersaw: two saws eight cents apart, no unison stack, the ensemble made
+    // by the chorus bus the way a Solina's or a Juno's was, and a slow phaser
+    // over it, the classic late-seventies treatment. Slow in and slow out,
+    // the filter brighter than a modern pad, ducking a little under the kick.
     'Cassette Strings': {
       ...DEFAULT_PAD_PARAMS,
-      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 12,
-      unison: 6, unisonDetune: 24,
-      subLevel: 0, noiseLevel: 0.01,
-      cutoff: 1500, resonance: 1, filterEnvAmount: 0.1,
-      attack: 0.5, decay: 1.2, sustain: 0.9, release: 1.6,
-      filterAttack: 0.9, filterDecay: 1.4, filterSustain: 0.85, filterRelease: 1.2,
-      vibratoRate: 0.2, vibratoDepth: 0, lfoToFilter: 0.1,
-      chorusMix: 0.5, drive: 0.06, pan: 0,
-      reverbSend: 0.55, delaySend: 0.05,
-      flangerSend: 0, phaserSend: 0.3,
+      osc1Wave: 'sawtooth', osc2Wave: 'sawtooth', detune: 8,
+      unison: 1, unisonDetune: 0,
+      subLevel: 0, noiseLevel: 0.008,
+      cutoff: 2100, resonance: 0.8, filterEnvAmount: 0.08,
+      attack: 0.4, decay: 1.2, sustain: 0.9, release: 1.5,
+      filterAttack: 0.8, filterDecay: 1.4, filterSustain: 0.85, filterRelease: 1.2,
+      vibratoRate: 0.2, vibratoDepth: 0, lfoToFilter: 0.06,
+      chorusMix: 0.75, drive: 0.06, pan: 0,
+      reverbSend: 0.5, delaySend: 0.04,
+      flangerSend: 0, phaserSend: 0.4,
       polyphony: 8,
     },
   },
@@ -698,21 +691,21 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       reverbSend: 0.6, delaySend: 0.42,
       polyphony: 6,
     },
-    // The Summer We Never Had. Original. The arpeggio pluck: a square and a
-    // saw a few cents apart through a resonant filter that snaps shut in a
-    // tenth of a second, so every sixteenth is a point of tone, with the
-    // dotted-eighth delay turning the points into a pattern.
+    // The Summer We Never Had. Original. The arpeggio pluck: two squares a few
+    // cents apart through a filter that snaps shut in under a tenth of a
+    // second, chorused, with the dotted-eighth echo turning the sixteenths
+    // into the interlocking pattern the arpeggiators of the decade made.
     'Night Bus': {
       ...DEFAULT_PLUCK_PARAMS,
-      osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 8,
+      osc1Wave: 'square', osc2Wave: 'square', detune: 6,
       unison: 1, unisonDetune: 0,
-      subLevel: 0, noiseLevel: 0.003,
-      cutoff: 900, resonance: 6, filterEnvAmount: 0.6,
-      attack: 0.001, decay: 0.2, sustain: 0, release: 0.22,
-      filterAttack: 0.001, filterDecay: 0.09, filterSustain: 0.04, filterRelease: 0.12,
+      subLevel: 0, noiseLevel: 0.002,
+      cutoff: 1100, resonance: 4, filterEnvAmount: 0.5,
+      attack: 0.001, decay: 0.18, sustain: 0, release: 0.2,
+      filterAttack: 0.001, filterDecay: 0.08, filterSustain: 0.03, filterRelease: 0.1,
       vibratoRate: 0, vibratoDepth: 0,
-      chorusMix: 0.15, drive: 0.16, pan: 0,
-      reverbSend: 0.2, delaySend: 0.3,
+      chorusMix: 0.3, drive: 0.12, pan: 0,
+      reverbSend: 0.24, delaySend: 0.38,
       polyphony: 6,
     },
   },
@@ -790,16 +783,19 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Original patches for the second built-in song: a polyphonic brass-section lead playing the hook in three-note chords, a supersaw pad pumping under the kick, a three-layer bass with an octave sub, and a resonant sixteenth-note pluck; a trace of tape.',
+    note: 'Original patches for the second built-in song, voiced as an early-eighties darkwave record: a polyphonic brass lead whose filter swells on every note, a string machine through chorus and phaser, a sequenced eighth-note bass, a chorused square arpeggio, and a drum machine with a layered clap and a gated room on the snare. Mastered to about -11 LUFS with headroom under -1 dBTP.',
     lead: 'Prism Brass', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
     fx: {
-      reverbMix: 0.44, reverbSize: 2.8, reverbDamp: 0.35, reverbPreDelay: 0.025,
-      delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.36, delayMix: 0.75,
-      delayDamp: 3200, delayPingPong: true,
-      chorusMix: 0.85, phaserMix: 0.25, phaserRate: 0.14, phaserDepth: 0.35,
-      flangerMix: 0, sidechain: 0.65, sidechainRelease: 0.17,
-      width: 1.15, lowShelf: 1, airShelf: 3.5, glue: 0.28, masterDrive: 0.24,
-      tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 18000,
+      reverbMix: 0.42, reverbSize: 2.3, reverbDamp: 0.4, reverbPreDelay: 0.03,
+      delayTime: 0.42, delayDivision: 0.75, delayFeedback: 0.38, delayMix: 0.8,
+      delayDamp: 2800, delayPingPong: true,
+      chorusMix: 0.9, phaserMix: 0.3, phaserRate: 0.12, phaserDepth: 0.45,
+      flangerMix: 0, sidechain: 0.45, sidechainRelease: 0.16,
+      width: 1.12, lowShelf: 0, airShelf: 2.5, glue: 0.35, masterDrive: 0.18,
+      lowMid: -1.5, presence: 1, bassMono: 150, limiterThreshold: -6.5, masterTrim: 0.34,
+      kickPitch: 140, kickDecay: 0.28, kickClick: 0.45,
+      snareGate: 0.3, snareVerb: 1.1, snareClap: 0.55, snareTone: 0.92, hatDecay: 0.045,
+      tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 17000,
     },
   },
 ];

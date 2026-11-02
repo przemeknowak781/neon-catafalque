@@ -140,7 +140,7 @@ octaves.
 |---|---|---|
 | Instrument patches | 32 | Vox Humana, Source Sequence, Ice Pick, Cathedral, Glass Rosary, Afterimage, Long Exposure |
 | Song presets | 8 | Machine 1979, Juno Winter, Cold Cathedral, Acid Procession, Anemoia, The Summer We Never Had |
-| Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (56) |
+| Song forms | 7 | Full Song (26 bars), Mini-Song (16), Hook Phrase (8), Long Form (52), Club Edit (40), Anemoia (72), The Summer We Never Had (57) |
 | Progressions | 8 | Descent, Lift, Plagal Fall, Rocking, Relative, Turnaround, Royal Road, Auto |
 | Voice leading | 5 | Cantabile, Chorale, Angular, Drone, Soaring |
 
@@ -203,8 +203,10 @@ contours, in earworm tunes against matched tunes and a pop corpus. That is a
 statistic of a whole tune; the spec turned it into a count per four bars.
 
 **The Summer We Never Had** is the second, built the way the simplest
-dance records are: one loop, one hook, a theme for the break, and no intro:
-it starts on the theme. It is in F♯ minor, the aeolian mode earworm.md was
+dance records are: one loop, one hook, a theme for the break, and a single
+bar of intro rising out of silence on the dominant (voices entering one by
+one, an arpeggio doubling its speed, a snare roll, the mix opening from a
+900 Hz lowpass). It is in F♯ minor, the aeolian mode earworm.md was
 written for. The loop is eight bars, i, VI, iv, VII, then i, VI, iv, V7:
 the first time the flat seventh, E, falls back to the tonic; the second time
 the same bar is C♯7, the harmonic minor's dominant with its flat ninth and
@@ -230,11 +232,16 @@ has it, and in the riffs becomes a second lead, a diatonic third or sixth
 under the tune (in the harmonic minor over the dominant), dropping out of
 any sixteenth where a held note would rub against the next chord. The last
 dominant of the song does not come home: the outro enters on D, a deceptive
-cadence, and reaches F♯ minor only in the final bar. The lead plays the
-hook as three-note chords on a polyphonic patch of a square and a saw an
-octave apart, with no vibrato, no glide and no unison: measured on held
-notes, a pitch spread of about 5 cents, where a three-copy unison version
-measured 27. The bass pulses over an octave sub.
+cadence, and reaches F♯ minor only in the final bar. It is voiced as an early-eighties darkwave record: the lead a polyphonic
+brass patch, a square and a saw an octave apart whose filter swells open on
+every note (no vibrato, no glide, no unison: a three-copy unison version
+measured 27 cents of pitch wobble); the pad a string machine, two saws
+through chorus and phaser; the bass a sequencer line of straight eighths on
+the root; the beat motorik, the same bar over and over, kick on every beat,
+closed hats on every eighth, the snare with a clap under it into a gated
+room of its own (an impulse that holds and is then cut, the NonLin shape,
+not a plate with a gated send). Mastered to about -11 LUFS integrated with
+a true peak under -1.5 dBTP, the bass mono below 150 Hz.
 Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Nineteen
 checks of its own in `verify:earworm`, and the shared song checks, which
 both songs pass.
