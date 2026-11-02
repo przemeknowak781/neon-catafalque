@@ -907,12 +907,13 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
   record('summer: the outro lands on the minor tonic', 'structure', 1.0,
     mod(lastBar.root - tonicPc, 12) === 0 && lastBar.tones.includes(mod(tonicPc + 3, 12)));
 
-  // The theme is a sequence of sighs (Sloboda 1991): every bar but the last,
-  // which turns to the leading tone, falls a step and then a third, and each four-bar run starts a step lower each bar.
+  // The theme walks: every interval in it a step, and each four-bar run
+  // starting a step lower each bar, in tenths over the falling bass.
   const firstNotes = THEME.map((cells) => midiOf(cells[0][1]));
-  const sighs = THEME.slice(0, 7).every((cells) => { const [x, y, z] = cells.map(([, p]) => midiOf(p)); return [1, 2].includes(x - y) && [3, 4].includes(y - z); });
+  const stepwise = THEME.every((cells) => cells.every(([, p], i) => i === 0 || [1, 2].includes(Math.abs(midiOf(p) - midiOf(cells[i - 1][1])))));
   const sequence = [1, 2, 3, 5, 6].every((i) => [1, 2].includes(firstNotes[i - 1] - firstNotes[i]));
-  record('summer: the theme falls in a sequence of sighs', 'motif', 1.0, sighs && sequence);
+  const tenths = [0, 1, 2, 3].every((i) => [3, 4].includes(mod(firstNotes[i] - chordAtBarS(themeStarts[0] + i).root, 12)));
+  record('summer: the theme walks down by step in tenths over the bass', 'motif', 1.0, stepwise && sequence && tenths);
 
   // The lead is the song's hook in earworm.md's sense, and is scored by the
   // same function as every generated candidate, against the same targets.

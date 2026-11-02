@@ -76,24 +76,24 @@ export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'F#', mode: 'aeoli
 export const HOOK_PICKUP = 'A5';
 
 /**
- * The theme, for the verse and the break, an octave under the hook and in
- * its last bar's rhythm: a sequence of sighs over the descending bass. Each
- * bar opens on a note leaned against the chord, falls a step onto a chord
- * tone and drops a third, and each bar is the last a step lower: D over F-sharp
- * minor, C-sharp over E, B over D, A over C-sharp 7 (its flat thirteenth).
- * Appoggiaturas and descending sequences are the two melodic features Sloboda
- * (1991) found most often at the moments listeners reported tears. The
- * second time the last bar turns through the suspension to E-sharp, the
- * leading tone, the one note outside the mode, pointing at the hook.
+ * The theme, for the verse and the break, second version, after the note
+ * that the verse melody was too chaotic. It no longer leaps: each bar is one
+ * note, its upper neighbour and the note again, held, and each bar is a step
+ * lower than the last, so the line walks down in tenths over the descending
+ * bass, A over F-sharp, G-sharp over E, F-sharp over D, E-sharp over
+ * C-sharp. Four bars, the same four again; the second time the last bar
+ * turns through the suspension, G-sharp and F-sharp over C-sharp sus4, to
+ * E-sharp, the leading tone, the one note outside the mode, pointing at the
+ * hook. A melody this plain leaves the colour to the harmony under it.
  */
 export const THEME: readonly Bar[] = [
-  cells(['D5', 'C#5', 'A4'], END),
-  cells(['C#5', 'B4', 'G#4'], END),
-  cells(['B4', 'A4', 'F#4'], END),
-  cells(['A4', 'G#4', 'E#4'], END),
-  cells(['D5', 'C#5', 'A4'], END),
-  cells(['C#5', 'B4', 'G#4'], END),
-  cells(['B4', 'A4', 'F#4'], END),
+  cells(['A4', 'B4', 'A4'], END),
+  cells(['G#4', 'A4', 'G#4'], END),
+  cells(['F#4', 'G#4', 'F#4'], END),
+  cells(['E#4', 'F#4', 'E#4'], END),
+  cells(['A4', 'B4', 'A4'], END),
+  cells(['G#4', 'A4', 'G#4'], END),
+  cells(['F#4', 'G#4', 'F#4'], END),
   cells(['G#4', 'F#4', 'E#4'], END),
 ];
 

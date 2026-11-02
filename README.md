@@ -222,9 +222,9 @@ against the spec's bands (arch, one uncommon turning point, 82% stepwise, a
 ten-semitone range, twenty notes in one rhythmic cell, a cadence on the
 fifth, and in A′ on the third, held from the dominant into the tonic). The
 theme under the verse and the break is the Andalusian descent, i, VII, VI,
-V, twice, and its melody a sequence of sighs an octave under the hook, each
-bar a step lower: appoggiaturas and descending sequences are the two
-features Sloboda (1991) found most often where listeners reported tears.
+V, twice, and its melody is deliberately plain: a note, its upper
+neighbour and the note again, each bar a step lower, walking down in tenths
+over the bass, so the colour is left to the harmony.
 The pluck plays the hook's first bar twice inside the theme before the lead
 has it, and in the riffs becomes a second lead, a diatonic third or sixth
 under the tune (in the harmonic minor over the dominant), dropping out of

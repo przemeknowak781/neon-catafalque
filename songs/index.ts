@@ -69,7 +69,7 @@ export const BUILT_IN_SONGS: readonly BuiltInSong[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Written by hand, in F-sharp minor, 108 BPM, no intro: a loop of i - VI - iv - VII, i - VI - iv - V7 over a bass falling by half bars, a hook of suspensions held over every barline, written to earworm.md, played as three-note chords with the pluck a third or a sixth under it, a theme of falling sighs over an Andalusian descent, and a deceptive cadence before the last bar.',
+    note: 'Written by hand, in F-sharp minor, 108 BPM, no intro: a loop of i - VI - iv - VII, i - VI - iv - V7 over a bass falling by half bars, a hook of suspensions held over every barline, written to earworm.md, played as three-note chords with the pluck a third or a sixth under it, a plain stepwise theme in tenths over an Andalusian descent, and a deceptive cadence before the last bar.',
     bpm: SUMMER_BPM,
     totalSteps: SUMMER_STEPS,
     arrangement: 'The Summer We Never Had',
