@@ -241,7 +241,7 @@ the root; the beat motorik, the same bar over and over, kick on every beat,
 closed hats on every eighth, the snare with a clap under it into a gated
 room of its own (an impulse that holds and is then cut, the NonLin shape,
 not a plate with a gated send). Mastered to about -11 LUFS integrated with
-a true peak under -1.5 dBTP, the bass mono below 150 Hz.
+a true peak under -1 dBTP, the bass mono below 150 Hz.
 Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Nineteen
 checks of its own in `verify:earworm`, and the shared song checks, which
 both songs pass.

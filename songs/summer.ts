@@ -308,12 +308,12 @@ function buildDrums(): Record<'kick' | 'snare' | 'hihat' | 'fx', SequencerStep[]
   // inside a section: the drive is that nothing changes.
   const verseBar = (b: number, v: number) => {
     for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 0.86 * v);
-    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.6 : 0.3) * v);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.7 : 0.42) * v);
   };
   const chorusBar = (b: number, v: number) => {
     for (const s of [0, 4, 8, 12]) hit(kick, bar(b) + s, 1 * v);
     for (const s of [4, 12]) hit(snare, bar(b) + s, 0.95 * v);
-    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.72 : 0.38) * v);
+    for (let s = 0; s < 16; s += 2) hit(hihat, bar(b) + s, (s % 4 === 2 ? 0.82 : 0.5) * v);
   };
   /** The last bar of a build: snare on every eighth, then every sixteenth. */
   const build = (b: number) => {

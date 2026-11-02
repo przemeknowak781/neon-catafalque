@@ -897,7 +897,9 @@ export class AudioEngine {
           // A short build, a level hold with a slight sag, then the cut.
           const env = Math.min(1, time / 0.006) * (time < hold ? 1 - 0.35 * (time / hold) : Math.max(0, 1 - (time - hold) / 0.03) * 0.65);
           lp += 0.45 * ((Math.random() * 2 - 1) - lp);   // a little darker than white
-          d[i] = lp * env * 0.11;
+          // Scaled so that, at a send of 1, the room sits about 8 dB under
+          // the dry snare: at 0.11 it measured 13 dB over it, a slab of noise.
+          d[i] = lp * env * 0.024;
         }
       }
       this.gatedVerb.buffer = ir;
