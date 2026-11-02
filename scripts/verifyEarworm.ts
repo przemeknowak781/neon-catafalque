@@ -1094,12 +1094,15 @@ for (const song of BUILT_IN_SONGS) {
 
   // The melody's own onsets; a song may add answering figures on the lead
   // track under their own ids, and those are not the melody.
-  const chordNotes = notesOf(song.analysis.chords);
-  const onsets = new Map<number, number>();
-  for (const n of chordNotes.filter((x) => x.id.startsWith(`${song.analysis.chords}-`))) onsets.set(n.startStep, (onsets.get(n.startStep) ?? 0) + 1);
+  // Counted as voices sounding at each melody onset, not notes struck there:
+  // a song whose inner voices hold while the melody moves is as polyphonic
+  // as one that strikes every chord.
+  const chordNotes = notesOf(song.analysis.chords).filter((x) => x.id.startsWith(`${song.analysis.chords}-`));
+  const melodyOnsets = [...new Set(chordNotes.map((n) => n.startStep))];
+  const onsets = new Map<number, number>(melodyOnsets.map((s) => [s, chordNotes.filter((n) => n.startStep <= s && n.startStep + n.duration > s).length]));
   const chorusOnsets = [...onsets.entries()].filter(([s]) => choruses.some((c) => inBars(s, c)));
   const full = chorusOnsets.filter(([, k]) => k >= 3).length;
-  record('built-in song: the chord melody is struck in three-voice chords', 'harmony', 1.0,
+  record('built-in song: the chord melody sounds in three voices', 'harmony', 1.0,
     chorusOnsets.length > 0 && full / chorusOnsets.length >= 0.9, Math.round((100 * full) / Math.max(1, chorusOnsets.length)));
 }
 

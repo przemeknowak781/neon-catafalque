@@ -359,7 +359,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 1200, drift: 0,
       unison: 1, unisonDetune: 0,
       subLevel: 0.06, noiseLevel: 0.004,
-      cutoff: 1250, resonance: 1.6, filterEnvAmount: 0.52,
+      cutoff: 1000, resonance: 1.6, filterEnvAmount: 0.5,
       attack: 0.02, decay: 0.7, sustain: 0.6, release: 0.4,
       filterAttack: 0.06, filterDecay: 0.5, filterSustain: 0.3, filterRelease: 0.32,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,
@@ -783,7 +783,7 @@ export const SONG_PRESETS: readonly SongPreset[] = [
   },
   {
     name: 'The Summer We Never Had',
-    note: 'Original patches for the second built-in song, voiced as an early-eighties darkwave record: a polyphonic brass lead whose filter swells on every note, a string machine through chorus and phaser, a sequenced eighth-note bass, a chorused square arpeggio, and a drum machine with a layered clap and a gated room on the snare. Mastered to about -11 LUFS with headroom under -1 dBTP.',
+    note: 'Original patches for the second built-in song, voiced as an early-eighties darkwave record: a polyphonic brass lead whose filter swells on every note, a string machine through chorus and phaser, a sequenced eighth-note bass, a chorused square arpeggio, and a drum machine with a light clap under the snare. Mastered to about -12 LUFS with headroom under -1 dBTP.',
     lead: 'Prism Brass', bass: 'Overpass', pad: 'Cassette Strings', pluck: 'Night Bus',
     fx: {
       reverbMix: 0.42, reverbSize: 2.3, reverbDamp: 0.4, reverbPreDelay: 0.03,
@@ -794,7 +794,7 @@ export const SONG_PRESETS: readonly SongPreset[] = [
       width: 1.12, lowShelf: 0, airShelf: 2.5, glue: 0.35, masterDrive: 0.18,
       lowMid: -1.5, presence: 1, bassMono: 150, limiterThreshold: -6.5, masterTrim: 0.43,
       kickPitch: 140, kickDecay: 0.28, kickClick: 0.45,
-      snareGate: 0.26, snareVerb: 0.9, snareClap: 0.5, snareTone: 0.92, hatDecay: 0.06,
+      snareVerb: 0.9, snareClap: 0.3, snareTone: 0.95, hatDecay: 0.06,
       tapeWow: 1.5, tapeWowRate: 0.5, tapeFlutter: 0.5, tapeHiss: 0.12, tapeTone: 17000,
     },
   },

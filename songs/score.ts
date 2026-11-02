@@ -184,3 +184,97 @@ export function harmonise(melody: NoteEvent[], bars: Chord[][], pad: NoteEvent[]
   }
   return lead.notes;
 }
+
+/**
+ * A melody with real inner voices rather than block chords. Each voice under
+ * the melody is a line of its own: at every melody onset, and at every chord
+ * change while the melody holds, it keeps its note if that note is still a
+ * chord tone (oblique motion, the note held rather than struck again), and
+ * otherwise moves to the nearest chord tone, so the voices move least where
+ * the melody moves most, and move under the melody's held notes. Every voice
+ * stays at least a minor third under the one above, above the pad's top, and
+ * never a semitone (or a minor ninth) from the melody, the other voices or
+ * the pad. `gaps` is where each voice would sit below the melody if it had
+ * no history: an alto about a sixth down, a tenor about a tenth.
+ */
+export function voiceLead(
+  melody: NoteEvent[], bars: Chord[][], pad: NoteEvent[],
+  gaps: number[] = [8, 15], under = 0.6, id = 'lead',
+): NoteEvent[] {
+  const out = builder(id);
+  const sorted = [...melody].sort((a, b) => a.startStep - b.startStep);
+  for (const n of sorted) out.add(n.startStep, midiOf(n.note), n.duration, n.velocity);
+  const topAt = (step: number) => {
+    const now = sorted.filter((n) => n.startStep <= step && n.startStep + n.duration > step);
+    return now.length ? Math.max(...now.map((n) => midiOf(n.note))) : null;
+  };
+  const padAt = (from: number, to: number) => pad
+    .filter((p) => p.startStep < to && p.startStep + p.duration > from).map((p) => midiOf(p.note));
+  // Event steps: melody onsets, and chord changes inside a held melody note.
+  const events = new Set<number>(sorted.map((n) => n.startStep));
+  for (const n of sorted) {
+    for (let s = n.startStep + 1; s < n.startStep + n.duration; s++) {
+      if (chordAt(bars, s) !== chordAt(bars, s - 1)) events.add(s);
+    }
+  }
+  const steps = [...events].sort((a, b) => a - b);
+  // Each voice: the note it is holding, as an index into out.notes, or none.
+  const holding: (number | null)[] = gaps.map(() => null);
+  const pitchOf = (k: number | null) => (k === null ? null : midiOf(out.notes[k].note));
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i];
+    const top = topAt(s);
+    // Where this event's sound ends: the next event, or the melody note's end.
+    const next = steps[i + 1] ?? Infinity;
+    const melodyEnd = Math.max(...sorted.filter((n) => n.startStep <= s && n.startStep + n.duration > s).map((n) => n.startStep + n.duration), s);
+    const end = Math.min(next, melodyEnd);
+    if (top === null || end <= s) { holding.fill(null); continue; }
+    const struck = sorted.find((n) => n.startStep === s);
+    const c = chordAt(bars, s);
+    const tones = new Set([...c.tones.map(pcOf), ((midiOf(c.root) % 12) + 12) % 12]);
+    const padNow = padAt(s, end);
+    const floor = Math.max(-1, ...padNow);
+    let above = top;
+    const placed: number[] = [top];
+    gaps.forEach((gap, v) => {
+      const prev = pitchOf(holding[v]);
+      // A held note only carries on if its line is unbroken (it ends here).
+      const carried = holding[v] !== null && out.notes[holding[v]!].startStep + out.notes[holding[v]!].duration === s ? prev : null;
+      const rubs = (m: number) => [...placed, ...padNow].some((x) => Math.abs(x - m) === 1 || Math.abs(x - m) === 13);
+      const fits = (m: number) => m <= above - 3 && m > floor && tones.has(((m % 12) + 12) % 12) && !rubs(m);
+      // A line that has held for half a bar moves on, by preference against
+      // the melody's direction: contrary motion is what makes two lines
+      // heard as two.
+      const heldFor = carried !== null ? s - out.notes[holding[v]!].startStep : 0;
+      const melodyPrev = topAt(s - 1);
+      const melodyDir = melodyPrev === null ? 0 : Math.sign(top - melodyPrev);
+      const restless = carried !== null && heldFor >= 8;
+      let m: number | null = null;
+      if (carried !== null && fits(carried) && !restless) m = carried;
+      else {
+        const target = carried ?? top - gap;
+        const cost = (x: number) => Math.abs(x - target) + 0.25 * Math.abs(x - (top - gap)) +
+          (carried !== null && melodyDir !== 0 && Math.sign(x - carried) === melodyDir ? 1.5 : 0) +
+          (restless && x === carried ? 2.5 : 0);
+        let best: number | null = null;
+        for (let x = above - 3; x > floor && x >= top - 24; x--) {
+          if (!fits(x)) continue;
+          if (best === null || cost(x) < cost(best) - 1e-9) best = x;
+        }
+        m = best;
+      }
+      if (m === null) { holding[v] = null; return; }
+      if (m === carried) {
+        // Oblique motion: the note is held, not struck again.
+        out.notes[holding[v]!].duration = end - out.notes[holding[v]!].startStep;
+      } else {
+        const velocity = (struck?.velocity ?? 0.7) * under;
+        out.add(s, m, end - s, velocity);
+        holding[v] = out.notes.length - 1;
+      }
+      placed.push(m);
+      above = m;
+    });
+  }
+  return out.notes;
+}

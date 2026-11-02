@@ -1,7 +1,7 @@
 import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
-  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonise, harmonyMap,
+  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonyMap, voiceLead,
   midiOf, pcOf, phrase, type Bar, type Chord,
 } from "./score";
 
@@ -40,38 +40,36 @@ export const SUMMER_STEPS = BARS * STEPS_PER_BAR;
 // --- the melody -----------------------------------------------------------
 
 /**
- * The hook, sixth version, after the note that the breaking moments were the
- * best of it and that there should be more. A break here is a suspension: a
- * note struck as a consonance at the end of a bar and held over the barline
- * while the harmony moves under it, so that it becomes a dissonance, and then
- * falling a step to a chord tone. Every bar of the hook ends that way. The
- * E over F-sharp minor is held into D major as its ninth and falls to D; the
- * C-sharp over D becomes the ninth of B minor and falls to B; the A over B
- * minor becomes the fourth of E (and, in A', the flat thirteenth of C-sharp 7)
- * and falls to G-sharp. Between them the line climbs the tonic triad to the
- * top E, circles D, falls through B minor to F-sharp and rises again. The
- * last note is struck at the end of the phrase and held into the next one:
+ * The hook, seventh version, darker. A break here is a suspension: a note
+ * struck as a consonance at the end of a bar and held over the barline while
+ * the harmony moves under it, so that it becomes a dissonance, and then
+ * falling a step to a chord tone. Every bar of the hook ends that way: B held
+ * into D major as its sixth, falling to A; C-sharp held into B minor as its
+ * ninth, falling to B; A held into E as its fourth (in A', into C-sharp 7 as
+ * its flat thirteenth), falling to G-sharp. Between them the line no longer
+ * climbs to a bright top E: its peak is D, the flat sixth, and it keeps
+ * sighing from D onto C-sharp, the flat sixth onto the fifth, the oldest
+ * minor-key lament figure there is. The phrase opens on that sigh, struck
+ * against the tonic chord. The last note is held into the next phrase:
  * C-sharp into A', and in A' the A, the dominant's flat thirteenth, held into
- * the tonic chord where it becomes the third.
- * Scored by scoreMotif at 1.00 / 0.95 against the spec bands: arch, one
- * uncommon turning point (the minor-third fall to F-sharp), 82% stepwise,
- * range 10, twenty notes in one rhythmic cell (rest, two eighths, a quarter,
- * an eighth, a note held over the bar), D and E on six of them, a cadence on
- * the fifth (A) and the third (A').
+ * the tonic chord where it becomes the third. Scored by scoreMotif at 0.95
+ * against the spec bands: arch, one uncommon turning point, 88% stepwise,
+ * range 8, twenty notes in one rhythmic cell, D on four of them, a cadence
+ * on the fifth (A) and the third (A').
  */
 const CELL: readonly (readonly [number, number])[] = [[4, 2], [6, 2], [8, 4], [12, 2], [14, 6]];
 const END: readonly (readonly [number, number])[] = [[0, 6], [6, 2], [8, 8]];
 const cells = (pitches: string[], rhythm: readonly (readonly [number, number])[]): Bar =>
   pitches.map((p, k) => [rhythm[k][0], p, rhythm[k][1]] as const);
 const LEAD_A: readonly Bar[] = [
-  cells(['F#5', 'A5', 'C#6', 'D6', 'E6'], CELL),
-  cells(['D6', 'E6', 'D6', 'D6', 'C#6'], CELL),
-  cells(['B5', 'A5', 'F#5', 'G#5', 'A5'], CELL),
-  cells(['G#5', 'A5', 'B5', 'B5', 'C#6'], CELL),
+  cells(['D6', 'C#6', 'C#6', 'B5', 'B5'], CELL),
+  cells(['A5', 'B5', 'C#6', 'D6', 'C#6'], CELL),
+  cells(['B5', 'C#6', 'D6', 'C#6', 'A5'], CELL),
+  cells(['G#5', 'A5', 'G#5', 'F#5', 'C#6'], CELL),
 ];
 const LEAD_A2: readonly Bar[] = [
   ...LEAD_A.slice(0, 3),
-  cells(['G#5', 'A5', 'B5', 'B5', 'A5'], CELL),
+  cells(['G#5', 'A5', 'G#5', 'F#5', 'A5'], CELL),
 ];
 export const LEAD_CHORUS: readonly Bar[] = [...LEAD_A, ...LEAD_A2];
 export const LEAD_HOOK = { a: LEAD_A, answer: LEAD_A2, tonic: 'F#', mode: 'aeolian' as const };
@@ -175,9 +173,9 @@ function buildLead(bars: Chord[][], pad: NoteEvent[]): NoteEvent[] {
   phrase(l, 24, THEME, 0.72);               // THEME 2
   for (const start of [32, 40]) phrase(l, start, LEAD_CHORUS, 0.95);  // the hook, twice
   phrase(l, 48, LEAD_CHORUS.slice(0, 4), 0.68);                       // OUTRO: once more, quietly
-  // Polyphonic: every melody note struck as a chord of three, the two
-  // voices under it chord tones above the pad, never a semitone from it.
-  return harmonise(l.notes, bars, pad, 2, 0.62);
+  // Polyphonic: two inner voices, an alto about a sixth under the melody and
+  // a tenor about a tenth under it, each a line of its own (see voiceLead).
+  return voiceLead(l.notes, bars, pad, [8, 15], 0.6);
 }
 
 /**

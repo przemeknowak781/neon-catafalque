@@ -216,13 +216,18 @@ stood for lament since the seventeenth century (Rosand 1979), and the pad's
 outer voices trade notes against it, so the background moves while the
 melody holds. The hook is built on suspensions: every bar ends on a note
 struck as a consonance and held over the barline while the harmony changes
-under it (E becoming the ninth of D, C♯ the ninth of B minor, A the fourth
+under it (B becoming the sixth of D, C♯ the ninth of B minor, A the fourth
 of E or the flat thirteenth of C♯7), then falling a step to a chord tone.
-Between them it climbs the tonic triad to E, circles D, falls through B
-minor and rises again. It is scored by the generator's own `scoreMotif`
-against the spec's bands (arch, one uncommon turning point, 82% stepwise, a
-ten-semitone range, twenty notes in one rhythmic cell, a cadence on the
-fifth, and in A′ on the third, held from the dominant into the tonic). The
+Between them it keeps sighing from D onto C♯, the flat sixth onto the
+fifth; its peak is that D. It is scored by the generator's own `scoreMotif`
+against the spec's bands (arch, one uncommon turning point, 88% stepwise,
+an eight-semitone range, twenty notes in one rhythmic cell, a cadence on
+the fifth, and in A′ on the third, held from the dominant into the tonic).
+The lead plays it with two inner voices written as lines (`voiceLead` in
+songs/score.ts): an alto about a sixth below and a tenor about a tenth
+below, each holding its note while it stays in the chord, moving on after
+half a bar, by preference against the melody, and moving under the
+melody's held notes when the chord changes beneath them. The
 theme under the verse and the break is the Andalusian descent, i, VII, VI,
 V, twice, and its melody is deliberately plain: a note, its upper
 neighbour and the note again, each bar a step lower, walking down in tenths
@@ -232,15 +237,16 @@ has it, and in the riffs becomes a second lead, a diatonic third or sixth
 under the tune (in the harmonic minor over the dominant), dropping out of
 any sixteenth where a held note would rub against the next chord. The last
 dominant of the song does not come home: the outro enters on D, a deceptive
-cadence, and reaches F♯ minor only in the final bar. It is voiced as an early-eighties darkwave record: the lead a polyphonic
+cadence, and reaches F♯ minor only in the final bar. It is voiced as an early-eighties darkwave record: the lead a dark polyphonic
 brass patch, a square and a saw an octave apart whose filter swells open on
 every note (no vibrato, no glide, no unison: a three-copy unison version
 measured 27 cents of pitch wobble); the pad a string machine, two saws
 through chorus and phaser; the bass a sequencer line of straight eighths on
 the root; the beat motorik, the same bar over and over, kick on every beat,
-closed hats on every eighth, the snare with a clap under it into a gated
-room of its own (an impulse that holds and is then cut, the NonLin shape,
-not a plate with a gated send). Mastered to about -11 LUFS integrated with
+closed hats on every eighth, the snare with a light clap under it into the
+plate. (A gated room of its own, an impulse of held noise cut short, was
+tried and removed: convolved with the snare it growled instead of
+sounding like a room.) Mastered to about -12 LUFS integrated with
 a true peak under -1 dBTP, the bass mono below 150 Hz.
 Arousal predicted music-evoked nostalgia in Barrett et al. (2010). Nineteen
 checks of its own in `verify:earworm`, and the shared song checks, which
