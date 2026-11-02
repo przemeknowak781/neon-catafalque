@@ -223,7 +223,8 @@ fifth; its peak is that D. It is scored by the generator's own `scoreMotif`
 against the spec's bands (arch, one uncommon turning point, 88% stepwise,
 an eight-semitone range, twenty notes in one rhythmic cell, a cadence on
 the fifth, and in A′ on the third, held from the dominant into the tonic).
-The lead plays it with two inner voices written as lines (`voiceLead` in
+The lead plays the hook (the theme keeps its struck three-note chords)
+with two inner voices written as lines (`voiceLead` in
 songs/score.ts): an alto about a sixth below and a tenor about a tenth
 below, each holding its note while it stays in the chord, moving on after
 half a bar, by preference against the melody, and moving under the
@@ -237,7 +238,7 @@ has it, and in the riffs becomes a second lead, a diatonic third or sixth
 under the tune (in the harmonic minor over the dominant), dropping out of
 any sixteenth where a held note would rub against the next chord. The last
 dominant of the song does not come home: the outro enters on D, a deceptive
-cadence, and reaches F♯ minor only in the final bar. It is voiced as an early-eighties darkwave record: the lead a dark polyphonic
+cadence, and reaches F♯ minor only in the final bar. It is voiced as an early-eighties darkwave record: the lead a polyphonic
 brass patch, a square and a saw an octave apart whose filter swells open on
 every note (no vibrato, no glide, no unison: a three-copy unison version
 measured 27 cents of pitch wobble); the pad a string machine, two saws

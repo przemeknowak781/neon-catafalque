@@ -1,7 +1,7 @@
 import type { NoteEvent, SequencerStep, TapeAutomation, Track, TrackType } from "../types";
 import { MIX_LEVELS } from "../constants";
 import {
-  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonyMap, voiceLead,
+  STEPS_PER_BAR, bar, buildPad, builder, chord, chordAt, harmonise, harmonyMap, voiceLead,
   midiOf, pcOf, phrase, type Bar, type Chord,
 } from "./score";
 
@@ -164,18 +164,23 @@ function harmony(): Chord[][] {
 // --- track builders -------------------------------------------------------
 
 function buildLead(bars: Chord[][], pad: NoteEvent[]): NoteEvent[] {
-  const l = builder('melody');
-  phrase(l, 0, THEME, 0.7);                 // THEME 1
-  // The hook is entered on its pick-up, held over the barline like every
+  // The theme as it was: each note struck as a chord of three, the two
+  // voices under it chord tones above the pad, never a semitone from it.
+  const t = builder('melody-theme');
+  phrase(t, 0, THEME, 0.7);                 // THEME 1
+  phrase(t, 24, THEME, 0.72);               // THEME 2
+  const theme = harmonise(t.notes, bars, pad, 2, 0.62, 'lead');
+  // The hook, entered on its pick-up, held over the barline like every
   // other bar's last note.
-  for (const start of [8, 32]) l.add(bar(start) - 2, HOOK_PICKUP, 6, 0.86);
-  for (const start of [8, 16]) phrase(l, start, LEAD_CHORUS, 0.92);  // the hook, twice
-  phrase(l, 24, THEME, 0.72);               // THEME 2
-  for (const start of [32, 40]) phrase(l, start, LEAD_CHORUS, 0.95);  // the hook, twice
-  phrase(l, 48, LEAD_CHORUS.slice(0, 4), 0.68);                       // OUTRO: once more, quietly
+  const h = builder('melody-hook');
+  for (const start of [8, 32]) h.add(bar(start) - 2, HOOK_PICKUP, 6, 0.86);
+  for (const start of [8, 16]) phrase(h, start, LEAD_CHORUS, 0.92);  // the hook, twice
+  for (const start of [32, 40]) phrase(h, start, LEAD_CHORUS, 0.95);  // the hook, twice
+  phrase(h, 48, LEAD_CHORUS.slice(0, 4), 0.68);                       // OUTRO: once more, quietly
   // Polyphonic: two inner voices, an alto about a sixth under the melody and
   // a tenor about a tenth under it, each a line of its own (see voiceLead).
-  return voiceLead(l.notes, bars, pad, [8, 15], 0.6);
+  const hook = voiceLead(h.notes, bars, pad, [8, 15], 0.6, 'lead-hook');
+  return [...theme, ...hook];
 }
 
 /**

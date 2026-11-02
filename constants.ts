@@ -359,7 +359,7 @@ export const INSTRUMENT_PRESETS: Partial<Record<TrackType, Record<string, Instru
       osc1Wave: 'square', osc2Wave: 'sawtooth', detune: 1200, drift: 0,
       unison: 1, unisonDetune: 0,
       subLevel: 0.06, noiseLevel: 0.004,
-      cutoff: 1000, resonance: 1.6, filterEnvAmount: 0.5,
+      cutoff: 1250, resonance: 1.6, filterEnvAmount: 0.52,
       attack: 0.02, decay: 0.7, sustain: 0.6, release: 0.4,
       filterAttack: 0.06, filterDecay: 0.5, filterSustain: 0.3, filterRelease: 0.32,
       glide: 0, vibratoRate: 0, vibratoDepth: 0, vibratoDelay: 0, lfoToFilter: 0,

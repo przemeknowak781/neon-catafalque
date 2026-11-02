@@ -973,9 +973,12 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
 
   const tracks = song.build();
   const lead = tracks.find((t) => t.id === 'lead')!.notes!;
+  // The melody's own onsets, from the score: inner voices may enter between
+  // them, differently after a theme than after another statement.
+  const hookOnsets = new Set(LEAD_CHORUS.flatMap((cells, b) => cells.map(([st]) => b * 16 + st)));
   const tops = (from: number) => {
     const by = new Map<number, number>();
-    for (const n of lead) if (n.startStep >= from * 16 && n.startStep < (from + 8) * 16) {
+    for (const n of lead) if (n.startStep >= from * 16 && n.startStep < (from + 8) * 16 && hookOnsets.has(n.startStep - from * 16)) {
       by.set(n.startStep - from * 16, Math.max(by.get(n.startStep - from * 16) ?? -1, noteToMidi(n.note)));
     }
     return by;
