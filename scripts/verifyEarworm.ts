@@ -887,12 +887,22 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     song.analysis.chorusStarts.every(([s0]) => rel(s0 + 3) === 10 && rel(s0 + 7) === 7 &&
       chordAtBarS(s0 + 7).tones.includes(mod(tonicPc - 1, 12)) && has(s0 + 7, 10)));
   // The theme, verse and break, on the Andalusian descent, i - VII - VI - V, twice.
-  const themeStarts = [8, 32];
+  const themeStarts = [0, 24];
   record('summer: the theme stands on the Andalusian descent, twice', 'harmony', 1.0,
     themeStarts.every((t) => [0, 4].every((h) => [0, 10, 8, 7].every((r, i) => rel(t + h + i) === r)) && minor3(t)));
   const br = song.analysis.bridge[0];
   record('summer: the bridge bass falls by step', 'harmony', 1.0,
     [1, 2, 3].every((i) => [1, 2].includes(mod(chordAtBarS(br + i - 1).root - chordAtBarS(br + i).root, 12))));
+  // The bass under the loop falls by step for three bars, F-sharp to A, the
+  // lament tetrachord, one step every half bar.
+  const rootAt = (step: number) => { const inBar = map.filter((h) => h.bar === Math.floor(step / 16)); return ([...inBar].reverse().find((h) => h.at <= step % 16) ?? inBar[0]).root; };
+  record('summer: the bass under every loop falls by step, F-sharp to A', 'harmony', 1.0,
+    song.analysis.chorusStarts.every(([s0]) => [0, 4].every((h) => [1, 2, 3, 4, 5].every((k) =>
+      [1, 2].includes(mod(rootAt((s0 + h) * 16 + (k - 1) * 8) - rootAt((s0 + h) * 16 + k * 8), 12))))));
+  // The last dominant of the song does not resolve: the outro enters on VI.
+  const outroStart = song.analysis.chorusStarts.slice(-1)[0][0] + 8;
+  record('summer: the outro enters on a deceptive cadence, V7 to VI', 'harmony', 1.0,
+    rel(outroStart - 1) === 7 && rel(outroStart) === 8);
   const lastBar = map.filter((h) => h.at === 0).slice(-1)[0];
   record('summer: the outro lands on the minor tonic', 'structure', 1.0,
     mod(lastBar.root - tonicPc, 12) === 0 && lastBar.tones.includes(mod(tonicPc + 3, 12)));
@@ -950,12 +960,15 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
       sameRhythm && changed >= 1 && changed <= 2, changed);
   }
 
-  // The theme is in the hook's rhythm: at least six of its eight bars use a
-  // bar pattern (onsets and lengths) that the hook uses.
-  const pattern = (cells: (typeof THEME)[number]) => cells.map(([st, , l]) => `${st}:${l}`).join(',');
-  const hookPatterns = new Set(LEAD_CHORUS.map(pattern));
-  const shared = THEME.filter((cells) => hookPatterns.has(pattern(cells))).length;
-  record('summer: the theme is in the hook\'s rhythm', 'motif', 1.0, shared >= 6, shared);
+  // Every bar of the hook ends on a suspension: a note struck on the last
+  // eighth, held over the barline, a dissonance against the new chord or the
+  // old, falling a step to a chord tone on the next note.
+  const hookBars = LEAD_CHORUS.map((cells) => cells.map(([st, p, l]) => ({ st, m: midiOf(p), l })));
+  const suspended = hookBars.slice(0, -1).filter((cells, b) => {
+    const held = cells[cells.length - 1]; const next = hookBars[b + 1][0];
+    return held.st + held.l > 16 && next.st === held.st + held.l - 16 && [1, 2].includes(held.m - next.m);
+  }).length;
+  record('summer: the hook suspends over the barline and resolves down by step', 'harmony', 1.0, suspended >= 5, suspended);
 
   const tracks = song.build();
   const lead = tracks.find((t) => t.id === 'lead')!.notes!;
@@ -966,13 +979,13 @@ record('same seed reproduces the same song', 'reproducibility', 1.0, determinist
     }
     return by;
   };
-  // The hook winds through the intro: its first two bars on the pluck, twice,
-  // on the bars of the loop they belong to, before the lead has it.
+  // No intro now: the hook's first bar is heard on the pluck in the theme,
+  // twice, before the lead plays it.
   const pluckNotes = tracks.find((t) => t.id === 'pluck')!.notes!;
-  const head = LEAD_CHORUS.slice(0, 2).flat().map(([, p]) => midiOf(p));
+  const head = LEAD_CHORUS[0].map(([, p]) => midiOf(p));
   const inBarsP = (a: number, b: number) => pluckNotes.filter((n) => n.startStep >= a * 16 && n.startStep < b * 16).map((n) => noteToMidi(n.note));
-  record('summer: the intro plays the hook\'s head twice before the lead does', 'structure', 1.0,
-    JSON.stringify(inBarsP(0, 2)) === JSON.stringify(head) && JSON.stringify(inBarsP(4, 6)) === JSON.stringify(head));
+  record('summer: the theme foreshadows the hook\'s first bar on the pluck, twice', 'structure', 1.0,
+    JSON.stringify(inBarsP(0, 1)) === JSON.stringify(head) && JSON.stringify(inBarsP(4, 5)) === JSON.stringify(head));
 
   // The two leads harmonise: under every hook note the pluck sounds a third
   // or a sixth below the melody.

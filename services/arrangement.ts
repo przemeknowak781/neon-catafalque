@@ -112,7 +112,6 @@ export const ARRANGEMENT_PRESETS: readonly Arrangement[] = [
     name: 'The Summer We Never Had',
     note: 'The form of the second built-in song: one loop, one riff, a theme for a break, nothing else.',
     sections: [
-      { kind: 'intro',  label: 'INTRO',   bars: 8,  repeat: 0 },
       { kind: 'verse',  label: 'THEME 1', bars: 8,  repeat: 0 },
       { kind: 'chorus', label: 'RIFF',    bars: 16, repeat: 0 },
       { kind: 'bridge', label: 'THEME 2', bars: 8,  repeat: 0 },
